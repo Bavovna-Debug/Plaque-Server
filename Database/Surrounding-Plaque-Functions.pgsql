@@ -27,6 +27,7 @@ DECLARE
 	var_plaque_id				BIGINT;
 	var_plaque_token			UUID;
 	var_plaque_revision			INTEGER;
+	var_range					REAL;
 
 BEGIN
 	RAISE NOTICE 'Query plaques in sight for % x % last revision %',
@@ -40,10 +41,18 @@ BEGIN
 
 	-- Get revision number for this run.
 	--
-	SELECT in_sight_revision
+	SELECT in_sight_revision, in_sight_range
 	FROM journal.sessions
 	WHERE session_id = parm_session_id
-	INTO var_next_in_sight_revision;
+	INTO var_next_in_sight_revision, var_range;
+
+	IF parm_range != 0.0 THEN
+		IF parm_range > 20000.0 THEN
+			var_range = 20000.0;
+		ELSE
+			var_range = parm_range;
+		END IF;
+	END IF;
 
 	-- Clear session journal from disappeared plaques those disappearance has being confirmed by device.
 	--
@@ -115,7 +124,7 @@ BEGIN
 	END LOOP;
 
 	-- At this point all plaques in a list of known plaques that are not flagged as "revision changed"
-	-- are those that did disappear from radar.
+	-- are those that did disappear from in sight.
 
 	-- Go through disappeared plaques.
 	--
@@ -174,7 +183,7 @@ BEGIN
 		FROM journal.session_in_sight_plaques AS radar
 		JOIN surrounding.plaques AS plaques
 			USING (plaque_id)
-		WHERE in_sight_revision > parm_in_sight_revision
+		WHERE in_sight_revision >= parm_in_sight_revision
 	LOOP
 		RETURN NEXT (var_plaque_token, var_plaque_revision);
 
@@ -192,24 +201,49 @@ EXTERNAL SECURITY DEFINER;
 /*                                                                            */
 /******************************************************************************/
 
-CREATE OR REPLACE FUNCTION surrounding.query_plaques_on_map (
-	IN parm_session_id	BIGINT,
-	IN parm_latitude	DOUBLE PRECISION,
-	IN parm_longitude	DOUBLE PRECISION,
-	IN parm_range		REAL
+CREATE OR REPLACE FUNCTION surrounding.query_plaques_on_radar (
+	IN parm_session_id			BIGINT,
+	IN parm_on_radar_revision	INTEGER,
+	IN parm_latitude			DOUBLE PRECISION,
+	IN parm_longitude			DOUBLE PRECISION,
+	IN parm_range				REAL
 )
 RETURNS SETOF surrounding.plaque_on_radar AS
 $PLSQL$
 
 DECLARE
-	var_plaque_id		BIGINT;
-	var_plaque_token	UUID;
-	var_plaque_revision	INTEGER;
+	var_next_on_radar_revision	INTEGER;
+	var_plaque_id				BIGINT;
+	var_plaque_token			UUID;
+	var_plaque_revision			INTEGER;
+	var_range					REAL;
 
 BEGIN
 	IF (parm_latitude = 0.0) OR (parm_longitude = 0.0) THEN
 		RETURN;
 	END IF;
+
+	-- Get revision number for this run.
+	--
+	SELECT on_radar_revision, on_radar_range
+	FROM journal.sessions
+	WHERE session_id = parm_session_id
+	INTO var_next_on_radar_revision, var_range;
+
+	IF parm_range != 0.0 THEN
+		IF parm_range > 200000.0 THEN
+			var_range = 200000.0;
+		ELSE
+			var_range = parm_range;
+		END IF;
+	END IF;
+
+	-- Clear session journal from disappeared plaques those disappearance has being confirmed by device.
+	--
+	DELETE FROM journal.session_on_radar_plaques
+	WHERE session_id = parm_session_id
+	  AND on_radar_revision <= parm_on_radar_revision
+	  AND plaque_revision = -1;
 
 	-- Prepare temporary tables.
 	--
@@ -232,7 +266,7 @@ BEGIN
 	--
 	INSERT INTO known_plaques (plaque_id, plaque_revision)
 	SELECT plaque_id, plaque_revision
-	FROM journal.session_plaques
+	FROM journal.session_on_radar_plaques
 	WHERE session_id = parm_session_id;
 
 	-- Fetch a list of plaques around device.
@@ -273,6 +307,71 @@ BEGIN
 		END IF;
 	END LOOP;
 
+	-- Go through disappeared plaques.
+	--
+	FOR var_plaque_id IN
+		SELECT plaque_id
+		FROM known_plaques
+		WHERE revision_changed IS FALSE
+	LOOP
+		-- Mark this plaque in session journal as disappeared.
+		--
+		UPDATE journal.session_on_radar_plaques
+		SET on_radar_revision = var_next_on_radar_revision,
+			plaque_revision = -1
+		WHERE session_id = parm_session_id
+		  AND plaque_id = var_plaque_id;
+
+		RAISE NOTICE 'SESSION:% PLAQUE:% DISAPPEAERED', parm_session_id, var_plaque_id;
+	END LOOP;
+
+	-- Go through appeared plaques.
+	--
+	FOR var_plaque_id, var_plaque_revision IN
+		SELECT plaque_id, plaque_revision
+		FROM appeared_plaques
+	LOOP
+		-- Add this plaque to session journal.
+		--
+		INSERT INTO journal.session_on_radar_plaques (session_id, on_radar_revision, plaque_id, plaque_revision)
+		VALUES (parm_session_id, var_next_on_radar_revision, var_plaque_id, var_plaque_revision);
+
+		RAISE NOTICE 'SESSION:% PLAQUE:% APPEAERED', parm_session_id, var_plaque_id;
+	END LOOP;
+
+	-- Go through changed plaques.
+	--
+	FOR var_plaque_id, var_plaque_revision IN
+		SELECT plaque_id, plaque_revision
+		FROM known_plaques
+		WHERE revision_changed IS TRUE
+	LOOP
+		-- Update revision of this plaque in session journal.
+		--
+		UPDATE journal.session_on_radar_plaques
+		SET on_radar_revision = var_next_on_radar_revision,
+			plaque_revision = var_plaque_revision
+		WHERE session_id = parm_session_id
+		  AND plaque_id = var_plaque_id;
+
+		RAISE NOTICE 'SESSION:% PLAQUE:% DID CHANGE', parm_session_id, var_plaque_id;
+	END LOOP;
+
+	-- Go through appeared plaques.
+	--
+	FOR var_plaque_token, var_plaque_revision IN
+		SELECT plaques.plaque_token, radar.plaque_revision
+		FROM journal.session_on_radar_plaques AS radar
+		JOIN surrounding.plaques AS plaques
+			USING (plaque_id)
+		WHERE on_radar_revision >= parm_on_radar_revision
+	LOOP
+		RETURN NEXT (var_plaque_token, var_plaque_revision);
+
+		--RAISE NOTICE 'SESSION:% PLAQUE:% REVISION:%', parm_session_id, var_plaque_token, var_plaque_revision;
+	END LOOP;
+
+/*
 	-- At this point all plaques in a list of known plaques that are not flagged as "revision changed"
 	-- are those that did disappear from radar.
 
@@ -346,6 +445,7 @@ BEGIN
 
 		RAISE NOTICE 'SESSION:% PLAQUE:% DID CHANGE', parm_session_id, var_plaque_id;
 	END LOOP;
+*/
 END;
 
 $PLSQL$

@@ -1,21 +1,23 @@
+#include <c.h>
 #include <string.h>
+
 #include "api.h"
 #include "db.h"
 #include "buffers.h"
+#include "desk.h"
 #include "paquet.h"
+#include "report.h"
 #include "tasks.h"
 
-#define DEBUG
-
-int getProfiles(struct paquet *paquet)
+int
+getProfiles(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	PGresult	*result;
-	const char*	paramValues[1];
-    Oid			paramTypes[1];
-    int			paramLengths[1];
-	int			paramFormats[1];
+	const char*	paramValues   [1];
+    Oid			paramTypes    [1];
+    int			paramLengths  [1];
+	int			paramFormats  [1];
 
 	struct buffer *inputBuffer = paquet->inputBuffer;
 	struct buffer *outputBuffer = NULL;
@@ -24,7 +26,7 @@ int getProfiles(struct paquet *paquet)
 
 	if (paquet->payloadSize < sizeof(numberOfProfiles)) {
 #ifdef DEBUG
-		fprintf(stderr, "Wrong payload size %d\n", paquet->payloadSize);
+		reportLog("Wrong payload size %d", paquet->payloadSize);
 #endif
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
@@ -36,13 +38,13 @@ int getProfiles(struct paquet *paquet)
 
 	if (paquet->payloadSize != sizeof(numberOfProfiles) + numberOfProfiles * TokenBinarySize) {
 #ifdef DEBUG
-		fprintf(stderr, "Wrong payload size %d for %d profiles\n", paquet->payloadSize, numberOfProfiles);
+		reportLog("Wrong payload size %d for %d profiles", paquet->payloadSize, numberOfProfiles);
 #endif
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	outputBuffer = peekBuffer(BUFFER1K);
+	outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, KB);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
@@ -52,7 +54,7 @@ int getProfiles(struct paquet *paquet)
 
 	resetBufferData(outputBuffer, 1);
 
-	struct dbh *dbh = peekDB(DB_PLAQUES_SESSION);
+	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -70,51 +72,52 @@ int getProfiles(struct paquet *paquet)
 		paramLengths  [0] = TokenBinarySize;
 		paramFormats  [0] = 1;
 
-		result = PQexecParams(dbh->conn, "SELECT profile_revision, profile_name, user_name FROM auth.profiles WHERE profile_token = $1",
+        if (dbh->result != NULL)
+        	PQclear(dbh->result);
+
+		dbh->result = PQexecParams(dbh->conn, "\
+SELECT profile_revision, profile_name, user_name \
+FROM auth.profiles \
+WHERE profile_token = $1",
 			1, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
-		if (!dbhTuplesOK(dbh, result)) {
-			PQclear(result);
+		if (!dbhTuplesOK(dbh, dbh->result)) {
 			pokeDB(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
-		if (!dbhCorrectNumberOfColumns(result, 3)) {
-			PQclear(result);
+		if (!dbhCorrectNumberOfColumns(dbh->result, 3)) {
 			pokeDB(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
-		if (!dbhCorrectNumberOfRows(result, 1)) {
-			PQclear(result);
+		if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
 			pokeDB(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
-		if (!dbhCorrectColumnType(result, 0, INT4OID) ||
-    		!dbhCorrectColumnType(result, 1, VARCHAROID) ||
-			!dbhCorrectColumnType(result, 2, VARCHAROID))
+		if (!dbhCorrectColumnType(dbh->result, 0, INT4OID) ||
+    		!dbhCorrectColumnType(dbh->result, 1, VARCHAROID) ||
+			!dbhCorrectColumnType(dbh->result, 2, VARCHAROID))
 		{
-			PQclear(result);
 			pokeDB(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
-		char *profileRevision = PQgetvalue(result, 0, 0);
-		char *profileName = PQgetvalue(result, 0, 1);
-		int profileNameSize = PQgetlength(result, 0, 1);
-		char *userName = PQgetvalue(result, 0, 2);
-		int userNameSize = PQgetlength(result, 0, 2);
+		char *profileRevision = PQgetvalue(dbh->result, 0, 0);
+		char *profileName = PQgetvalue(dbh->result, 0, 1);
+		int profileNameSize = PQgetlength(dbh->result, 0, 1);
+		char *userName = PQgetvalue(dbh->result, 0, 2);
+		int userNameSize = PQgetlength(dbh->result, 0, 2);
 
 		if ((profileRevision == NULL) || (profileName == NULL) || (userName == NULL)) {
 #ifdef DEBUG
-			fprintf(stderr, "No results\n");
+			reportLog("No results");
 #endif
-			PQclear(result);
 			pokeDB(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
@@ -124,8 +127,6 @@ int getProfiles(struct paquet *paquet)
 		outputBuffer = putData(outputBuffer, profileRevision, sizeof(uint32_t));
 		outputBuffer = putString(outputBuffer, profileName, profileNameSize);
 		outputBuffer = putString(outputBuffer, userName, userNameSize);
-
-		PQclear(result);
 	}
 
 	pokeDB(dbh);

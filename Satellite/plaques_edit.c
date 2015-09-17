@@ -1,20 +1,21 @@
+#include <c.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "api.h"
 #include "db.h"
 #include "buffers.h"
 #include "paquet.h"
 #include "plaques_edit.h"
+#include "report.h"
 #include "tasks.h"
 
-#define DEBUG
-
-int paquetPostNewPlaque(struct paquet *paquet)
+int
+paquetPostNewPlaque(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	PGresult	*result;
-	const char*	paramValues[13];
+	const char	*paramValues[13];
     Oid			paramTypes[13];
     int			paramLengths[13];
 	int			paramFormats[13];
@@ -41,16 +42,15 @@ int paquetPostNewPlaque(struct paquet *paquet)
 
 	char *inscription = (char *)malloc(plaque.inscriptionLength);
 	if (inscription == NULL) {
-#ifdef DEBUG
-		fprintf(stderr, "Cannot allocate %ud bytes for inscription\n", plaque.inscriptionLength);
-#endif
+		reportError("Cannot allocate %ud bytes for inscription",
+				plaque.inscriptionLength);
 		setTaskStatus(task, TaskStatusOutOfMemory);
 		return -1;
 	}
 
 	inputBuffer = getData(inputBuffer, inscription, plaque.inscriptionLength);
 
-	struct dbh *dbh = peekDB(DB_PLAQUES_SESSION);
+	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
 		free(inscription);
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
@@ -136,34 +136,34 @@ int paquetPostNewPlaque(struct paquet *paquet)
 	paramLengths [12] = plaque.inscriptionLength;
 	paramFormats [12] = 0;
 
-	result = PQexecParams(dbh->conn, "INSERT INTO surrounding.plaques (device_id, profile_id, dimension, latitude, longitude, altitude, direction, tilt, width, height, background_color, foreground_color, font_size, inscription) VALUES ($1, $2, '3D', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING plaque_token",
+	dbh->result = PQexecParams(dbh->conn, "\
+INSERT INTO surrounding.plaques \
+(device_id, profile_id, dimension, latitude, longitude, altitude, direction, tilt, width, height, background_color, foreground_color, font_size, inscription) \
+VALUES ($1, $2, '3D', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) \
+RETURNING plaque_token",
 		13, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
 	free(inscription);
 
-	if (!dbhTuplesOK(dbh, result)) {
-		PQclear(result);
+	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(result, 1)) {
-		PQclear(result);
+	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(result, 1)) {
-		PQclear(result);
+	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(result, 0, UUIDOID)) {
-		PQclear(result);
+	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
@@ -171,15 +171,13 @@ int paquetPostNewPlaque(struct paquet *paquet)
 
 	resetBufferData(outputBuffer, 1);
 
-	uint32_t bonjourStatus = PaquetCreatePlaqueSucceeded;
+	uint32 bonjourStatus = PaquetCreatePlaqueSucceeded;
 
 	outputBuffer = putUInt32(outputBuffer, &bonjourStatus);
 
-	char *plaqueToken = PQgetvalue(result, 0, 0);
+	char *plaqueToken = PQgetvalue(dbh->result, 0, 0);
 
 	outputBuffer = putData(outputBuffer, plaqueToken, TokenBinarySize);
-
-	PQclear(result);
 
 	pokeDB(dbh);
 
@@ -188,12 +186,12 @@ int paquetPostNewPlaque(struct paquet *paquet)
 	return 0;
 }
 
-int paquetChangePlaqueLocation(struct paquet *paquet)
+int
+paquetChangePlaqueLocation(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	PGresult	*result;
-	const char*	paramValues[6];
+	const char	*paramValues[6];
     Oid			paramTypes[6];
     int			paramLengths[6];
 	int			paramFormats[6];
@@ -212,7 +210,7 @@ int paquetChangePlaqueLocation(struct paquet *paquet)
 
 	inputBuffer = getData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = peekDB(DB_PLAQUES_SESSION);
+	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -220,12 +218,12 @@ int paquetChangePlaqueLocation(struct paquet *paquet)
 
 	paramValues   [0] = (char *)&task->deviceId;
 	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(uint64_t);
+	paramLengths  [0] = sizeof(uint64);
 	paramFormats  [0] = 1;
 
 	paramValues   [1] = (char *)&task->profileId;
 	paramTypes    [1] = INT8OID;
-	paramLengths  [1] = sizeof(uint64_t);
+	paramLengths  [1] = sizeof(uint64);
 	paramFormats  [1] = 1;
 
 	paramValues   [2] = (char *)&payload.plaqueToken;
@@ -248,40 +246,40 @@ int paquetChangePlaqueLocation(struct paquet *paquet)
 	paramLengths  [5] = sizeof(float);
 	paramFormats  [5] = 1;
 
-	result = PQexecParams(dbh->conn, "UPDATE surrounding.plaques SET latitude = $4, longitude = $5, altitude = $6 WHERE plaque_token = $3 RETURNING plaque_token",
+	dbh->result = PQexecParams(dbh->conn, "\
+UPDATE surrounding.plaques \
+SET latitude = $4, \
+	longitude = $5, \
+	altitude = $6 \
+WHERE plaque_token = $3 \
+RETURNING plaque_token",
 		6, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
-	if (!dbhTuplesOK(dbh, result)) {
-		PQclear(result);
+	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(result, 1)) {
-		PQclear(result);
+	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(result, 1)) {
-		PQclear(result);
+	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(result, 0, UUIDOID)) {
-		PQclear(result);
+	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	resetBufferData(outputBuffer, 1);
-
-	PQclear(result);
 
 	pokeDB(dbh);
 
@@ -290,12 +288,12 @@ int paquetChangePlaqueLocation(struct paquet *paquet)
 	return 0;
 }
 
-int paquetChangePlaqueOrientation(struct paquet *paquet)
+int
+paquetChangePlaqueOrientation(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	PGresult	*result;
-	const char*	paramValues[5];
+	const char	*paramValues[5];
     Oid			paramTypes[5];
     int			paramLengths[5];
 	int			paramFormats[5];
@@ -314,7 +312,7 @@ int paquetChangePlaqueOrientation(struct paquet *paquet)
 
 	inputBuffer = getData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = peekDB(DB_PLAQUES_SESSION);
+	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -322,12 +320,12 @@ int paquetChangePlaqueOrientation(struct paquet *paquet)
 
 	paramValues   [0] = (char *)&task->deviceId;
 	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(uint64_t);
+	paramLengths  [0] = sizeof(uint64);
 	paramFormats  [0] = 1;
 
 	paramValues   [1] = (char *)&task->profileId;
 	paramTypes    [1] = INT8OID;
-	paramLengths  [1] = sizeof(uint64_t);
+	paramLengths  [1] = sizeof(uint64);
 	paramFormats  [1] = 1;
 
 	paramValues   [2] = (char *)&payload.plaqueToken;
@@ -359,40 +357,39 @@ int paquetChangePlaqueOrientation(struct paquet *paquet)
 		paramFormats  [4] = 1;
 	}
 
-	result = PQexecParams(dbh->conn, "UPDATE surrounding.plaques SET direction = $4, tilt = $5 WHERE plaque_token = $3 RETURNING plaque_token",
+	dbh->result = PQexecParams(dbh->conn, "\
+UPDATE surrounding.plaques \
+SET direction = $4, \
+	tilt = $5 \
+WHERE plaque_token = $3 \
+RETURNING plaque_token",
 		5, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
-	if (!dbhTuplesOK(dbh, result)) {
-		PQclear(result);
+	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(result, 1)) {
-		PQclear(result);
+	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(result, 1)) {
-		PQclear(result);
+	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(result, 0, UUIDOID)) {
-		PQclear(result);
+	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	resetBufferData(outputBuffer, 1);
-
-	PQclear(result);
 
 	pokeDB(dbh);
 
@@ -401,12 +398,12 @@ int paquetChangePlaqueOrientation(struct paquet *paquet)
 	return 0;
 }
 
-int paquetChangePlaqueSize(struct paquet *paquet)
+int
+paquetChangePlaqueSize(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	PGresult	*result;
-	const char*	paramValues[5];
+	const char	*paramValues[5];
     Oid			paramTypes[5];
     int			paramLengths[5];
 	int			paramFormats[5];
@@ -425,7 +422,7 @@ int paquetChangePlaqueSize(struct paquet *paquet)
 
 	inputBuffer = getData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = peekDB(DB_PLAQUES_SESSION);
+	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -433,12 +430,12 @@ int paquetChangePlaqueSize(struct paquet *paquet)
 
 	paramValues   [0] = (char *)&task->deviceId;
 	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(uint64_t);
+	paramLengths  [0] = sizeof(uint64);
 	paramFormats  [0] = 1;
 
 	paramValues   [1] = (char *)&task->profileId;
 	paramTypes    [1] = INT8OID;
-	paramLengths  [1] = sizeof(uint64_t);
+	paramLengths  [1] = sizeof(uint64);
 	paramFormats  [1] = 1;
 
 	paramValues   [2] = (char *)&payload.plaqueToken;
@@ -456,40 +453,39 @@ int paquetChangePlaqueSize(struct paquet *paquet)
 	paramLengths  [4] = sizeof(payload.height);
 	paramFormats  [4] = 1;
 
-	result = PQexecParams(dbh->conn, "UPDATE surrounding.plaques SET width = $4, height = $5 WHERE plaque_token = $3 RETURNING plaque_token",
+	dbh->result = PQexecParams(dbh->conn, "\
+UPDATE surrounding.plaques \
+SET width = $4, \
+	height = $5 \
+WHERE plaque_token = $3 \
+RETURNING plaque_token",
 		5, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
-	if (!dbhTuplesOK(dbh, result)) {
-		PQclear(result);
+	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(result, 1)) {
-		PQclear(result);
+	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(result, 1)) {
-		PQclear(result);
+	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(result, 0, UUIDOID)) {
-		PQclear(result);
+	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	resetBufferData(outputBuffer, 1);
-
-	PQclear(result);
 
 	pokeDB(dbh);
 
@@ -498,12 +494,12 @@ int paquetChangePlaqueSize(struct paquet *paquet)
 	return 0;
 }
 
-int paquetChangePlaqueColors(struct paquet *paquet)
+int
+paquetChangePlaqueColors(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	PGresult	*result;
-	const char*	paramValues[5];
+	const char	*paramValues[5];
     Oid			paramTypes[5];
     int			paramLengths[5];
 	int			paramFormats[5];
@@ -522,7 +518,7 @@ int paquetChangePlaqueColors(struct paquet *paquet)
 
 	inputBuffer = getData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = peekDB(DB_PLAQUES_SESSION);
+	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -530,12 +526,12 @@ int paquetChangePlaqueColors(struct paquet *paquet)
 
 	paramValues   [0] = (char *)&task->deviceId;
 	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(uint64_t);
+	paramLengths  [0] = sizeof(uint64);
 	paramFormats  [0] = 1;
 
 	paramValues   [1] = (char *)&task->profileId;
 	paramTypes    [1] = INT8OID;
-	paramLengths  [1] = sizeof(uint64_t);
+	paramLengths  [1] = sizeof(uint64);
 	paramFormats  [1] = 1;
 
 	paramValues   [2] = (char *)&payload.plaqueToken;
@@ -553,40 +549,39 @@ int paquetChangePlaqueColors(struct paquet *paquet)
 	paramLengths  [4] = sizeof(payload.foregroundColor);
 	paramFormats  [4] = 1;
 
-	result = PQexecParams(dbh->conn, "UPDATE surrounding.plaques SET background_color = $4, foreground_color = $5 WHERE plaque_token = $3 RETURNING plaque_token",
+	dbh->result = PQexecParams(dbh->conn, "\
+UPDATE surrounding.plaques \
+SET background_color = $4, \
+	foreground_color = $5 \
+WHERE plaque_token = $3 \
+RETURNING plaque_token",
 		5, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
-	if (!dbhTuplesOK(dbh, result)) {
-		PQclear(result);
+	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(result, 1)) {
-		PQclear(result);
+	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(result, 1)) {
-		PQclear(result);
+	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(result, 0, UUIDOID)) {
-		PQclear(result);
+	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	resetBufferData(outputBuffer, 1);
-
-	PQclear(result);
 
 	pokeDB(dbh);
 
@@ -595,12 +590,12 @@ int paquetChangePlaqueColors(struct paquet *paquet)
 	return 0;
 }
 
-int paquetChangePlaqueFont(struct paquet *paquet)
+int
+paquetChangePlaqueFont(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	PGresult	*result;
-	const char*	paramValues[4];
+	const char	*paramValues[4];
     Oid			paramTypes[4];
     int			paramLengths[4];
 	int			paramFormats[4];
@@ -619,7 +614,7 @@ int paquetChangePlaqueFont(struct paquet *paquet)
 
 	inputBuffer = getData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = peekDB(DB_PLAQUES_SESSION);
+	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -627,12 +622,12 @@ int paquetChangePlaqueFont(struct paquet *paquet)
 
 	paramValues   [0] = (char *)&task->deviceId;
 	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(uint64_t);
+	paramLengths  [0] = sizeof(uint64);
 	paramFormats  [0] = 1;
 
 	paramValues   [1] = (char *)&task->profileId;
 	paramTypes    [1] = INT8OID;
-	paramLengths  [1] = sizeof(uint64_t);
+	paramLengths  [1] = sizeof(uint64);
 	paramFormats  [1] = 1;
 
 	paramValues   [2] = (char *)&payload.plaqueToken;
@@ -645,40 +640,38 @@ int paquetChangePlaqueFont(struct paquet *paquet)
 	paramLengths  [3] = sizeof(payload.fontSize);
 	paramFormats  [3] = 1;
 
-	result = PQexecParams(dbh->conn, "UPDATE surrounding.plaques SET font_size = $4 WHERE plaque_token = $3 RETURNING plaque_token",
+	dbh->result = PQexecParams(dbh->conn, "\
+UPDATE surrounding.plaques \
+SET font_size = $4 \
+WHERE plaque_token = $3 \
+RETURNING plaque_token",
 		4, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
-	if (!dbhTuplesOK(dbh, result)) {
-		PQclear(result);
+	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(result, 1)) {
-		PQclear(result);
+	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(result, 1)) {
-		PQclear(result);
+	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(result, 0, UUIDOID)) {
-		PQclear(result);
+	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
 		pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	resetBufferData(outputBuffer, 1);
-
-	PQclear(result);
 
 	pokeDB(dbh);
 
@@ -687,12 +680,12 @@ int paquetChangePlaqueFont(struct paquet *paquet)
 	return 0;
 }
 
-int paquetChangePlaqueInscription(struct paquet *paquet)
+int
+paquetChangePlaqueInscription(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	PGresult	*result;
-	const char*	paramValues[4];
+	const char	*paramValues[4];
     Oid			paramTypes[4];
     int			paramLengths[4];
 	int			paramFormats[4];
@@ -719,16 +712,15 @@ int paquetChangePlaqueInscription(struct paquet *paquet)
 
 	char *inscription = (char *)malloc(payload.inscriptionLength);
 	if (inscription == NULL) {
-#ifdef DEBUG
-		fprintf(stderr, "Cannot allocate %ud bytes for inscription\n", payload.inscriptionLength);
-#endif
+		reportError("Cannot allocate %ud bytes for inscription",
+				payload.inscriptionLength);
 		setTaskStatus(task, TaskStatusOutOfMemory);
 		return -1;
 	}
 
 	inputBuffer = getData(inputBuffer, inscription, payload.inscriptionLength);
 
-	struct dbh *dbh = peekDB(DB_PLAQUES_SESSION);
+	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
 		free(inscription);
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
@@ -737,12 +729,12 @@ int paquetChangePlaqueInscription(struct paquet *paquet)
 
 	paramValues   [0] = (char *)&task->deviceId;
 	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(uint64_t);
+	paramLengths  [0] = sizeof(uint64);
 	paramFormats  [0] = 1;
 
 	paramValues   [1] = (char *)&task->profileId;
 	paramTypes    [1] = INT8OID;
-	paramLengths  [1] = sizeof(uint64_t);
+	paramLengths  [1] = sizeof(uint64);
 	paramFormats  [1] = 1;
 
 	paramValues   [2] = (char *)&payload.plaqueToken;
@@ -755,35 +747,35 @@ int paquetChangePlaqueInscription(struct paquet *paquet)
 	paramLengths  [3] = payload.inscriptionLength;
 	paramFormats  [3] = 0;
 
-	result = PQexecParams(dbh->conn, "UPDATE surrounding.plaques SET inscription = $4 WHERE plaque_token = $3 RETURNING plaque_token",
+	dbh->result = PQexecParams(dbh->conn, "\
+UPDATE surrounding.plaques \
+SET inscription = $4 \
+WHERE plaque_token = $3 \
+RETURNING plaque_token",
 		4, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
-	if (!dbhTuplesOK(dbh, result)) {
-		PQclear(result);
+	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
 		free(inscription);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(result, 1)) {
-		PQclear(result);
+	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
 		pokeDB(dbh);
 		free(inscription);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(result, 1)) {
-		PQclear(result);
+	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
 		pokeDB(dbh);
 		free(inscription);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(result, 0, UUIDOID)) {
-		PQclear(result);
+	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
 		pokeDB(dbh);
 		free(inscription);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
@@ -791,8 +783,6 @@ int paquetChangePlaqueInscription(struct paquet *paquet)
 	}
 
 	resetBufferData(outputBuffer, 1);
-
-	PQclear(result);
 
 	pokeDB(dbh);
 

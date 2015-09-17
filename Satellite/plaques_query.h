@@ -3,10 +3,16 @@
 
 #include "paquet.h"
 
-int paquetListOfPlaquesInSight(struct paquet *paquet);
+int
+paquetListOfPlaquesForBroadcast(struct paquet *paquet);
 
-int paquetListOfPlaquesOnMap(struct paquet *paquet);
+int
+paquetListOfPlaquesOnRadar(struct paquet *paquet);
 
-int paquetDownloadPlaques(struct paquet *paquet);
+int
+paquetListOfPlaquesInSight(struct paquet *paquet);
+
+int
+paquetDownloadPlaques(struct paquet *paquet);
 
 #endif

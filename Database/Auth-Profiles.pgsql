@@ -104,8 +104,10 @@ BEGIN
 		WHERE LOWER(profile_name) = LOWER(parm_profile_name)
 	)
 	WHEN 0 THEN
+		RAISE NOTICE 'Check profile name "%" - name is free', parm_profile_name;
 		RETURN TRUE;
 	ELSE
+		RAISE NOTICE 'Check profile name "%" - name is already in use', parm_profile_name;
 		RETURN FALSE;
 	END CASE;
 END;

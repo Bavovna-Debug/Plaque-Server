@@ -1,193 +1,230 @@
 #include <errno.h>
 #include <libpq-fe.h>
 #include <pthread.h>
-#include <stdio.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <sys/types.h>
+
+#include "broadcaster_api.h"
+#include "broadcaster.h"
 #include "buffers.h"
 #include "db.h"
+#include "desk.h"
+#include "listener.h"
+#include "paquet.h"
+#include "report.h"
+#include "session.h"
 #include "tasks.h"
+#include "task_list.h"
 
-typedef struct listenerArguments {
-	uint16_t portNumber;
-} listenerArguments;
+//volatile sig_atomic_t mustExit = 0;
 
-void *statisticsThread(void *arg)
+#ifdef STATISTICS
+static pthread_t statisticsHandler;
+#endif
+static pthread_t listenerHandler;
+static pthread_t broadcasterHandler;
+
+void
+registerSignalHandler(void);
+
+struct desk *
+initDesk(void);
+
+void
+constructDB(struct desk *desk);
+
+void
+destructDB(struct desk *desk);
+
+#ifdef STATISTICS
+void *
+statisticsThread(void *arg)
 {
+	struct desk *desk = (struct desk *)arg;
+
 	while (1)
 	{
-		printf("############    DBH:%4d\t1K:%5d\t4K:%5d\t1M:%5d\n",
-			dbhInUse(),
-			buffersInUse(BUFFER1K),
-			buffersInUse(BUFFER4K),
-			buffersInUse(BUFFER1M));
+		printf("STATISTICS    DBH:%4d %4d %4d\tTASK:%5d\tPAQUET:%5d\t1K:%5d\t4K:%5d\t1M:%5d\n",
+			dbhInUse(desk->dbh.guardian),
+			dbhInUse(desk->dbh.auth),
+			dbhInUse(desk->dbh.plaque),
+			buffersInUse(desk->pools.task, 0),
+			buffersInUse(desk->pools.paquet, 0),
+			buffersInUse(desk->pools.dynamic, 0),
+			buffersInUse(desk->pools.dynamic, 1),
+			buffersInUse(desk->pools.dynamic, 2));
 		sleep(1);
 	}
 	pthread_exit(NULL);
 }
+#endif
 
-void *dispatcherThread(void *arg)
+int
+main(int argc, char *argv[])
 {
-	int sockFD;
-	struct sockaddr_in dispatcherAddress;
-
-	sockFD = socket(AF_INET, SOCK_STREAM, 0);
-	if (sockFD < 0) {
-#ifdef DEBUG
-		fprintf(stderr, "Cannot open a socket: %d (%s)\n", errno, strerror(errno));
-#endif
-		pthread_exit(NULL);
-	}
-
-	bzero((char *) &dispatcherAddress, sizeof(dispatcherAddress));
-
-	dispatcherAddress.sin_family = AF_INET;
-	dispatcherAddress.sin_addr.s_addr = INADDR_ANY;
-	dispatcherAddress.sin_port = htons(12000);
-
-	if (connect(sockFD, (struct sockaddr *)&dispatcherAddress, sizeof(dispatcherAddress)) < 0) {
-		close(sockFD);
-#ifdef DEBUG
-		fprintf(stderr, "Cannot connect to socket: %d (%s)\n", errno, strerror(errno));
-#endif
-		pthread_exit(NULL);
-	}
-
-	pthread_exit(NULL);
-}
-
-void *listenerThread(void *arg)
-{
-	struct listenerArguments *arguments = (struct listenerArguments *)arg;
-
-	int listenSockFD, clientSockFD;
-	struct sockaddr_in serverAddress, clientAddress;
-	socklen_t clientAddressLength;
-
-	listenSockFD = socket(AF_INET, SOCK_STREAM, 0);
-	if (listenSockFD < 0) {
-#ifdef DEBUG
-		fprintf(stderr, "Cannot open a socket: %d (%s)\n", errno, strerror(errno));
-#endif
-		pthread_exit(NULL);
-	}
-
-	bzero((char *) &serverAddress, sizeof(serverAddress));
-
-	serverAddress.sin_family = AF_INET;
-	serverAddress.sin_addr.s_addr = INADDR_ANY;
-	serverAddress.sin_port = htons(arguments->portNumber);
-
-	if (bind(listenSockFD, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) {
-		close(listenSockFD);
-#ifdef DEBUG
-		fprintf(stderr, "Cannot bind to socket: %d (%s)\n", errno, strerror(errno));
-#endif
-		pthread_exit(NULL);
-	}
-
-	listen(listenSockFD, SOMAXCONN);
-	clientAddressLength = sizeof(clientAddress);
-	while (1)
-	{
-		clientSockFD = accept(listenSockFD, (struct sockaddr *)&clientAddress, &clientAddressLength);
-		if (clientSockFD < 0) {
-#ifdef DEBUG
-			fprintf(stderr, "Cannot accept new socket: %d (%s)\n", errno, strerror(errno));
-#endif
-			sleep(1.0);
-			continue;
-		}
-
-		char *clientIP = strdup(inet_ntoa(clientAddress.sin_addr));
-
-		struct task *task = startTask(clientSockFD, clientIP);
-        if (task == NULL) {
-#ifdef DEBUG
-            fprintf(stderr, "Cannot start new task\n");
-#endif
-			close(clientSockFD);
-			free(clientIP);
-			//sleep(0.2);
-            continue;
-        }
-	}
-
-	close(listenSockFD);
-
-	pthread_exit(NULL);
-}
-
-int main(int argc, char *argv[])
-{
-	struct listenerArguments arguments;
-	pthread_t statisticsHandler;
-	pthread_t dispatcherHandler;
-	pthread_t listenerHandler;
+	struct desk *desk;
 	int rc;
 
 	if (PQisthreadsafe() != 1)
 		exit(-1);
 
-	arguments.portNumber = atoi(argv[1]);
+	desk = initDesk();
+    if (desk == NULL)
+		exit(-1);
+
+    registerSignalHandler();
+
+	desk->listener.portNumber = atoi(argv[1]);
+
+	desk->broadcaster.portNumber = BROADCASTER_PORT_NUMBER;
 
 /*
 	pthread_attr_t attr;
 	rc = pthread_attr_init(&attr);
 	if (rc != 0)
-		fprintf(stderr, "pthread_attr_init: %d\n", rc);
+		reportError("pthread_attr_init: %d", rc);
 
 	int stackSize = 0x800000;
 	rc = pthread_attr_setstacksize(&attr, stackSize);
 	if (rc != 0)
-		fprintf(stderr, "pthread_attr_setstacksize: %d\n", rc);
+		reportError("pthread_attr_setstacksize: %d", rc);
 */
 
-	constructDB();
+	constructDB(desk);
 
-	constructBuffers();
+	if (setAllSessionsOffline(desk) != 0)
+		exit(-1);
 
-	rc = pthread_create(&statisticsHandler, NULL, &statisticsThread, NULL);
+#ifdef STATISTICS
+	rc = pthread_create(&statisticsHandler, NULL, &statisticsThread, desk);
     if (rc != 0) {
-#ifdef DEBUG
-        fprintf(stderr, "Can't create statistics thread: %d (%s)\n", errno, strerror(rc));
+        reportError("Cannot create statistics thread: errno=%d", errno);
+        goto quit;
+    }
 #endif
+
+	rc = pthread_create(&listenerHandler, NULL, &listenerThread, desk);
+    if (rc != 0) {
+        reportError("Cannot create listener thread: errno=%d", errno);
         goto quit;
     }
 
-	rc = pthread_create(&dispatcherHandler, NULL, &dispatcherThread, NULL);
+	rc = pthread_create(&broadcasterHandler, NULL, &broadcasterThread, desk);
     if (rc != 0) {
-#ifdef DEBUG
-        fprintf(stderr, "Can't create dispatcher thread: %d (%s)\n", errno, strerror(rc));
-#endif
-        goto quit;
-    }
-
-	rc = pthread_create(&listenerHandler, NULL, &listenerThread, (void *)&arguments);
-    if (rc != 0) {
-#ifdef DEBUG
-        fprintf(stderr, "Can't create listener thread: %d (%s)\n", errno, strerror(rc));
-#endif
+        reportError("Cannot create broadcaster thread: errno=%d", errno);
         goto quit;
     }
 
 	rc = pthread_join(listenerHandler, NULL);
     if (rc != 0) {
-#ifdef DEBUG
-        fprintf(stderr, "Error has occurred while waiting for listener thread: %d (%s)\n", errno, strerror(rc));
-#endif
+        reportError("Error has occurred while waiting for listener thread: errno=%d", errno);
         goto quit;
     }
 
 quit:
-	destructDB();
-
-	destructBuffers();
+	destructDB(desk);
 
 	return 0;
+}
+
+void signalHandler(int signal)
+{
+	reportError("Received signal to quit: signal=%d", signal);
+
+	pthread_kill(listenerHandler, signal);
+}
+
+void
+registerSignalHandler(void)
+{
+    struct sigaction sa;
+
+    memset(&sa, 0, sizeof(struct sigaction));
+    sa.sa_handler = &signalHandler;
+
+	sa.sa_flags = SA_RESETHAND;
+
+	sigfillset(&sa.sa_mask);
+
+    sigaction(SIGHUP, &sa, NULL);
+    sigaction(SIGINT, &sa, NULL);
+}
+
+struct desk *
+initDesk(void)
+{
+	struct desk *desk;
+
+	desk = malloc(sizeof(struct desk));
+	if (desk == NULL) {
+        reportError("Out of memory");
+        return NULL;
+    }
+
+	desk->pools.task = initBufferPool(1);
+	desk->pools.paquet = initBufferPool(1);
+	desk->pools.dynamic = initBufferPool(3);
+
+	initBufferChain(desk->pools.task, 0,
+		sizeof(struct task),
+		0,
+		NUMBER_OF_BUFFERS_TASK);
+
+	initBufferChain(desk->pools.paquet, 0,
+		sizeof(struct paquet),
+		0,
+		NUMBER_OF_BUFFERS_PAQUET);
+
+	initBufferChain(desk->pools.dynamic, 0,
+		KB,
+		sizeof(struct paquetPilot),
+		NUMBER_OF_BUFFERS_1K);
+
+	initBufferChain(desk->pools.dynamic, 1,
+		4 * KB,
+		sizeof(struct paquetPilot),
+		NUMBER_OF_BUFFERS_4K);
+
+	initBufferChain(desk->pools.dynamic, 2,
+		MB,
+		sizeof(struct paquetPilot),
+		NUMBER_OF_BUFFERS_1M);
+
+	desk->tasks.list = initTaskList(desk);
+	if (desk->tasks.list == NULL) {
+        reportError("Cannot initialize task list");
+        return NULL;
+    }
+
+	return desk;
+}
+
+void
+constructDB(struct desk *desk)
+{
+	desk->dbh.guardian = initDBChain(
+		"GUARDIAN",
+		NUMBER_OF_DBH_GUARDIANS,
+		"hostaddr = '127.0.0.1' dbname = 'guardian' user = 'guardian' password = 'nVUcDYDVZCMaRdCfayWrG23w'");
+
+	desk->dbh.auth = initDBChain(
+		"AUTH",
+		NUMBER_OF_DBH_AUTHENTICATION,
+		"hostaddr = '127.0.0.1' dbname = 'vp' user = 'vp' password = 'vi79HRhxbFahmCKFUKMAACrY'");
+
+	desk->dbh.plaque = initDBChain(
+		"PLAQUE",
+		NUMBER_OF_DBH_PLAQUES_SESSION,
+		"hostaddr = '127.0.0.1' dbname = 'vp' user = 'vp' password = 'vi79HRhxbFahmCKFUKMAACrY'");
+}
+
+void
+destructDB(struct desk *desk)
+{
+	releaseDBChain(desk->dbh.guardian);
+	releaseDBChain(desk->dbh.auth);
+	releaseDBChain(desk->dbh.plaque);
 }

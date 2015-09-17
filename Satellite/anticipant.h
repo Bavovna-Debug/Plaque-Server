@@ -2,9 +2,9 @@
 #define _ANTICIPANT_
 
 #include "api.h"
+#include "db.h"
 #include "paquet.h"
 #include "tasks.h"
-#include "db.h"
 
 #pragma pack(push, 1)
 typedef struct dialogueAnticipant {
@@ -31,14 +31,22 @@ typedef struct bonjourCreateProfile {
 } bonjourCreateProfile;
 #pragma pack(pop)
 
-int verifyGuest(struct task *task);
+int
+verifyGuest(struct task *task);
 
-int registerDevice(struct task *task, struct dialogueAnticipant *anticipant, char *deviceToken);
+int
+registerDevice(
+	struct task *task,
+	struct dialogueAnticipant *anticipant,
+	char *deviceToken);
 
-int validateProfileName(struct paquet *paquet);
+int
+validateProfileName(struct paquet *paquet);
 
-int createProfile(struct paquet *paquet);
+int
+createProfile(struct paquet *paquet);
 
-int notificationsToken(struct paquet *paquet);
+int
+notificationsToken(struct paquet *paquet);
 
 #endif

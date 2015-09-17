@@ -40,7 +40,7 @@ struct buffer *putData(struct buffer* buffer, char *sourceData, int sourceDataSi
 
 struct buffer *getData(struct buffer* buffer, char *destData, int destDataSize);
 
-inline struct buffer *putUInt8(struct buffer* buffer, uint8_t sourceData);
+inline struct buffer *putUInt8(struct buffer* buffer, int sourceData);
 
 inline struct buffer *putUInt32(struct buffer* buffer, uint32_t *sourceData);
 
@@ -48,13 +48,9 @@ inline struct buffer *getUInt32(struct buffer* buffer, uint32_t *destData);
 
 inline struct buffer *putString(struct buffer* buffer, char *sourceData, int sourceDataSize);
 
-inline void booleanInternetToPostgres(char *value);
+inline void convertBooleanToPostgres(char *value);
 
-inline void booleanPostgresToInternet(char *value);
-
-inline int isPostgresBooleanTrue(char *value);
-
-inline int isPostgresBooleanFalse(char *value);
+inline void convertBooleanToInternet(char *value);
 
 int buffersInUse(int chainId);
 

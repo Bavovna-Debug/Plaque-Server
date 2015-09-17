@@ -2,64 +2,91 @@
 #define _TASKS_
 
 #include <poll.h>
+#include <pthread.h>
 #include <semaphore.h>
-#include "buffers.h"
 
-#define TaskStatusGood							0x00000000
-#define TaskStatusOutOfMemory					0x00000001
-#define TaskStatusPollForReceiveError			0x00000002
-#define TaskStatusPollForReceiveFailed			0x00000004
-#define TaskStatusPollForReceiveTimeout			0x00000008
-#define TaskStatusNoDataReceived				0x00000010
-#define TaskStatusReadFromSocketFailed			0x00000020
-#define TaskStatusMissingPaquetPilot			0x00000040
-#define TaskStatusMissingPaquetSignature		0x00000080
-#define TaskStatusReceivedDataIncomplete		0x00000100
-#define TaskStatusCannotCreatePaquetThread		0x00000200
-#define TaskStatusPollForSendError				0x00000400
-#define TaskStatusPollForSendFailed				0x00000800
-#define TaskStatusPollForSendTimeout			0x00001000
-#define TaskStatusNoDataSent					0x00002000
-#define TaskStatusWriteToSocketFailed			0x00004000
-#define TaskStatusWrongPayloadSize				0x00008000
-#define TaskStatusNoDatabaseHandlers			0x00010000
-#define TaskStatusUnexpectedDatabaseResult		0x00020000
-#define TaskStatusMissingDialogueDemande		0x00040000
-#define TaskStatusMissingAnticipantRecord		0x00080000
-#define TaskStatusCannotSendDialogueVerdict		0x00100000
-#define TaskStatusDeviceAuthenticationFailed	0x00200000
-#define TaskStatusProfileAuthenticationFailed	0x00400000
-#define TaskStatusCannotGetSession				0x00800000
-#define TaskStatusCannotCreateSession			0x01000000
-#define TaskStatusCannotAllocateBufferForInput	0x10000000
-#define TaskStatusCannotAllocateBufferForOutput	0x20000000
-#define TaskStatusCannotExtendBufferForInput	0x40000000
+#include "buffers.h"
+#include "desk.h"
+
+#define TaskStatusGood							0x0000000000000000
+#define TaskStatusOutOfMemory					0x0000000000000001
+#define TaskStatusCannotCreatePaquetThread		0x0000000000000002
+#define TaskStatusNoDatabaseHandlers			0x0000000000000100
+#define TaskStatusUnexpectedDatabaseResult		0x0000000000000200
+
+#define TaskStatusCannotAllocateBufferForInput	0x0000000000000010
+#define TaskStatusCannotAllocateBufferForOutput	0x0000000000000020
+#define TaskStatusCannotExtendBufferForInput	0x0000000000000040
+
+#define TaskStatusDeviceAuthenticationFailed	0x0000000000010000
+#define TaskStatusProfileAuthenticationFailed	0x0000000000020000
+#define TaskStatusCannotGetSession				0x0000000000100000
+#define TaskStatusCannotCreateSession			0x0000000000200000
+#define TaskStatusCannotSetSessionOnline		0x0000000000400000
+#define TaskStatusCannotSetSessionOffline		0x0000000000800000
+
+#define TaskStatusPollForReceiveError			0x0000000100000000
+#define TaskStatusPollForReceiveFailed			0x0000000200000000
+#define TaskStatusPollForReceiveTimeout			0x0000000400000000
+#define TaskStatusNoDataReceived				0x0000000800000000
+#define TaskStatusReadFromSocketFailed			0x0000001000000000
+#define TaskStatusMissingPaquetPilot			0x0000002000000000
+#define TaskStatusMissingPaquetSignature		0x0000004000000000
+#define TaskStatusReceivedDataIncomplete		0x0000008000000000
+
+#define TaskStatusPollForSendError				0x0000010000000000
+#define TaskStatusPollForSendFailed				0x0000020000000000
+#define TaskStatusPollForSendTimeout			0x0000040000000000
+#define TaskStatusNoDataSent					0x0000080000000000
+#define TaskStatusWriteToSocketFailed			0x0000100000000000
+#define TaskStatusWrongPayloadSize				0x0000200000000000
+
+#define TaskStatusMissingDialogueDemande		0x0100000000000000
+#define TaskStatusMissingAnticipantRecord		0x0200000000000000
+#define TaskStatusCannotSendDialogueVerdict		0x0400000000000000
+
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 typedef struct task {
+	struct buffer		*containerBuffer;
+	struct desk     	*desk;
+	pthread_t			thread;
 	int					taskId;
-	uint64_t			deviceId;
-	uint64_t			profileId;
-	uint64_t			sessionId;
-	int					status;
+	int					sockFD;
+	uint64  			deviceId;
+	uint64  			profileId;
+	uint64  			sessionId;
+	long				status;
 	pthread_spinlock_t	statusLock;
+	pthread_spinlock_t	broadcastLock;
 	pthread_spinlock_t	heavyJobLock;
 	pthread_spinlock_t	downloadLock;
-	pthread_t			thread;
-	int					sockFD;
-	char				*clientIP;
+	sem_t				waitBroadcast;
+	char				clientIP[MAX(INET_ADDRSTRLEN, INET6_ADDRSTRLEN)];
 } task_t;
 
 typedef struct paquet {
+	struct buffer		*containerBuffer;
 	struct task			*task;
 	pthread_t			thread;
 	struct pollfd		pollFD;
 	int					paquetId;
 	int					commandCode;
-	uint32_t			payloadSize;
+	uint32				payloadSize;
 	struct buffer		*inputBuffer;
 	struct buffer		*outputBuffer;
 } paquet_t;
 
-inline struct task *startTask(int sockFD, char *clientIP);
+struct task *
+startTask(
+	struct desk		*desk,
+	int				sockFD,
+	char			*clientIP);
+
+inline void
+setTaskStatus(struct task *task, long statusMask);
+
+inline long
+getTaskStatus(struct task *task);
 
 #endif

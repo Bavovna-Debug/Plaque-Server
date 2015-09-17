@@ -3,7 +3,7 @@ PG_CONFIG = /usr/pgsql-9.4/bin/pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 
-vp_dispatcher.so: kernel.o listener.o
+vp_dispatcher.so: main.o apns.o
 	$(CC) -shared -pthread -L/usr/pgsql-9.4/lib/ -o $@ $^ -lpq
 
 %.o: %.c

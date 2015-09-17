@@ -1,21 +1,21 @@
-#ifndef _BONJOUR_
-#define _BONJOUR_
+#ifndef _PAQUET_
+#define _PAQUET_
 
-#include <netinet/in.h>
+#include <c.h>
+
 #include "api.h"
 #include "db.h"
-#include "buffers.h"
 #include "tasks.h"
 
 #pragma pack(push, 1)
 typedef struct dialogueDemande {
-	uint64_t		dialogueSignature;
+	uint64  		dialogueSignature;
 	double			deviceTimestamp;
-	uint32_t		dialogueType;
-	uint8_t			applicationVersion;
-	uint8_t			applicationSubersion;
-	uint16_t		applicationRelease;
-	uint16_t		deviceType;
+	uint32  		dialogueType;
+	uint8  			applicationVersion;
+	uint8  			applicationSubersion;
+	uint16  		applicationRelease;
+	uint16  		deviceType;
 	char			applicationBuild[6];
 	char			deviceToken[TokenBinarySize];
 	char			profileToken[TokenBinarySize];
@@ -25,33 +25,33 @@ typedef struct dialogueDemande {
 
 #pragma pack(push, 1)
 typedef struct dialogueVerdict {
-	uint64_t		dialogueSignature;
-	uint32_t		verdictCode;
+	uint64  		dialogueSignature;
+	uint32  		verdictCode;
 	char			sessionToken[TokenBinarySize];
 } dialogueVerdict;
 #pragma pack(pop)
 
 #pragma pack(push, 1)
 typedef struct paquetPilot {
-	uint64_t		signature;
-	uint32_t		paquetId;
-	uint32_t		commandCode;
-	uint32_t		commandSubcode;
-	uint32_t		payloadSize;
+	uint64  		signature;
+	uint32  		paquetId;
+	uint32  		commandCode;
+	uint32  		commandSubcode;
+	uint32  		payloadSize;
 	char			payload[];
 } paquetPilot;
 #pragma pack(pop)
 
 #pragma pack(push, 1)
 typedef struct paquetRadar {
-	uint32_t		inSightRevision;
+	uint32  		radarRevision;
 	double			latitude;
 	double			longitude;
 	float			altitude;
 	char			courseAvailable;
 	float			course;
 	char			floorLevelAvailable;
-	int32_t			floorLevel;
+	int32  			floorLevel;
 	float			range;
 } paquetRadar;
 #pragma pack(pop)
@@ -68,10 +68,10 @@ typedef struct paquetPostPlaque {
 	float			tilt;
 	float			width;
 	float			height;
-	uint32_t		backgroundColor;
-	uint32_t		foregroundColor;
+	uint32  		backgroundColor;
+	uint32  		foregroundColor;
 	float			fontSize;
-	uint32_t		inscriptionLength;
+	uint32  		inscriptionLength;
 	char			inscription[];
 } paquetPostPlaque;
 #pragma pack(pop)
@@ -106,8 +106,8 @@ typedef struct paquetPlaqueSize {
 #pragma pack(push, 1)
 typedef struct paquetPlaqueColors {
 	char			plaqueToken[TokenBinarySize];
-	uint32_t		backgroundColor;
-	uint32_t		foregroundColor;
+	uint32  		backgroundColor;
+	uint32  		foregroundColor;
 } paquetPlaqueColors;
 #pragma pack(pop)
 
@@ -121,7 +121,7 @@ typedef struct paquetPlaqueFont {
 #pragma pack(push, 1)
 typedef struct paquetPlaqueInscription {
 	char			plaqueToken[TokenBinarySize];
-	uint32_t		inscriptionLength;
+	uint32  		inscriptionLength;
 	char			inscription[];
 } paquetPlaqueInscription;
 #pragma pack(pop)
@@ -132,14 +132,19 @@ typedef struct paquetNotificationsToken {
 } paquetNotificationsToken;
 #pragma pack(pop)
 
-void rejectPaquetASBusy(struct paquet *paquet);
+void
+rejectPaquetASBusy(struct paquet *paquet);
 
-int minimumPayloadSize(struct paquet *paquet, int minimumSize);
+int
+minimumPayloadSize(struct paquet *paquet, int minimumSize);
 
-int expectedPayloadSize(struct paquet *paquet, int expectedSize);
+int
+expectedPayloadSize(struct paquet *paquet, int expectedSize);
 
-uint64_t deviceIdByToken(struct dbh *dbh, char *deviceToken);
+uint64
+deviceIdByToken(struct dbh *dbh, char *deviceToken);
 
-uint64_t profileIdByToken(struct dbh *dbh, char *profileToken);
+uint64
+profileIdByToken(struct dbh *dbh, char *profileToken);
 
 #endif

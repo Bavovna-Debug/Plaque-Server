@@ -3,6 +3,7 @@
 
 #include "paquet.h"
 
-int getProfiles(struct paquet *paquet);
+int
+getProfiles(struct paquet *paquet);
 
 #endif

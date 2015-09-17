@@ -1,0 +1,6 @@
+# vpCloud Broadcaster extension
+comment = 'vpCloud Broadcaster'
+default_version = '1.0'
+module_pathname = '$libdir/vp_broadcaster'
+relocatable = true
+superuser = true

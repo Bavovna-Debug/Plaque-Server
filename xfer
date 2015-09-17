@@ -1,0 +1,36 @@
+#!/bin/bash
+
+#HOST=$1
+HOST="aquarium"
+
+for COMPONENT in "api" "lib" "broadcaster" "dispatcher" "messanger" "satellite" "scheduler";
+do
+	DESTINATION="vp/${COMPONENT}"
+	MUST_BUILD=0
+
+	cd ${COMPONENT}
+
+	FILES=`find . -type f -depth 1 -newer ../xfer`
+	for FILE in $FILES; do
+		if [ `echo ${FILE} | cut -c 3` != '.' ]; then
+			echo "Copy ${FILE}"
+			scp ${FILE} ${HOST}:${DESTINATION}
+
+			if [ $COMPONENT != "api" -a $COMPONENT != "lib" ]; then
+				MUST_BUILD=1
+			fi
+		fi
+	done
+
+	if [ $MUST_BUILD -ne 0 ]; then
+		echo "################################################################################"
+		echo "Build target: ${COMPONENT}"
+		echo "################################################################################"
+
+		ssh ${HOST} "cd ${DESTINATION} ; make install"
+	fi
+
+	cd ..
+done
+
+touch xfer

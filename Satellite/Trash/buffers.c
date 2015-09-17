@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include "paquet.h"
+#include "bonjour.h"
 #include "buffers.h"
+#include "processor.h"
 
 #define PEEK_RETRIES			3
 
@@ -68,7 +69,7 @@ void constructBuffers(void)
 {
 	constructBufferChain(BUFFER1K, KB, 1000000);
 	constructBufferChain(BUFFER4K, 4 * KB, 200000);
-	constructBufferChain(BUFFER1M, MB, 200);
+	constructBufferChain(BUFFER1M, MB, 1000);
 }
 
 void destructBuffers(void)
@@ -123,10 +124,8 @@ struct buffer* peekBuffer(int preferredSize)
 			break;
 	}
 
-#ifdef DEBUG
-	if (buffer == NULL)
-		printf("No free buffer available\n");
-#endif
+	if (buffer != NULL) {
+	}
 
 	return buffer;
 }
@@ -169,7 +168,7 @@ int totalDataSize(struct buffer* firstBuffer)
 void resetBufferData(struct buffer* buffer, int leavePilot)
 {
 	if (leavePilot != 0) {
-		buffer->dataSize = sizeof(struct paquetPilot);
+		buffer->dataSize = sizeof(struct bonjourPilot);
 		buffer = buffer->next;
 	}
 
@@ -183,7 +182,7 @@ void resetBufferData(struct buffer* buffer, int leavePilot)
 void resetCursor(struct buffer* buffer, int leavePilot)
 {
 	if (leavePilot != 0) {
-		buffer->cursor = buffer->data + sizeof(struct paquetPilot);
+		buffer->cursor = buffer->data + sizeof(struct bonjourPilot);
 		buffer = buffer->next;
 	}
 
@@ -196,18 +195,16 @@ void resetCursor(struct buffer* buffer, int leavePilot)
 
 struct buffer *putData(struct buffer* buffer, char *sourceData, int sourceDataSize)
 {
-/*
 	if (buffer->dataSize + sourceDataSize > buffer->bufferSize) {
 		if (buffer->next == NULL) {
 			buffer->next = peekBuffer(buffer->bufferSize);
-			printf("PEEKED PEEKED PEEKED PEEKED PEEKED 1\n");
 			if (buffer->next == NULL)
 				return NULL;
 		}
 
 		buffer = buffer->next;
 	}
-*/
+
 	int sourceDataOffset = 0;
 	while (sourceDataOffset < sourceDataSize)
 	{
@@ -265,9 +262,9 @@ struct buffer *getData(struct buffer* buffer, char *destData, int destDataSize)
 	return buffer;
 }
 
-inline struct buffer *putUInt8(struct buffer* buffer, uint8_t sourceData)
+inline struct buffer *putUInt8(struct buffer* buffer, int sourceData)
 {
-	uint8_t value = sourceData;
+	uint8_t value = sourceData && 0xFF;
 	buffer = putData(buffer, (char *)&value, sizeof(value));
 	return buffer;
 }
@@ -296,24 +293,14 @@ inline struct buffer *putString(struct buffer* buffer, char *sourceData, int sou
 	return buffer;
 }
 
-inline void booleanInternetToPostgres(char *value)
+inline void convertBooleanToPostgres(char *value)
 {
 	*value = (*value == '0') ? 'f' : 't';
 }
 
-inline void booleanPostgresToInternet(char *value)
+inline void convertBooleanToInternet(char *value)
 {
 	*value = (*value == 'f') ? '0' : '1';
-}
-
-inline int isPostgresBooleanTrue(char *value)
-{
-	return (*value == 't');
-}
-
-inline int isPostgresBooleanFalse(char *value)
-{
-	return (*value == 'f');
 }
 
 int buffersInUse(int chainId)

@@ -30,6 +30,7 @@
 #define DialogueVerdictNewSession				0xBED10004
 
 #define CommandAnticipant                       0xABBA2015
+#define PaquetListOfPlaquesForBroadcast         0x00010000
 #define PaquetListOfPlaquesInSight              0x00010001
 #define PaquetListOfPlaquesOnMap                0x00010002
 #define PaquetDownloadPlaquesInSight            0x00010003

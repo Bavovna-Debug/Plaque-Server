@@ -197,6 +197,9 @@ BEGIN
 
 	IF (NEW.latitude != OLD.latitude) OR (NEW.longitude != OLD.longitude) THEN
 		NEW.coordinate = LL_TO_EARTH(NEW.latitude, NEW.longitude);
+
+		INSERT INTO journal.moved_plaques (plaque_id)
+		VALUES (NEW.plaque_id);
 	END IF;
 
 	INSERT INTO journal.modified_plaques (plaque_id)
