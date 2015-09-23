@@ -11,6 +11,8 @@ typedef struct session {
     uint32              inCacheRevision;
     uint32              onRadarRevision;
     uint32              inSightRevision;
+    uint32              onMapRevision;
+    uint32              satelliteTaskId;
 } session_t;
 
 #endif

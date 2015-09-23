@@ -12,6 +12,7 @@ CREATE TYPE surrounding.plaque_on_radar AS
 /*                                                                            */
 /******************************************************************************/
 
+/*
 CREATE OR REPLACE FUNCTION surrounding.query_plaques_in_sight (
 	IN parm_session_id			BIGINT,
 	IN parm_in_sight_revision	INTEGER,
@@ -196,11 +197,13 @@ LANGUAGE plpgsql
 VOLATILE
 RETURNS NULL ON NULL INPUT
 EXTERNAL SECURITY DEFINER;
+*/
 
 /******************************************************************************/
 /*                                                                            */
 /******************************************************************************/
 
+/*
 CREATE OR REPLACE FUNCTION surrounding.query_plaques_on_radar (
 	IN parm_session_id			BIGINT,
 	IN parm_on_radar_revision	INTEGER,
@@ -371,7 +374,6 @@ BEGIN
 		--RAISE NOTICE 'SESSION:% PLAQUE:% REVISION:%', parm_session_id, var_plaque_token, var_plaque_revision;
 	END LOOP;
 
-/*
 	-- At this point all plaques in a list of known plaques that are not flagged as "revision changed"
 	-- are those that did disappear from radar.
 
@@ -445,7 +447,6 @@ BEGIN
 
 		RAISE NOTICE 'SESSION:% PLAQUE:% DID CHANGE', parm_session_id, var_plaque_id;
 	END LOOP;
-*/
 END;
 
 $PLSQL$
@@ -453,10 +454,12 @@ LANGUAGE plpgsql
 VOLATILE
 RETURNS NULL ON NULL INPUT
 EXTERNAL SECURITY DEFINER;
+*/
 
 /******************************************************************************/
 /*                                                                            */
 /******************************************************************************/
+
 /*
 CREATE OR REPLACE FUNCTION journal.download_plaques (IN parm_exigence_xml XML)
 RETURNS XML AS

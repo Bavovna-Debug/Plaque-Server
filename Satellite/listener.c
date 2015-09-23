@@ -12,23 +12,32 @@
 #include "tasks.h"
 
 void *
+listenerCleanup(void *arg);
+
+void *
 listenerThread(void *arg)
 {
-	struct desk *desk = (struct desk *)arg;
+	struct desk         *desk = (struct desk *)arg;
+	int                 listenSockFD;
+	int                 clientSockFD;
+	struct sockaddr_in  serverAddress;
+	struct sockaddr_in  clientAddress;
+	socklen_t           clientAddressLength;
+	int                 rc;
 
-	int listenSockFD, clientSockFD;
-	struct sockaddr_in serverAddress, clientAddress;
-	socklen_t clientAddressLength;
+    pthread_cleanup_push(&listenerCleanup, desk);
 
     while (1)
     {
 	    listenSockFD = socket(AF_INET, SOCK_STREAM, 0);
 	    if (listenSockFD < 0) {
-	    	reportError("Cannot open a socket, wait for %d microseconds: errno=%d\n",
+	    	reportError("Cannot open a socket, wait for %d microseconds: errno=%d",
 	    	    SLEEP_ON_CANNOT_OPEN_SOCKET, errno);
 	    	usleep(SLEEP_ON_CANNOT_OPEN_SOCKET);
 	    	continue;
     	}
+
+        desk->listener.listenSockFD = listenSockFD;
 
 	    bzero((char *)&serverAddress, sizeof(serverAddress));
 
@@ -36,13 +45,34 @@ listenerThread(void *arg)
 	    serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
 	    serverAddress.sin_port = htons(desk->listener.portNumber);
 
-	    if (bind(listenSockFD, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) {
-		    close(listenSockFD);
-    		reportError("Cannot bind to socket, wait for %d microseconds: errno=%d\n",
-	    	    SLEEP_ON_CANNOT_BIND_SOCKET, errno);
-	    	usleep(SLEEP_ON_CANNOT_BIND_SOCKET);
-	    	continue;
-    	}
+        while (1)
+        {
+        	rc = bind(listenSockFD, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
+    	    if (rc == 0) {
+    	        //
+    	        // Successfully bind to socket.
+    	        //
+    	        break;
+    	    } else {
+	            if (errno == EADDRINUSE) {
+	                //
+	                // Connection refused: wait and try again.
+	                //
+	    	        reportError("Cannot bind to socket, wait for %d microseconds",
+    	                SLEEP_ON_CANNOT_BIND_SOCKET);
+            	    usleep(SLEEP_ON_CANNOT_BIND_SOCKET);
+	            } else {
+	                //
+	                // Error: close socket, wait, and go to the beginning of socket creation.
+	                //
+    		        close(listenSockFD);
+	    	        reportError("Cannot bind to socket, wait for %d microseconds: errno=%d",
+    	                SLEEP_ON_CANNOT_BIND_SOCKET, errno);
+            	    usleep(SLEEP_ON_CANNOT_BIND_SOCKET);
+        	    	continue;
+    	        }
+	        }
+	    }
 
 	    listen(listenSockFD, SOMAXCONN);
 	    clientAddressLength = sizeof(clientAddress);
@@ -52,7 +82,7 @@ listenerThread(void *arg)
 				(struct sockaddr *)&clientAddress,
 				&clientAddressLength);
 		    if (clientSockFD < 0) {
-			    reportError("Cannot accept new socket, wait for %d microseconds: errno=%d\n",
+			    reportError("Cannot accept new socket, wait for %d microseconds: errno=%d",
 	    	        SLEEP_ON_CANNOT_ACCEPT, errno);
 	        	usleep(SLEEP_ON_CANNOT_ACCEPT);
     	    	break;
@@ -69,7 +99,19 @@ listenerThread(void *arg)
         }
 	}
 
-	close(listenSockFD);
+    pthread_cleanup_pop(1);
 
 	pthread_exit(NULL);
+}
+
+void *
+listenerCleanup(void *arg)
+{
+	struct desk *desk = (struct desk *)arg;
+	int         listenSockFD;
+
+	listenSockFD = desk->listener.listenSockFD;
+
+    if (listenSockFD > 0)
+    	close(listenSockFD);
 }

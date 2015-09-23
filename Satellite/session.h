@@ -6,7 +6,7 @@
 #include "db.h"
 #include "tasks.h"
 
-uint64
+int
 getSessionForDevice(
     struct task *task,
     struct dbh *dbh,
@@ -25,15 +25,44 @@ int
 setSessionOffline(struct task *task);
 
 int
-getSessionNextOnRadarRevision(
+getSessionOnRadarRevision(
     struct task *task,
-    struct dbh *dbh,
-    uint32 *nextOnRadarRevision);
+    struct dbh  *dbh,
+    uint32      *revision);
 
 int
-getSessionNextInSightRevision(
+getSessionInSightRevision(
     struct task *task,
-    struct dbh *dbh,
-    uint32 *nextInSightRevision);
+    struct dbh  *dbh,
+    uint32      *revision);
+
+int
+getSessionOnMapRevision(
+    struct task *task,
+    struct dbh  *dbh,
+    uint32      *revision);
+
+/*
+int
+getOnRadarMissingRevisions(
+    struct task *task,
+    struct dbh  *dbh,
+    uint32      lastKnownRevision,
+    uint32      *missingRevisions);
+
+int
+getInSightMissingRevisions(
+    struct task *task,
+    struct dbh  *dbh,
+    uint32      lastKnownRevision,
+    uint32      *missingRevisions);
+
+int
+getOnMapMissingRevisions(
+    struct task *task,
+    struct dbh  *dbh,
+    uint32      lastKnownRevision,
+    uint32      *missingRevisions);
+*/
 
 #endif

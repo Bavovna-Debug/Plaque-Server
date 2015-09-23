@@ -23,14 +23,9 @@ verifyGuest(struct task *task)
 		return -1;
 	}
 
-	paramValues   [0] = (char *)&task->clientIP;
-	paramTypes    [0] = INETOID;
-	paramLengths  [0] = strlen(task->clientIP);
-	paramFormats  [0] = 0;
+	dbhPushArgument(dbh, (char *)&task->clientIP, INETOID, strlen(task->clientIP), 0);
 
-	dbh->result = PQexecParams(dbh->conn,
-		"SELECT pool.verify_ip($1)",
-		1, paramTypes, paramValues, paramLengths, paramFormats, 0);
+	dbhExecute(dbh, "SELECT pool.verify_ip($1)");
 
 	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
@@ -50,7 +45,7 @@ verifyGuest(struct task *task)
 		return -1;
 	}
 
-	int ipOK = (strcmp(PQgetvalue(dbh->result, 0, 0), "t") == 0) ? 0 : -1;
+	int ipOK = (*PQgetvalue(dbh->result, 0, 0) == 1) ? 0 : -1;
 
 	pokeDB(dbh);
 
@@ -77,34 +72,25 @@ registerDevice(
 		return -1;
 	}
 
-	paramValues   [0] = (char *)&anticipant->vendorToken;
-	paramTypes    [0] = UUIDOID;
-	paramLengths  [0] = TokenBinarySize;
-	paramFormats  [0] = 1;
+	dbhPushArgument(dbh, (char *)&anticipant->vendorToken, UUIDOID, TokenBinarySize, 1);
 
-	paramValues   [1] = (char *)&anticipant->deviceName;
-	paramTypes    [1] = VARCHAROID;
-	paramLengths  [1] = strnlen(anticipant->deviceName, AnticipantDeviceNameLength);
-	paramFormats  [1] = 0;
+	dbhPushVARCHAR(dbh,
+		(char *)&anticipant->deviceName,
+		strnlen(anticipant->deviceName, AnticipantDeviceNameLength));
 
-	paramValues   [2] = (char *)&anticipant->deviceModel;
-	paramTypes    [2] = VARCHAROID;
-	paramLengths  [2] = strnlen(anticipant->deviceModel, AnticipantDeviceModelLength);
-	paramFormats  [2] = 0;
+	dbhPushVARCHAR(dbh,
+		(char *)&anticipant->deviceModel,
+		strnlen(anticipant->deviceModel, AnticipantDeviceModelLength));
 
-	paramValues   [3] = (char *)&anticipant->systemName;
-	paramTypes    [3] = VARCHAROID;
-	paramLengths  [3] = strnlen(anticipant->systemName, AnticipantSystemNamelLength);
-	paramFormats  [3] = 0;
+	dbhPushVARCHAR(dbh,
+		(char *)&anticipant->systemName,
+		strnlen(anticipant->systemName, AnticipantSystemNamelLength));
 
-	paramValues   [4] = (char *)&anticipant->systemVersion;
-	paramTypes    [4] = VARCHAROID;
-	paramLengths  [4] = strnlen(anticipant->systemVersion, AnticipantSystemVersionlLength);
-	paramFormats  [4] = 0;
+	dbhPushVARCHAR(dbh,
+		(char *)&anticipant->systemVersion,
+		strnlen(anticipant->systemVersion, AnticipantSystemVersionlLength));
 
-	dbh->result = PQexecParams(dbh->conn,
-		"SELECT auth.register_device($1, $2, $3, $4, $5)",
-		5, paramTypes, paramValues, paramLengths, paramFormats, 1);
+	dbhExecute(dbh, "SELECT auth.register_device($1, $2, $3, $4, $5)");
 
 	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
@@ -172,14 +158,11 @@ validateProfileName(struct paquet *paquet)
 		return -1;
 	}
 
-	paramValues   [0] = (char *)&validation.profileName;
-	paramTypes    [0] = VARCHAROID;
-	paramLengths  [0] = strnlen(validation.profileName, BonjourProfileNameLength);
-	paramFormats  [0] = 0;
+	dbhPushVARCHAR(dbh,
+		(char *)&validation.profileName,
+		strnlen(validation.profileName, BonjourProfileNameLength));
 
-	dbh->result = PQexecParams(dbh->conn,
-		"SELECT auth.is_profile_name_free($1)",
-		1, paramTypes, paramValues, paramLengths, paramFormats, 1);
+	dbhExecute(dbh, "SELECT auth.is_profile_name_free($1)");
 
 	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
@@ -207,7 +190,7 @@ validateProfileName(struct paquet *paquet)
 
 	resetBufferData(outputBuffer, 1);
 
-	uint32 status = (isPostgresBooleanTrue(PQgetvalue(dbh->result, 0, 0)))
+	uint32 status = (*PQgetvalue(dbh->result, 0, 0) == 1)
 		? PaquetProfileNameAvailable
 		: PaquetProfileNameAlreadyInUse;
 

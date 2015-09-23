@@ -2,6 +2,9 @@
 #define _KERNEL_
 
 int
-revisionSessionsForModifiedPlaques(void);
+revisionSessionsForDeviceDisplacement(int *busy);
+
+int
+revisionSessionsForModifiedPlaques(int *busy);
 
 #endif

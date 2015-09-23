@@ -8,7 +8,6 @@
 #define MAX_TASK_LIST_PAGE_SIZE		MB
 #define MAX_NUMBER_OF_TASK			NUMBER_OF_BUFFERS_TASK
 
-
 void **
 initTaskList(struct desk *desk);
 

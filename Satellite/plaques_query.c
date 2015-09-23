@@ -1,4 +1,5 @@
 #include <c.h>
+#include <semaphore.h>
 #include <string.h>
 
 #include "api.h"
@@ -10,7 +11,8 @@
 #include "report.h"
 #include "tasks.h"
 
-void
+/*
+static void
 journalUserLocation(
     struct paquet *paquet,
     struct dbh *dbh,
@@ -73,256 +75,7 @@ INSERT INTO journal.movements \
 VALUES ($1, $2, $3, $4, $5, $6)",
 		6, paramTypes, paramValues, paramLengths, paramFormats, 1);
 }
-
-int
-paquetListOfPlaquesForBroadcast(struct paquet *paquet)
-{
-	return 0;
-}
-
-int
-paquetListOfPlaquesOnRadar(struct paquet *paquet)
-{
-	struct task	*task = paquet->task;
-
-	const char	*paramValues[5];
-    Oid			paramTypes[5];
-    int			paramLengths[5];
-	int			paramFormats[5];
-
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
-
-	if (!expectedPayloadSize(paquet, sizeof(struct paquetRadar))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
-		return -1;
-	}
-
-	resetCursor(inputBuffer, 1);
-
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
-	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
-		return -1;
-	}
-
-    uint32 nextOnRadarRevision;
-    if (getSessionNextOnRadarRevision(task, dbh, &nextOnRadarRevision)) {
-		pokeDB(dbh);
-		return -1;
-	}
-
-	struct paquetRadar *radar = (struct paquetRadar *)inputBuffer->cursor;
-
-	paramValues   [0] = (char *)&task->sessionId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(task->sessionId);
-	paramFormats  [0] = 1;
-
-	paramValues   [1] = (char *)&radar->radarRevision;
-	paramTypes    [1] = INT4OID;
-	paramLengths  [1] = sizeof(radar->radarRevision);
-	paramFormats  [1] = 1;
-
-	paramValues   [2] = (char *)&radar->latitude;
-	paramTypes    [2] = FLOAT8OID;
-	paramLengths  [2] = sizeof(radar->latitude);
-	paramFormats  [2] = 1;
-
-	paramValues   [3] = (char *)&radar->longitude;
-	paramTypes    [3] = FLOAT8OID;
-	paramLengths  [3] = sizeof(radar->longitude);
-	paramFormats  [3] = 1;
-
-	paramValues   [4] = (char *)&radar->range;
-	paramTypes    [4] = FLOAT4OID;
-	paramLengths  [4] = sizeof(radar->range);
-	paramFormats  [4] = 1;
-
-	dbh->result = PQexecParams(dbh->conn, "\
-SELECT plaque_token, plaque_revision \
-FROM surrounding.query_plaques_on_radar($1, $2, $3, $4, $5)",
-		5, paramTypes, paramValues, paramLengths, paramFormats, 1);
-
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
-		return -1;
-	}
-
-	if (!dbhCorrectNumberOfColumns(dbh->result, 2)) {
-		pokeDB(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
-		return -1;
-	}
-
-	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
-		pokeDB(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
-		return -1;
-	}
-
-	if (!dbhCorrectColumnType(dbh->result, 1, INT4OID)) {
-		pokeDB(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
-		return -1;
-	}
-
-	resetBufferData(outputBuffer, 1);
-
-	outputBuffer = putData(outputBuffer, (char *)&nextOnRadarRevision, sizeof(nextOnRadarRevision));
-
-	uint32 numberOfPlaques = PQntuples(dbh->result);
-
-	reportLog("Found %d plaques", numberOfPlaques);
-
-	outputBuffer = putUInt32(outputBuffer, &numberOfPlaques);
-
-	int rowNumber;
-	for (rowNumber = 0; rowNumber < numberOfPlaques; rowNumber++)
-	{
-		char *plaqueToken = PQgetvalue(dbh->result, rowNumber, 0);
-		char *plaqueRevision = PQgetvalue(dbh->result, rowNumber, 1);
-		if ((plaqueToken == NULL) || (plaqueRevision == NULL)) {
-			reportError("No results");
-			pokeDB(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
-			return -1;
-		}
-
-		outputBuffer = putData(outputBuffer, plaqueToken, TokenBinarySize);
-		outputBuffer = putData(outputBuffer, plaqueRevision, sizeof(uint32));
-	}
-
-	pokeDB(dbh);
-
-	paquet->outputBuffer = paquet->inputBuffer;
-
-	return 0;
-}
-
-int
-paquetListOfPlaquesInSight(struct paquet *paquet)
-{
-	struct task	*task = paquet->task;
-
-	const char	*paramValues[5];
-    Oid			paramTypes[5];
-    int			paramLengths[5];
-	int			paramFormats[5];
-
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
-
-	if (!expectedPayloadSize(paquet, sizeof(struct paquetRadar))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
-		return -1;
-	}
-
-	resetCursor(inputBuffer, 1);
-
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
-	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
-		return -1;
-	}
-
-    uint32 nextInSightRevision;
-    if (getSessionNextInSightRevision(task, dbh, &nextInSightRevision)) {
-		pokeDB(dbh);
-		return -1;
-	}
-
-	struct paquetRadar *radar = (struct paquetRadar *)inputBuffer->cursor;
-
-	journalUserLocation(paquet, dbh, radar);
-
-	paramValues   [0] = (char *)&task->sessionId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(task->sessionId);
-	paramFormats  [0] = 1;
-
-	paramValues   [1] = (char *)&radar->radarRevision;
-	paramTypes    [1] = INT4OID;
-	paramLengths  [1] = sizeof(radar->radarRevision);
-	paramFormats  [1] = 1;
-
-	paramValues   [2] = (char *)&radar->latitude;
-	paramTypes    [2] = FLOAT8OID;
-	paramLengths  [2] = sizeof(radar->latitude);
-	paramFormats  [2] = 1;
-
-	paramValues   [3] = (char *)&radar->longitude;
-	paramTypes    [3] = FLOAT8OID;
-	paramLengths  [3] = sizeof(radar->longitude);
-	paramFormats  [3] = 1;
-
-	paramValues   [4] = (char *)&radar->range;
-	paramTypes    [4] = FLOAT4OID;
-	paramLengths  [4] = sizeof(radar->range);
-	paramFormats  [4] = 1;
-
-	dbh->result = PQexecParams(dbh->conn, "\
-SELECT plaque_token, plaque_revision \
-FROM surrounding.query_plaques_in_sight($1, $2, $3, $4, $5)",
-		5, paramTypes, paramValues, paramLengths, paramFormats, 1);
-
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
-		return -1;
-	}
-
-	if (!dbhCorrectNumberOfColumns(dbh->result, 2)) {
-		pokeDB(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
-		return -1;
-	}
-
-	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
-		pokeDB(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
-		return -1;
-	}
-
-	if (!dbhCorrectColumnType(dbh->result, 1, INT4OID)) {
-		pokeDB(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
-		return -1;
-	}
-
-	resetBufferData(outputBuffer, 1);
-
-	outputBuffer = putData(outputBuffer, (char *)&nextInSightRevision, sizeof(nextInSightRevision));
-
-	uint32 numberOfPlaques = PQntuples(dbh->result);
-
-	reportLog("Found %d plaques", numberOfPlaques);
-
-	outputBuffer = putUInt32(outputBuffer, &numberOfPlaques);
-
-	int rowNumber;
-	for (rowNumber = 0; rowNumber < numberOfPlaques; rowNumber++)
-	{
-		char *plaqueToken = PQgetvalue(dbh->result, rowNumber, 0);
-		char *plaqueRevision = PQgetvalue(dbh->result, rowNumber, 1);
-		if ((plaqueToken == NULL) || (plaqueRevision == NULL)) {
-			reportError("No results");
-			pokeDB(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
-			return -1;
-		}
-
-		outputBuffer = putData(outputBuffer, plaqueToken, TokenBinarySize);
-		outputBuffer = putData(outputBuffer, plaqueRevision, sizeof(uint32));
-	}
-
-	pokeDB(dbh);
-
-	paquet->outputBuffer = paquet->inputBuffer;
-
-	return 0;
-}
+*/
 
 int
 paquetDownloadPlaques(struct paquet *paquet)
@@ -404,9 +157,11 @@ WHERE plaque_token = $1",
 		}
 
 		if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-			pokeDB(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
-			return -1;
+		    reportLog("Requested plaque not found");
+			continue;
+//			pokeDB(dbh);
+//			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+//			return -1;
 		}
 
 		if (!dbhCorrectColumnType(dbh->result, 0, INT4OID) ||
@@ -435,9 +190,9 @@ WHERE plaque_token = $1",
 		char *latitude			= PQgetvalue(dbh->result, 0, 3);
 		char *longitude			= PQgetvalue(dbh->result, 0, 4);
 		char *altitude			= PQgetvalue(dbh->result, 0, 5);
-		char directed			= PQgetisnull(dbh->result, 0, 6) ? '0' : '1';
+		char directed			= PQgetisnull(dbh->result, 0, 6) ? 0 : 1;
 		char *direction			= PQgetvalue(dbh->result, 0, 6);
-		char tilted				= PQgetisnull(dbh->result, 0, 7) ? '0' : '1';
+		char tilted				= PQgetisnull(dbh->result, 0, 7) ? 0 : 1;
 		char *tilt				= PQgetvalue(dbh->result, 0, 7);
 		char *width				= PQgetvalue(dbh->result, 0, 8);
 		char *height			= PQgetvalue(dbh->result, 0, 9);

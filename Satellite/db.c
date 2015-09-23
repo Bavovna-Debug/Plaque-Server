@@ -8,7 +8,7 @@
 #include "report.h"
 
 #define PEEK_DBH_RETRIES				5
-#define PEEK_DBH_RETRY_SLEEP			0.2
+#define PEEK_DBH_RETRY_SLEEP			1500000
 
 #define NOTHING							-1
 
@@ -73,8 +73,6 @@ initDBChain(const char *chainName, int numberOfConnections, char *conninfo)
 
 		dbh->dbhId = dbhId;
 
-		pthread_spin_init(&dbh->lock, PTHREAD_PROCESS_PRIVATE);
-
 		dbh->result = NULL;
 	}
 
@@ -100,8 +98,6 @@ releaseDBChain(struct dbChain *chain)
 		struct dbh *dbh = chain->block + dbhId * sizeof(struct dbh);
 
 		disconnectFromPostgres(dbh);
-
-		pthread_spin_destroy(&dbh->lock);
 	}
 
 	pthread_spin_destroy(&chain->lock);
@@ -141,7 +137,7 @@ peekDB(struct dbChain *chain)
 		pthread_spin_unlock(&chain->lock);
 
 		if (dbh == NULL) {
-			sleep(PEEK_DBH_RETRY_SLEEP);
+			usleep(PEEK_DBH_RETRY_SLEEP);
 		} else {
 			break;
 		}
@@ -167,20 +163,6 @@ peekDB(struct dbChain *chain)
 			return NULL;
 		}
 
-		int locked = pthread_spin_trylock(&dbh->lock);
-		if (locked != 0) {
-			reportLog("ROLLBACK for DB %d", dbh->dbhId);
-
-			pthread_spin_unlock(&dbh->lock);
-
-			pthread_spin_lock(&dbh->lock);
-
-			// Rollback all previous transactions.
-			//
-			PGresult *result = PQexec(dbh->conn, "ROLLBACK");
-			PQclear(result);
-		}
-
 		PGresult *result;
 
 		// Start the transaction block.
@@ -198,6 +180,7 @@ peekDB(struct dbChain *chain)
 				pokeDB(dbh);
 				dbh = NULL;
 			} else {
+				PQclear(result);
 				result = PQexec(dbh->conn, "BEGIN");
 				if (PQresultStatus(result) != PGRES_COMMAND_OK) {
 					//
@@ -212,6 +195,8 @@ peekDB(struct dbChain *chain)
 		}
 
 		PQclear(result);
+
+		dbh->arguments.numberOfArguments = 0;
 	}
 
 	if (dbh == NULL)
@@ -251,10 +236,8 @@ pokeDB(struct dbh *dbh)
 		//
 		// Otherwise disconnect this DB handler from DB so that it will be connected on next use.
 		//
-		disconnectFromPostgres(dbh);
+//		disconnectFromPostgres(dbh);
 	}
-
-	pthread_spin_unlock(&dbh->lock);
 
 	pthread_spin_lock(&chain->lock);
 
@@ -294,13 +277,17 @@ sqlState(PGresult *result, const char *checkState)
 }
 
 inline int
-dbhTuplesOK(struct dbh *dbh, PGresult *result)
+__dbhTuplesOK(
+	const char	*functionName,
+	struct dbh	*dbh,
+	PGresult	*result)
 {
 	int status = PQresultStatus(result);
 	if (status == PGRES_TUPLES_OK) {
 		return 1;
 	} else {
-		reportError("Cannot execute query: status=%d (%s)",
+		reportError("DB (%s) Cannot execute query: status=%d (%s)",
+				__FUNCTION__,
 				status,
 				PQerrorMessage(dbh->conn));
 		return 0;
@@ -308,13 +295,17 @@ dbhTuplesOK(struct dbh *dbh, PGresult *result)
 }
 
 inline int
-dbhCommandOK(struct dbh *dbh, PGresult *result)
+__dbhCommandOK(
+	const char	*functionName,
+	struct dbh	*dbh,
+	PGresult	*result)
 {
 	int status = PQresultStatus(result);
 	if (status == PGRES_COMMAND_OK) {
 		return 1;
 	} else {
-		reportError("Cannot execute command: status=%d (%s)",
+		reportError("DB (%s) Cannot execute command: status=%d (%s)",
+				__FUNCTION__,
 				status,
 				PQerrorMessage(dbh->conn));
 		return 0;
@@ -322,13 +313,17 @@ dbhCommandOK(struct dbh *dbh, PGresult *result)
 }
 
 inline int
-dbhCorrectNumberOfColumns(PGresult *result, int expectedNumberOfColumns)
+__dbhCorrectNumberOfColumns(
+	const char	*functionName,
+	PGresult	*result,
+	int			expectedNumberOfColumns)
 {
 	int numberOfColumns = PQnfields(result);
 	if (numberOfColumns == expectedNumberOfColumns) {
 		return 1;
 	} else {
-		reportError("Returned %d columns, expected %d",
+		reportError("DB (%s) Returned %d columns, expected %d",
+				__FUNCTION__,
 				numberOfColumns,
 				expectedNumberOfColumns);
 		return 0;
@@ -336,13 +331,17 @@ dbhCorrectNumberOfColumns(PGresult *result, int expectedNumberOfColumns)
 }
 
 inline int
-dbhCorrectNumberOfRows(PGresult *result, int expectedNumberOfRows)
+__dbhCorrectNumberOfRows(
+	const char	*functionName,
+	PGresult	*result,
+	int			expectedNumberOfRows)
 {
 	int numberOfRows = PQntuples(result);
 	if (numberOfRows == expectedNumberOfRows) {
 		return 1;
 	} else {
-		reportError("Returned %d rows, expected %d",
+		reportError("DB (%s) Returned %d rows, expected %d",
+				functionName,
 				numberOfRows,
 				expectedNumberOfRows);
 		return 0;
@@ -350,18 +349,110 @@ dbhCorrectNumberOfRows(PGresult *result, int expectedNumberOfRows)
 }
 
 inline int
-dbhCorrectColumnType(PGresult *result, int columnNumber, Oid expectedColumnType)
+__dbhCorrectColumnType(
+	const char	*functionName,
+	PGresult	*result,
+	int 		columnNumber,
+	Oid			expectedColumnType)
 {
 	int columnType = PQftype(result, columnNumber);
 	if (columnType == expectedColumnType) {
 		return 1;
 	} else {
-		reportError("Data OID for column %d is %d, expected %d",
+		reportError("DB (%s) Data OID for column %d is %d, expected %d",
+				functionName,
 				columnNumber,
 				columnType,
 				expectedColumnType);
 		return 0;
 	}
+}
+
+inline void
+dbhExecute(struct dbh *dbh, const char *query)
+{
+	if (dbh->result != NULL)
+		PQclear(dbh->result);
+
+	dbh->result = PQexecParams(dbh->conn, query,
+		dbh->arguments.numberOfArguments,
+		dbh->arguments.types,
+		dbh->arguments.values,
+		dbh->arguments.lengths,
+		dbh->arguments.formats,
+		1);
+
+	dbh->arguments.numberOfArguments = 0;
+}
+
+inline void
+dbhPushArgument(struct dbh *dbh, char *value, Oid type, int length, int format)
+{
+	dbh->arguments.values   [dbh->arguments.numberOfArguments] = value;
+	dbh->arguments.types    [dbh->arguments.numberOfArguments] = type;
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = length;
+	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = format;
+	dbh->arguments.numberOfArguments++;
+}
+
+inline void
+dbhPushBIGINT(struct dbh *dbh, uint64 *value)
+{
+	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
+	dbh->arguments.types    [dbh->arguments.numberOfArguments] = INT8OID;
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = sizeof(uint64);
+	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
+	dbh->arguments.numberOfArguments++;
+}
+
+inline void
+dbhPushINTEGER(struct dbh *dbh, uint32 *value)
+{
+	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
+	dbh->arguments.types    [dbh->arguments.numberOfArguments] = INT4OID;
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = sizeof(uint32);
+	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
+	dbh->arguments.numberOfArguments++;
+}
+
+inline void
+dbhPushDOUBLE(struct dbh *dbh, double *value)
+{
+	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
+	dbh->arguments.types    [dbh->arguments.numberOfArguments] = FLOAT8OID;
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = sizeof(double);
+	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
+	dbh->arguments.numberOfArguments++;
+}
+
+inline void
+dbhPushREAL(struct dbh *dbh, float *value)
+{
+	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
+	dbh->arguments.types    [dbh->arguments.numberOfArguments] = FLOAT4OID;
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = sizeof(float);
+	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
+	dbh->arguments.numberOfArguments++;
+}
+
+inline void
+dbhPushVARCHAR(struct dbh *dbh, char *value, int maxLength)
+{
+	dbh->arguments.values   [dbh->arguments.numberOfArguments] = value;
+	dbh->arguments.types    [dbh->arguments.numberOfArguments] = VARCHAROID;
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = maxLength;
+	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 0;
+	dbh->arguments.numberOfArguments++;
+}
+
+inline void
+dbhPushUUID(struct dbh *dbh, char *value)
+{
+	dbh->arguments.values   [dbh->arguments.numberOfArguments] = value;
+	dbh->arguments.types    [dbh->arguments.numberOfArguments] = UUIDOID;
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = UUIDBinarySize;
+	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
+	dbh->arguments.numberOfArguments++;
 }
 
 inline uint64

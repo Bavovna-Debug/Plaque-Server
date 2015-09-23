@@ -1,3 +1,4 @@
+#include <c.h>
 #include <errno.h>
 #include <poll.h>
 #include <pthread.h>
@@ -14,26 +15,30 @@
 #include "listener.h"
 #include "report.h"
 
-static void
+static int
 conversation(struct desk *desk, int sockFD);
 
-static void
-xmit(struct desk *desk, int sockFD);
+static int
+broadcasterDialog(struct desk *desk, int sockFD);
 
 static int
 sendReceipt(int sockFD, struct session *session);
 
 static int
-receiveReceipt(int sockFD, struct session *session);
+receiveReceipt(int sockFD, struct session *session, uint64 *receiptId);
 
 void *
 listenerThread(void *arg)
 {
-	struct desk *desk = (struct desk *)arg;
+	struct desk         *desk;
+	int                 listenSockFD;
+	int                 clientSockFD;
+	struct sockaddr_in  serverAddress;
+	struct sockaddr_in  clientAddress;
+	socklen_t           clientAddressLength;
+	int                 rc;
 
-	int listenSockFD, clientSockFD;
-	struct sockaddr_in serverAddress, clientAddress;
-	socklen_t clientAddressLength;
+    desk = (struct desk *)arg;
 
     while (1)
     {
@@ -77,7 +82,9 @@ listenerThread(void *arg)
 	    	    inet_ntoa(clientAddress.sin_addr),
 		        clientAddress.sin_port);
 
-            conversation(desk, clientSockFD);
+            rc = conversation(desk, clientSockFD);
+            if (rc != 0)
+                reportLog("Broadcaster conversation has broken");
 
 	    	close(clientSockFD);
 	    }
@@ -95,7 +102,7 @@ listenerKnockKnock(struct desk *desk)
     sem_post(desk->listener.readyToGo);
 }
 
-static void
+static int
 conversation(struct desk *desk, int sockFD)
 {
 	struct timespec     ts;
@@ -104,7 +111,9 @@ conversation(struct desk *desk, int sockFD)
     // Immediately after a connection is established try to send revised sessions
     // in case there are some pending.
     //
-    xmit(desk, sockFD);
+    rc = broadcasterDialog(desk, sockFD);
+    if (rc != 0)
+        return rc;
 
     while (1)
     {
@@ -144,32 +153,56 @@ conversation(struct desk *desk, int sockFD)
             //
             // Semaphore show green light to start transfer.
             //
-            xmit(desk, sockFD);
+            rc = broadcasterDialog(desk, sockFD);
+            if (rc != 0)
+                break;
         }
     }
+
+    return rc;
 }
 
-static void
-xmit(struct desk *desk, int sockFD)
+static int
+broadcasterDialog(struct desk *desk, int sockFD)
 {
 	int                 sessionNumber;
 	struct session      *session;
+    uint64              receiptId;
     int                 rc;
 
     pthread_spin_lock(&desk->watchdog.lock);
 
-    if (desk->watchdog.numberOfSessions > 0)
-    {
+    if (desk->watchdog.numberOfSessions == 0) {
+        rc = 0;
+    } else {
         rc = 0;
 	    for (sessionNumber = 0; sessionNumber < desk->watchdog.numberOfSessions; sessionNumber++)
     	{
         	session = &desk->watchdog.sessions[sessionNumber];
 
+        	if (session->sessionId == 0)
+        	    continue;
+
             rc = sendReceipt(sockFD, session);
             if (rc != 0)
                 break;
 
-            rc = receiveReceipt(sockFD, session);
+            rc = receiveReceipt(sockFD, session, &receiptId);
+            if (rc != 0)
+                break;
+
+            if (receiptId == session->receiptId) {
+                reportLog("Received confirmation for revised session %lu",
+                    be64toh(session->sessionId));
+            } else {
+                reportLog("Confirmation for revised session %lu failed, expected %lu, received %lu",
+                    be64toh(session->sessionId),
+                    be64toh(session->receiptId),
+                    be64toh(receiptId));
+
+                rc = -1;
+                break;
+            }
         }
 
         if (rc == 0)
@@ -177,6 +210,8 @@ xmit(struct desk *desk, int sockFD)
     }
 
     pthread_spin_unlock(&desk->watchdog.lock);
+
+    return rc;
 }
 
 static int
@@ -185,8 +220,8 @@ sendReceipt(int sockFD, struct session *session)
 	struct pollfd		pollFD;
 	int                 pollRC;
 	ssize_t				bytesToSend;
-	ssize_t				sentTotal;
 	ssize_t				sentPerStep;
+	ssize_t				sentTotal;
 
 	pollFD.fd = sockFD;
 	pollFD.events = POLLOUT;
@@ -201,12 +236,13 @@ sendReceipt(int sockFD, struct session *session)
 		reportLog("Wait for send timed out");
 		return -1;
 	} else if (pollRC != 1) {
-		reportError("Poll error on receive");
+		reportError("Poll error on send");
 		return -1;
 	}
 
 	bytesToSend = sizeof(struct session);
 	sentTotal = 0;
+
 	do {
 		sentPerStep = write(sockFD,
 				session + sentTotal,
@@ -226,7 +262,48 @@ sendReceipt(int sockFD, struct session *session)
 }
 
 static int
-receiveReceipt(int sockFD, struct session *session)
+receiveReceipt(int sockFD, struct session *session, uint64 *receiptId)
 {
+	struct pollfd		pollFD;
+	int                 pollRC;
+	ssize_t		        expectedSize;
+	ssize_t				receivedPerStep;
+	ssize_t				receivedTotal;
+
+	pollFD.fd = sockFD;
+	pollFD.events = POLLIN;
+
+	pollRC = poll(&pollFD, 1, TIMEOUT_ON_POLL_FOR_RECEIPT);
+	if (pollFD.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+		reportError("Poll error on receive: revents=0x%04X", pollFD.revents);
+		return -1;
+	}
+
+	if (pollRC == 0) {
+		reportLog("Wait for receive timed out");
+		return -1;
+	} else if (pollRC != 1) {
+		reportError("Poll error on receive");
+		return -1;
+	}
+
+    expectedSize = sizeof(uint64);
+	receivedTotal = 0;
+
+	do {
+		receivedPerStep = read(sockFD,
+				receiptId + receivedTotal,
+				expectedSize - receivedTotal);
+		if (receivedPerStep == 0) {
+			reportError("Nothing read from socket");
+			return -1;
+		} else if (receivedPerStep == -1) {
+			reportError("Error reading from socket: errno=%d", errno);
+			return -1;
+		}
+
+		receivedTotal += receivedPerStep;
+	} while (receivedTotal < expectedSize);
+
 	return 0;
 }

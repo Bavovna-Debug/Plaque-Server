@@ -14,7 +14,8 @@
 #include "kernel.h"
 #include "report.h"
 
-#define LATCH_TIMEOUT 1000L
+#define LATCH_TIMEOUT_WHEN_IDLE 1000
+#define LATCH_TIMEOUT_WHEN_BUSY 100
 
 /* Essential for shared libraries. */
 PG_MODULE_MAGIC;
@@ -59,6 +60,8 @@ schedulerMain(Datum *arg)
 {
     static Latch mainLatch;
     int latchStatus;
+    int latchTimeout;
+    int numberOfProcessedSessions;
 
 	if (PQisthreadsafe() != 1)
 		proc_exit(-1);
@@ -77,11 +80,18 @@ schedulerMain(Datum *arg)
 
 	while (!gotSigTerm)
 	{
-	    revisionSessionsForModifiedPlaques();
+	    numberOfProcessedSessions = 0;
+	    revisionSessionsForDeviceDisplacement(&numberOfProcessedSessions);
+	    revisionSessionsForModifiedPlaques(&numberOfProcessedSessions);
+
+        if (numberOfProcessedSessions > 0)
+    	    reportLog("Processed %d sessions", numberOfProcessedSessions);
+
+        latchTimeout = (numberOfProcessedSessions) ? LATCH_TIMEOUT_WHEN_BUSY : LATCH_TIMEOUT_WHEN_IDLE;
 
    		latchStatus = WaitLatch(&MyProc->procLatch,
             WL_LATCH_SET | WL_TIMEOUT | WL_POSTMASTER_DEATH,
-            LATCH_TIMEOUT);
+            latchTimeout);
     	ResetLatch(&MyProc->procLatch);
 
     	/*

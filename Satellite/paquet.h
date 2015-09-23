@@ -43,8 +43,13 @@ typedef struct paquetPilot {
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-typedef struct paquetRadar {
-	uint32  		radarRevision;
+typedef struct paquetBroadcast {
+	uint32  		lastKnownRevision;
+} paquetRadar;
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+typedef struct paquetDisplacement {
 	double			latitude;
 	double			longitude;
 	float			altitude;
@@ -53,7 +58,7 @@ typedef struct paquetRadar {
 	char			floorLevelAvailable;
 	int32  			floorLevel;
 	float			range;
-} paquetRadar;
+} paquetDisplacement;
 #pragma pack(pop)
 
 #pragma pack(push, 1)
@@ -132,8 +137,11 @@ typedef struct paquetNotificationsToken {
 } paquetNotificationsToken;
 #pragma pack(pop)
 
+void *
+paquetThread(void *arg);
+
 void
-rejectPaquetASBusy(struct paquet *paquet);
+paquetCancel(struct paquet *paquet);
 
 int
 minimumPayloadSize(struct paquet *paquet, int minimumSize);
@@ -143,8 +151,5 @@ expectedPayloadSize(struct paquet *paquet, int expectedSize);
 
 uint64
 deviceIdByToken(struct dbh *dbh, char *deviceToken);
-
-uint64
-profileIdByToken(struct dbh *dbh, char *profileToken);
 
 #endif

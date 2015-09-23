@@ -101,14 +101,20 @@ broadcasterMain(Datum *arg)
 
 	while (!gotSigTerm)
 	{
-	    numberOfSessions = numberOfRevisedSessions();
+	    if (desk->watchdog.numberOfSessions == 0) {
+    	    numberOfSessions = numberOfRevisedSessions();
 
-	    if (numberOfSessions > 0) {
-            getListOfRevisedSessions(desk);
+	        if (numberOfSessions > 0) {
+                getListOfRevisedSessions(desk);
+                listenerKnockKnock(desk);
+            }
+
+            latchTimeout = (numberOfSessions == 0) ? LATCH_TIMEOUT_IDLE : LATCH_TIMEOUT_BUSY;
+        } else {
             listenerKnockKnock(desk);
-        }
 
-        latchTimeout = (numberOfSessions == 0) ? LATCH_TIMEOUT_IDLE : LATCH_TIMEOUT_BUSY;
+            latchTimeout = LATCH_TIMEOUT_BUSY;
+        }
 
    		latchStatus = WaitLatch(&MyProc->procLatch,
             WL_LATCH_SET | WL_TIMEOUT | WL_POSTMASTER_DEATH,

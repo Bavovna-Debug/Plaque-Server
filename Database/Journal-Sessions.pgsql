@@ -11,8 +11,10 @@ CREATE TABLE journal.sessions
 	in_cache_revision	INTEGER						NOT NULL DEFAULT 0,
 	on_radar_revision	INTEGER						NOT NULL DEFAULT 0,
 	in_sight_revision	INTEGER						NOT NULL DEFAULT 0,
+	on_map_revision	    INTEGER						NOT NULL DEFAULT 0,
 	on_radar_revised    BOOLEAN                     NOT NULL DEFAULT TRUE,
 	in_sight_revised    BOOLEAN                     NOT NULL DEFAULT TRUE,
+	on_map_revised      BOOLEAN                     NOT NULL DEFAULT TRUE,
 	on_radar_coordinate	EARTH						NULL DEFAULT NULL,
 	in_sight_coordinate	EARTH						NULL DEFAULT NULL,
 	on_radar_range      REAL                        NOT NULL DEFAULT 200000.0,
@@ -34,13 +36,13 @@ CREATE TABLE journal.sessions
 		FOREIGN KEY (device_id)
 		REFERENCES auth.devices (device_id)
 		ON UPDATE NO ACTION
-		ON DELETE RESTRICT,
+		ON DELETE CASCADE,
 
 	CONSTRAINT sessions_satellite_foreign_key
 		FOREIGN KEY (satellite_id)
 		REFERENCES operator.satellites (satellite_id)
 		ON UPDATE NO ACTION
-		ON DELETE RESTRICT
+		ON DELETE SET NULL
 )
 TABLESPACE vp_journal;
 

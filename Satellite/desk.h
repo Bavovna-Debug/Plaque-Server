@@ -6,31 +6,35 @@
 #include "db.h"
 #include "tasks.h"
 
-#define TEST
+#define SANDBOX
 
-#ifdef TEST
+#ifdef SANDBOX
 
-#define NUMBER_OF_BUFFERS_TASK		    20L
-#define NUMBER_OF_BUFFERS_PAQUET	    20L
-#define NUMBER_OF_BUFFERS_1K		    20L
+#define NUMBER_OF_BUFFERS_TASK		    50L
+#define NUMBER_OF_BUFFERS_PAQUET	    50L
+#define NUMBER_OF_BUFFERS_256		    50L
+#define NUMBER_OF_BUFFERS_512		    50L
+#define NUMBER_OF_BUFFERS_1K		    50L
 #define NUMBER_OF_BUFFERS_4K		    10L
 #define NUMBER_OF_BUFFERS_1M		    10L
 
-#define NUMBER_OF_DBH_GUARDIANS			10//2000
-#define NUMBER_OF_DBH_AUTHENTICATION	10//2000
-#define NUMBER_OF_DBH_PLAQUES_SESSION	10//4000
+#define NUMBER_OF_DBH_GUARDIANS			10
+#define NUMBER_OF_DBH_AUTHENTICATION	10
+#define NUMBER_OF_DBH_PLAQUES_SESSION	40
 
 #else
 
-#define NUMBER_OF_BUFFERS_TASK		    20000000L
-#define NUMBER_OF_BUFFERS_PAQUET	    30000000L
-#define NUMBER_OF_BUFFERS_1K		    10000000L
+#define NUMBER_OF_BUFFERS_TASK		     2000000L
+#define NUMBER_OF_BUFFERS_PAQUET	     8000000L
+#define NUMBER_OF_BUFFERS_256		     2000000L
+#define NUMBER_OF_BUFFERS_512		     2000000L
+#define NUMBER_OF_BUFFERS_1K		     6000000L
 #define NUMBER_OF_BUFFERS_4K		      200000L
-#define NUMBER_OF_BUFFERS_1M	    	    2000L
+#define NUMBER_OF_BUFFERS_1M	    	     200L
 
-#define NUMBER_OF_DBH_GUARDIANS			2000
-#define NUMBER_OF_DBH_AUTHENTICATION	2000
-#define NUMBER_OF_DBH_PLAQUES_SESSION	4000
+#define NUMBER_OF_DBH_GUARDIANS			      50
+#define NUMBER_OF_DBH_AUTHENTICATION	     200
+#define NUMBER_OF_DBH_PLAQUES_SESSION	     600
 
 #endif
 
@@ -58,6 +62,7 @@ typedef struct desk {
 
     struct {
         uint16_t        portNumber;
+        int             listenSockFD;
     } listener;
 } desk_t;
 

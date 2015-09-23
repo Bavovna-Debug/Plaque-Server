@@ -7,6 +7,7 @@
 
 #include "buffers.h"
 #include "desk.h"
+#include "report.h"
 
 #define TaskStatusGood							0x0000000000000000
 #define TaskStatusOutOfMemory					0x0000000000000001
@@ -45,6 +46,8 @@
 #define TaskStatusMissingAnticipantRecord		0x0200000000000000
 #define TaskStatusCannotSendDialogueVerdict		0x0400000000000000
 
+#define TaskStatusOtherError					0x8000000000000000
+
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 typedef struct task {
@@ -52,22 +55,44 @@ typedef struct task {
 	struct desk     	*desk;
 	pthread_t			thread;
 	int					taskId;
-	int					sockFD;
 	uint64  			deviceId;
 	uint64  			profileId;
 	uint64  			sessionId;
-	long				status;
 	pthread_spinlock_t	statusLock;
-	pthread_spinlock_t	broadcastLock;
-	pthread_spinlock_t	heavyJobLock;
-	pthread_spinlock_t	downloadLock;
-	sem_t				waitBroadcast;
+	long				status;
 	char				clientIP[MAX(INET_ADDRSTRLEN, INET6_ADDRSTRLEN)];
+
+	struct {
+		uint32			onRadar;
+		uint32			inSight;
+		uint32			onMap;
+	} lastKnownRevision;
+
+	struct {
+		int					sockFD;
+		pthread_spinlock_t	receiveLock;
+		pthread_spinlock_t	sendLock;
+	} xmit;
+
+	struct {
+		pthread_spinlock_t	chainLock;
+		pthread_spinlock_t	broadcastLock;
+		pthread_spinlock_t	heavyJobLock;
+		pthread_spinlock_t	downloadLock;
+		struct paquet		*chainAnchor;
+		struct paquet		*broadcastOnRadar;
+		struct paquet		*broadcastInSight;
+		struct paquet		*broadcastOnMap;
+		sem_t				waitForBroadcastInSight;
+		sem_t				waitForBroadcastOnRadar;
+		sem_t				waitForBroadcastOnMap;
+	} paquet;
 } task_t;
 
 typedef struct paquet {
 	struct buffer		*containerBuffer;
 	struct task			*task;
+	struct paquet		*nextInChain;
 	pthread_t			thread;
 	struct pollfd		pollFD;
 	int					paquetId;
@@ -83,10 +108,19 @@ startTask(
 	int				sockFD,
 	char			*clientIP);
 
+#define setTaskStatus(task, statusMask) \
+do { reportLog("Task (%s) set status 0x%016lX", __FUNCTION__, statusMask); __setTaskStatus(task, statusMask); } while (0)
+
 inline void
-setTaskStatus(struct task *task, long statusMask);
+__setTaskStatus(struct task *task, long statusMask);
 
 inline long
 getTaskStatus(struct task *task);
+
+void
+appentPaquetToTask(struct task *task, struct paquet *paquet);
+
+void
+removePaquetFromTask(struct task *task, struct paquet *paquet);
 
 #endif

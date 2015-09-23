@@ -10,161 +10,26 @@
 #include "paquet.h"
 #include "plaques_edit.h"
 #include "plaques_query.h"
+#include "profiles.h"
+#include "report.h"
 #include "session.h"
 #include "tasks.h"
 #include "task_kernel.h"
 #include "task_xmit.h"
 
-#ifdef DEBUG
-#define DEBUG_DIALOGUE_ANTICIPANT
-#define DEBUG_DIALOGUE_REGULAR
-#define DEBUG_AUTHENTIFY_DIALOGUE
-#define DEBUG_TASK_THREAD
+#ifdef ANTICIPANT_ALL
+#define ANTICIPANT_DIALOGUE
+#define ANTICIPANT_DIALOGUE_REGULAR
+#define ANTICIPANT_DIALOGUE_AUTH
 #endif
-
-void *
-paquetCleanup(void *arg);
-
-void *
-paquetThread(void *arg)
-{
-	struct paquet *paquet = (struct paquet *)arg;
-	struct task *task = paquet->task;
-	int rc;
-
-    pthread_cleanup_push(&paquetCleanup, paquet);
-
-	switch (paquet->commandCode)
-	{
-/*
-		case CommandAnticipant:
-			rc = registerDevice(paquet);
-			break;
-*/
-		case PaquetListOfPlaquesForBroadcast:
-			if (pthread_spin_trylock(&task->broadcastLock) == 0) {
-				rc = paquetListOfPlaquesForBroadcast(paquet);
-				pthread_spin_unlock(&task->broadcastLock);
-			} else {
-				rejectPaquetASBusy(paquet);
-			}
-			break;
-
-/*
-		case PaquetListOfPlaquesOnMap:
-			if (pthread_spin_trylock(&task->heavyJobLock) == 0) {
-				rc = paquetListOfPlaquesOnRadar(paquet);
-				pthread_spin_unlock(&task->heavyJobLock);
-			} else {
-				rejectPaquetASBusy(paquet);
-			}
-			break;
-
-		case PaquetListOfPlaquesInSight:
-			if (pthread_spin_trylock(&task->heavyJobLock) == 0) {
-				rc = paquetListOfPlaquesInSight(paquet);
-				pthread_spin_unlock(&task->heavyJobLock);
-			} else {
-				rejectPaquetASBusy(paquet);
-			}
-			break;
-*/
-
-		case PaquetDownloadPlaquesInSight:
-		case PaquetDownloadPlaquesOnMap:
-			if (pthread_spin_trylock(&task->downloadLock) == 0) {
-				rc = paquetDownloadPlaques(paquet);
-				pthread_spin_unlock(&task->downloadLock);
-			} else {
-				rejectPaquetASBusy(paquet);
-			}
-			break;
-
-		case PaquetPostNewPlaque:
-			rc = paquetPostNewPlaque(paquet);
-			break;
-
-		case PaquetPlaqueModifiedLocation:
-			rc = paquetChangePlaqueLocation(paquet);
-			break;
-
-		case PaquetPlaqueModifiedOrientation:
-			rc = paquetChangePlaqueOrientation(paquet);
-			break;
-
-		case PaquetPlaqueModifiedSize:
-			rc = paquetChangePlaqueSize(paquet);
-			break;
-
-		case PaquetPlaqueModifiedColors:
-			rc = paquetChangePlaqueColors(paquet);
-			break;
-
-		case PaquetPlaqueModifiedFont:
-			rc = paquetChangePlaqueFont(paquet);
-			break;
-
-		case PaquetPlaqueModifiedInscription:
-			rc = paquetChangePlaqueInscription(paquet);
-			break;
-
-		case PaquetDownloadProfiles:
-			rc = getProfiles(paquet);
-			break;
-
-		case PaquetNotificationsToken:
-			rc = notificationsToken(paquet);
-			break;
-
-		case PaquetValidateProfileName:
-			rc = validateProfileName(paquet);
-			break;
-
-		case PaquetCreateProfile:
-			rc = createProfile(paquet);
-			break;
-
-		default:
-			printf("Unknown command: 0x%08X\n", paquet->commandCode);
-			rc = -1;
-	}
-
-	if (rc == 0)
-		sendPaquet(paquet);
-
-	if (paquet->inputBuffer == paquet->outputBuffer) {
-		if (paquet->inputBuffer != NULL)
-			pokeBuffer(paquet->inputBuffer);
-	} else {
-		if (paquet->inputBuffer != NULL)
-			pokeBuffer(paquet->inputBuffer);
-		if (paquet->outputBuffer != NULL)
-			pokeBuffer(paquet->outputBuffer);
-	}
-
-    pthread_cleanup_pop(1);
-
-	pthread_exit(NULL);
-
-	return NULL;
-}
-
-void *
-paquetCleanup(void *arg)
-{
-	struct paquet *paquet = (struct paquet *)arg;
-	struct buffer *buffer = paquet->containerBuffer;
-
-    pokeBuffer(buffer);
-}
 
 void
 dialogueAnticipant(struct task *task)
 {
 	int rc;
 
-#ifdef DEBUG_DIALOGUE_ANTICIPANT
-        fprintf(stderr, "Anticipant begin\n");
+#ifdef ANTICIPANT_DIALOGUE
+        reportLog("Anticipant begin");
 #endif
 
 	struct dialogueAnticipant anticipant;
@@ -183,8 +48,8 @@ dialogueAnticipant(struct task *task)
 	if (rc != 0)
 		return;
 
-#ifdef DEBUG_DIALOGUE_ANTICIPANT
-        fprintf(stderr, "Anticipant end\n");
+#ifdef ANTICIPANT_DIALOGUE
+        reportLog("Anticipant end");
 #endif
 }
 
@@ -197,15 +62,15 @@ dialogueRegular(struct task *task)
 
 	rc = setSessionOnline(task);
 	if (rc < 0) {
-#ifdef DEBUG_DIALOGUE_REGULAR
-		fprintf(stderr, "Cannot set session online\n");
+#ifdef ANTICIPANT_DIALOGUE_REGULAR
+		reportError("Cannot set session online");
 #endif
 		setTaskStatus(task, TaskStatusCannotSetSessionOnline);
 	}
 
 	do {
-#ifdef DEBUG_DIALOGUE_REGULAR
-        fprintf(stderr, "Dialoque loop\n");
+#ifdef ANTICIPANT_DIALOGUE_REGULAR
+        reportLog("Dialoque loop");
 #endif
     	struct buffer *buffer;
         struct paquet *paquet;
@@ -214,9 +79,7 @@ dialogueRegular(struct task *task)
 		//
     	buffer = peekBuffer(task->desk->pools.paquet);
     	if (buffer == NULL) {
-#ifdef DEBUG_START_TASK
-            fprintf(stderr, "Out of memory\n");
-#endif
+            reportError("Out of memory");
 			setTaskStatus(task, TaskStatusOutOfMemory);
 			break;
         }
@@ -225,6 +88,7 @@ dialogueRegular(struct task *task)
     	paquet->containerBuffer = buffer;
 
 		paquet->task = task;
+		paquet->nextInChain = NULL;
 		paquet->inputBuffer = NULL;
 		paquet->outputBuffer = NULL;
 
@@ -277,9 +141,9 @@ dialogueRegular(struct task *task)
 
 		int totalReceivedData = totalDataSize(receiveBuffer);
 
-#ifdef DEBUG_DIALOGUE_REGULAR
+#ifdef ANTICIPANT_DIALOGUE_REGULAR
 		struct paquetPilot *pilot = (struct paquetPilot *)receiveBuffer->data;
-		printf(">>>> Paquet %u for command 0x%08X with %d bytes and payload %d bytes\n",
+		reportLog("Received paquet  %u with command 0x%08X with %d bytes (payload %d bytes)",
 			paquet->paquetId,
 			paquet->commandCode,
 			totalReceivedData,
@@ -291,8 +155,8 @@ dialogueRegular(struct task *task)
 			// If amount of data in receive buffer is less then necessary for current paquet
 			// then quit with error.
 			//
-#ifdef DEBUG_DIALOGUE_REGULAR
-			printf("Received data incomplete\n");
+#ifdef ANTICIPANT_DIALOGUE_REGULAR
+			reportLog("Received data incomplete");
 #endif
 			setTaskStatus(task, TaskStatusReceivedDataIncomplete);
 			pokeBuffer(receiveBuffer);
@@ -351,8 +215,8 @@ dialogueRegular(struct task *task)
 		//
 	    rc = pthread_create(&paquet->thread, NULL, &paquetThread, paquet);
     	if (rc != 0) {
-#ifdef DEBUG_DIALOGUE_REGULAR
-        	fprintf(stderr, "Can't create paquet thread: %d\n", errno);
+#ifdef ANTICIPANT_DIALOGUE_REGULAR
+        	reportError("Cannot create paquet thread: errno=%d", errno);
 #endif
 			setTaskStatus(task, TaskStatusCannotCreatePaquetThread);
 			if (receiveBuffer != NULL)
@@ -367,8 +231,8 @@ dialogueRegular(struct task *task)
 
 	rc = setSessionOffline(task);
 	if (rc < 0) {
-#ifdef DEBUG_DIALOGUE_REGULAR
-		fprintf(stderr, "Cannot set session offline\n");
+#ifdef ANTICIPANT_DIALOGUE_REGULAR
+		reportError("Cannot set session offline");
 #endif
 		setTaskStatus(task, TaskStatusCannotSetSessionOffline);
 	}
@@ -395,9 +259,8 @@ authentifyDialogue(struct task *task, struct dialogueDemande *dialogueDemande)
 
 	deviceId = deviceIdByToken(dbh, (char *)&dialogueDemande->deviceToken);
 	if (deviceId == 0) {
-#ifdef DEBUG_AUTHENTIFY_DIALOGUE
-		fprintf(stderr, "Cannot authenticate device by token\n");
-#endif
+		reportLog("Cannot authenticate device by token");
+
 		setTaskStatus(task, TaskStatusDeviceAuthenticationFailed);
 
 		invalidDeviceId = 1;
@@ -417,9 +280,8 @@ authentifyDialogue(struct task *task, struct dialogueDemande *dialogueDemande)
 		if (i < TokenBinarySize) {
 			profileId = profileIdByToken(dbh, (char *)&dialogueDemande->profileToken);
 			if (profileId == 0) {
-#ifdef DEBUG_AUTHENTIFY_DIALOGUE
-				fprintf(stderr, "Cannot authenticate profile by token\n");
-#endif
+				reportLog("Cannot authenticate profile by token");
+
 				setTaskStatus(task, TaskStatusProfileAuthenticationFailed);
 
 				invalidProfileId = 1;
@@ -433,16 +295,16 @@ authentifyDialogue(struct task *task, struct dialogueDemande *dialogueDemande)
 		(char *)&dialogueDemande->sessionToken,
 		(char *)&dialogueVerdict.sessionToken);
 	if (rc < 0) {
-#ifdef DEBUG_AUTHENTIFY_DIALOGUE
-		fprintf(stderr, "Cannot get session\n");
-#endif
+		reportLog("Cannot get session");
 		setTaskStatus(task, TaskStatusCannotGetSession);
 	}
 
-	fprintf(stderr, "DEVICE:%lu PROFILE:%lu SESSION:%lu\n",
+#ifdef ANTICIPANT_DIALOGUE_AUTH
+	reportLog("Dialogue authentified: deviceId=%lu profileId=%lu sessionId=%lu",
 		be64toh(deviceId),
 		be64toh(profileId),
 		be64toh(sessionId));
+#endif
 
 	pokeDB(dbh);
 

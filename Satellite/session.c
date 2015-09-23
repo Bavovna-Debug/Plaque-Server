@@ -5,7 +5,7 @@
 #include "db.h"
 #include "tasks.h"
 
-uint64
+int
 getSessionForDevice(
     struct task *task,
     struct dbh *dbh,
@@ -14,25 +14,12 @@ getSessionForDevice(
     char *knownSessionToken,
     char *givenSessionToken)
 {
-	const char*	paramValues   [2];
-    Oid			paramTypes    [2];
-    int			paramLengths  [2];
-	int			paramFormats  [2];
+    dbhPushBIGINT(dbh, &deviceId);
+    dbhPushUUID(dbh, knownSessionToken);
 
-	paramValues   [0] = (char *)&deviceId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(deviceId);
-	paramFormats  [0] = 1;
-
-	paramValues   [1] = knownSessionToken;
-	paramTypes    [1] = UUIDOID;
-	paramLengths  [1] = TokenBinarySize;
-	paramFormats  [1] = 1;
-
-	dbh->result = PQexecParams(dbh->conn, "\
+	dbhExecute(dbh, "\
 SELECT session_id, session_token \
-FROM journal.get_session($1, $2)",
-		2, paramTypes, paramValues, paramLengths, paramFormats, 1);
+FROM journal.get_session($1, $2)");
 
 	if (!dbhTuplesOK(dbh, dbh->result)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
@@ -64,20 +51,14 @@ FROM journal.get_session($1, $2)",
 int
 setAllSessionsOffline(struct desk *desk)
 {
-	const char	*paramValues[1];
-    Oid			paramTypes[1];
-    int			paramLengths[1];
-	int			paramFormats[1];
-
 	struct dbh *dbh = peekDB(desk->dbh.auth);
 	if (dbh == NULL)
 		return -1;
 
-	dbh->result = PQexecParams(dbh->conn, "\
+	dbhExecute(dbh, "\
 UPDATE journal.sessions \
 SET satellite_task_id = NULL \
-WHERE satellite_task_id IS NOT NULL",
-		0, NULL, NULL, NULL, NULL, 1);
+WHERE satellite_task_id IS NOT NULL");
 
 	if (!dbhCommandOK(dbh, dbh->result)) {
 		pokeDB(dbh);
@@ -92,34 +73,35 @@ WHERE satellite_task_id IS NOT NULL",
 int
 setSessionOnline(struct task *task)
 {
-	const char	*paramValues  [2];
-    Oid			paramTypes    [2];
-    int			paramLengths  [2];
-	int			paramFormats  [2];
-
 	struct dbh *dbh = peekDB(task->desk->dbh.auth);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
-	paramValues   [0] = (char *)&task->sessionId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(task->sessionId);
-	paramFormats  [0] = 1;
-
     uint32 satelliteTaskId = htobe32(task->taskId);
 
-	paramValues   [1] = (char *)&satelliteTaskId;
-	paramTypes    [1] = INT4OID;
-	paramLengths  [1] = sizeof(satelliteTaskId);
-	paramFormats  [1] = 1;
+    dbhPushBIGINT(dbh, &task->sessionId);
+    dbhPushINTEGER(dbh, &satelliteTaskId);
 
-	dbh->result = PQexecParams(dbh->conn, "\
+	dbhExecute(dbh, "\
 UPDATE journal.sessions \
 SET satellite_task_id = $2 \
-WHERE session_id = $1",
-		2, paramTypes, paramValues, paramLengths, paramFormats, 1);
+WHERE session_id = $1");
+
+	if (!dbhCommandOK(dbh, dbh->result)) {
+    	pokeDB(dbh);
+		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		return -1;
+	}
+
+    dbhPushBIGINT(dbh, &task->deviceId);
+
+	dbhExecute(dbh, "\
+UPDATE journal.device_displacements \
+SET need_on_radar_revision = TRUE, \
+    need_in_sight_revision = TRUE \
+WHERE device_id = $1");
 
 	if (!dbhCommandOK(dbh, dbh->result)) {
     	pokeDB(dbh);
@@ -135,30 +117,35 @@ WHERE session_id = $1",
 int
 setSessionOffline(struct task *task)
 {
-	const char	*paramValues  [1];
-    Oid			paramTypes    [1];
-    int			paramLengths  [1];
-	int			paramFormats  [1];
-
 	struct dbh *dbh = peekDB(task->desk->dbh.auth);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
-	paramValues   [0] = (char *)&task->sessionId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(task->sessionId);
-	paramFormats  [0] = 1;
+    dbhPushBIGINT(dbh, &task->sessionId);
 
-	dbh->result = PQexecParams(dbh->conn, "\
+	dbhExecute(dbh, "\
 UPDATE journal.sessions \
 SET satellite_task_id = NULL \
-WHERE session_id = $1",
-		1, paramTypes, paramValues, paramLengths, paramFormats, 1);
+WHERE session_id = $1");
 
 	if (!dbhCommandOK(dbh, dbh->result)) {
 		pokeDB(dbh);
+		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		return -1;
+	}
+
+    dbhPushBIGINT(dbh, &task->deviceId);
+
+	dbhExecute(dbh, "\
+UPDATE journal.device_displacements \
+SET need_on_radar_revision = FALSE, \
+    need_in_sight_revision = FALSE \
+WHERE device_id = $1");
+
+	if (!dbhCommandOK(dbh, dbh->result)) {
+    	pokeDB(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -169,27 +156,17 @@ WHERE session_id = $1",
 }
 
 int
-getSessionNextOnRadarRevision(
+getSessionOnRadarRevision(
     struct task *task,
-    struct dbh *dbh,
-    uint32 *nextOnRadarRevision)
+    struct dbh  *dbh,
+    uint32      *revision)
 {
-	const char*	paramValues   [1];
-    Oid			paramTypes    [1];
-    int			paramLengths  [1];
-	int			paramFormats  [1];
+    dbhPushBIGINT(dbh, &task->sessionId);
 
-	paramValues   [0] = (char *)&task->sessionId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(task->sessionId);
-	paramFormats  [0] = 1;
-
-	dbh->result = PQexecParams(dbh->conn, "\
-UPDATE journal.sessions \
-SET on_radar_revision = on_radar_revision + 1 \
-WHERE session_id = $1 \
-RETURNING on_radar_revision",
-		1, paramTypes, paramValues, paramLengths, paramFormats, 1);
+	dbhExecute(dbh, "\
+SELECT in_sight_revision \
+FROM journal.sessions \
+WHERE session_id = $1");
 
 	if (!dbhTuplesOK(dbh, dbh->result)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
@@ -211,33 +188,23 @@ RETURNING on_radar_revision",
 		return -1;
 	}
 
-	memcpy(nextOnRadarRevision, PQgetvalue(dbh->result, 0, 0), sizeof(uint32));
+    *revision = be32toh(*(uint32 *)PQgetvalue(dbh->result, 0, 0));
 
 	return 0;
 }
 
 int
-getSessionNextInSightRevision(
+getSessionInSightRevision(
     struct task *task,
-    struct dbh *dbh,
-    uint32 *nextInSightRevision)
+    struct dbh  *dbh,
+    uint32      *revision)
 {
-	const char*	paramValues   [1];
-    Oid			paramTypes    [1];
-    int			paramLengths  [1];
-	int			paramFormats  [1];
+    dbhPushBIGINT(dbh, &task->sessionId);
 
-	paramValues   [0] = (char *)&task->sessionId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(task->sessionId);
-	paramFormats  [0] = 1;
-
-	dbh->result = PQexecParams(dbh->conn, "\
-UPDATE journal.sessions \
-SET in_sight_revision = in_sight_revision + 1 \
-WHERE session_id = $1 \
-RETURNING in_sight_revision",
-		1, paramTypes, paramValues, paramLengths, paramFormats, 1);
+	dbhExecute(dbh, "\
+SELECT in_sight_revision \
+FROM journal.sessions \
+WHERE session_id = $1");
 
 	if (!dbhTuplesOK(dbh, dbh->result)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
@@ -259,7 +226,45 @@ RETURNING in_sight_revision",
 		return -1;
 	}
 
-	memcpy(nextInSightRevision, PQgetvalue(dbh->result, 0, 0), sizeof(uint32));
+    *revision = be32toh(*(uint32 *)PQgetvalue(dbh->result, 0, 0));
+
+	return 0;
+}
+
+int
+getSessionOnMapRevision(
+    struct task *task,
+    struct dbh  *dbh,
+    uint32      *revision)
+{
+    dbhPushBIGINT(dbh, &task->sessionId);
+
+	dbhExecute(dbh, "\
+SELECT on_map_revision \
+FROM journal.sessions \
+WHERE session_id = $1");
+
+	if (!dbhTuplesOK(dbh, dbh->result)) {
+		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		return -1;
+	}
+
+	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
+		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		return -1;
+	}
+
+	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
+		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		return -1;
+	}
+
+	if (!dbhCorrectColumnType(dbh->result, 0, INT4OID)) {
+		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		return -1;
+	}
+
+    *revision = be32toh(*(uint32 *)PQgetvalue(dbh->result, 0, 0));
 
 	return 0;
 }

@@ -14,15 +14,10 @@ getProfiles(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	const char*	paramValues   [1];
-    Oid			paramTypes    [1];
-    int			paramLengths  [1];
-	int			paramFormats  [1];
-
 	struct buffer *inputBuffer = paquet->inputBuffer;
 	struct buffer *outputBuffer = NULL;
 
-	uint32_t numberOfProfiles;
+	uint32 numberOfProfiles;
 
 	if (paquet->payloadSize < sizeof(numberOfProfiles)) {
 #ifdef DEBUG
@@ -67,19 +62,12 @@ getProfiles(struct paquet *paquet)
 
 		inputBuffer = getData(inputBuffer, profileToken, TokenBinarySize);
 
-		paramValues   [0] = (char *)&profileToken;
-		paramTypes    [0] = UUIDOID;
-		paramLengths  [0] = TokenBinarySize;
-		paramFormats  [0] = 1;
+        dbhPushUUID(dbh, (char *)&profileToken);
 
-        if (dbh->result != NULL)
-        	PQclear(dbh->result);
-
-		dbh->result = PQexecParams(dbh->conn, "\
+    	dbhExecute(dbh, "\
 SELECT profile_revision, profile_name, user_name \
 FROM auth.profiles \
-WHERE profile_token = $1",
-			1, paramTypes, paramValues, paramLengths, paramFormats, 1);
+WHERE profile_token = $1");
 
 		if (!dbhTuplesOK(dbh, dbh->result)) {
 			pokeDB(dbh);
@@ -124,7 +112,7 @@ WHERE profile_token = $1",
 		}
 
 		outputBuffer = putData(outputBuffer, profileToken, TokenBinarySize);
-		outputBuffer = putData(outputBuffer, profileRevision, sizeof(uint32_t));
+		outputBuffer = putData(outputBuffer, profileRevision, sizeof(uint32));
 		outputBuffer = putString(outputBuffer, profileName, profileNameSize);
 		outputBuffer = putString(outputBuffer, userName, userNameSize);
 	}
@@ -132,4 +120,29 @@ WHERE profile_token = $1",
 	pokeDB(dbh);
 
 	return 0;
+}
+
+uint64
+profileIdByToken(struct dbh *dbh, char *profileToken)
+{
+    dbhPushUUID(dbh, profileToken);
+
+	dbhExecute(dbh, "SELECT profile_id FROM auth.profiles WHERE profile_token = $1");
+
+	if (!dbhTuplesOK(dbh, dbh->result))
+		return 0;
+
+	if (PQnfields(dbh->result) != 1)
+		return 0;
+
+	if (PQntuples(dbh->result) != 1)
+		return 0;
+
+	if (PQftype(dbh->result, 0) != INT8OID)
+		return 0;
+
+	uint64 profileIdBigEndian;
+	memcpy(&profileIdBigEndian, PQgetvalue(dbh->result, 0, 0), sizeof(profileIdBigEndian));
+
+	return profileIdBigEndian;
 }

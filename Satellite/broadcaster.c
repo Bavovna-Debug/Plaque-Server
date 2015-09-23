@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -7,31 +8,251 @@
 #include "broadcaster.h"
 #include "desk.h"
 #include "report.h"
+#include "tasks.h"
+#include "task_list.h"
+
+#define BROADCASTER_SLEEP_ON_CANNOT_OPEN_SOCKET    1 * 1000 * 1000  // Microseconds
+#define BROADCASTER_SLEEP_ON_CANNOT_CONNECT        2 * 1000 * 1000  // Microseconds
+#define TIMEOUT_DISCONNECT_IF_IDLE               300                // Seconds
+#define TIMEOUT_ON_WAIT_FOR_BEGIN_TO_TRANSMIT     10 * 1000 * 1000	// Milliseconds
+#define TIMEOUT_ON_POLL_FOR_RECEIPT                5 * 1000 * 1000	// Milliseconds
+
+static void
+broadcasterDialog(struct desk *desk, int sockFD);
+
+static int
+receiveSession(int sockFD, struct session *session);
+
+static int
+confirmSession(int sockFD, struct session *session);
 
 void *
 broadcasterThread(void *arg)
 {
 	struct desk *desk = (struct desk *)arg;
 	int sockFD;
-	struct sockaddr_in broadcasterddress;
+	struct sockaddr_in broadcasterAddress;
+	int rc;
 
-	sockFD = socket(AF_INET, SOCK_STREAM, 0);
-	if (sockFD < 0) {
-		reportError("Cannot open a socket: errno=%d", errno);
-		pthread_exit(NULL);
-	}
+    while (1)
+    {
+    	sockFD = socket(AF_INET, SOCK_STREAM, 0);
+	    if (sockFD < 0) {
+	    	reportError("Cannot open a socket, wait for %d microseconds: errno=%d",
+	    	    BROADCASTER_SLEEP_ON_CANNOT_OPEN_SOCKET, errno);
+	    	usleep(BROADCASTER_SLEEP_ON_CANNOT_OPEN_SOCKET);
+    		continue;
+	    }
 
-	bzero((char *)&broadcasterddress, sizeof(broadcasterddress));
+    	bzero((char *)&broadcasterAddress, sizeof(broadcasterAddress));
 
-	broadcasterddress.sin_family = AF_INET;
-	broadcasterddress.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	broadcasterddress.sin_port = htons(desk->broadcaster.portNumber);
+    	broadcasterAddress.sin_family = AF_INET;
+	    broadcasterAddress.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    	broadcasterAddress.sin_port = htons(desk->broadcaster.portNumber);
 
-	if (connect(sockFD, (struct sockaddr *)&broadcasterddress, sizeof(broadcasterddress)) < 0) {
-		close(sockFD);
-		reportError("Cannot connect to socket: errno=%d", errno);
-		pthread_exit(NULL);
+        while (1)
+        {
+	        rc = connect(sockFD, (struct sockaddr *)&broadcasterAddress, sizeof(broadcasterAddress));
+    	    if (rc == 0) {
+    	        //
+    	        // Connection established.
+    	        //
+    	        break;
+    	    } else {
+	            if (errno == ECONNREFUSED) {
+	                //
+	                // Connection refused: wait and try again.
+	                //
+	    	        reportError("Cannot connect to broadcaster, wait for %d microseconds",
+    	                BROADCASTER_SLEEP_ON_CANNOT_CONNECT);
+            	    usleep(BROADCASTER_SLEEP_ON_CANNOT_CONNECT);
+	            } else {
+	                //
+	                // Error: close socket, wait, and go to the beginning of socket creation.
+	                //
+    		        close(sockFD);
+	    	        reportError("Cannot connect to broadcaster, wait for %d microseconds: errno=%d",
+    	                BROADCASTER_SLEEP_ON_CANNOT_CONNECT, errno);
+            	    usleep(BROADCASTER_SLEEP_ON_CANNOT_CONNECT);
+        	    	continue;
+    	        }
+	        }
+	    }
+
+        broadcasterDialog(desk, sockFD);
+
+	    close(sockFD);
 	}
 
 	pthread_exit(NULL);
+}
+
+static void
+broadcasterDialog(struct desk *desk, int sockFD)
+{
+	int             sessionNumber;
+	struct session  *session;
+    uint64          receiptId;
+    struct task     *task;
+    int             rc;
+
+    while (1)
+    {
+        session = &desk->broadcaster.session;
+
+        rc = receiveSession(sockFD, session);
+        if (rc != 0)
+            break;
+
+        session->receiptId        = be64toh(session->receiptId);
+        session->sessionId        = be64toh(session->sessionId);
+        session->inCacheRevision  = be32toh(session->inCacheRevision);
+        session->onRadarRevision  = be32toh(session->onRadarRevision);
+        session->inSightRevision  = be32toh(session->inSightRevision);
+        session->onMapRevision    = be32toh(session->onMapRevision);
+        session->satelliteTaskId  = be32toh(session->satelliteTaskId);
+
+        reportLog("Received revised session: receiptId=%lu sessionId=%lu, revisions=%u/%u/%u, taskId=%u",
+            session->receiptId,
+            session->sessionId,
+            session->inCacheRevision,
+            session->onRadarRevision,
+            session->inSightRevision,
+            session->satelliteTaskId);
+
+        task = taskListTaskById(desk, session->satelliteTaskId);
+        if (task == NULL) {
+            reportLog("Task %u is already closed",
+                session->satelliteTaskId);
+        } else {
+            //
+            // Touching semaphores has to be done inside of the broadcast lock.
+            //
+            pthread_spin_lock(&task->paquet.broadcastLock);
+
+
+reportLog("%u > %u 0x%08lX",
+session->onRadarRevision, task->lastKnownRevision.onRadar, task->paquet.broadcastOnRadar);
+reportLog("%u > %u 0x%08lX",
+session->inSightRevision, task->lastKnownRevision.inSight, task->paquet.broadcastInSight);
+reportLog("%u > %u 0x%08lX",
+session->onMapRevision, task->lastKnownRevision.onMap, task->paquet.broadcastOnMap);
+
+            if (session->onRadarRevision > task->lastKnownRevision.onRadar)
+                if (task->paquet.broadcastOnRadar != NULL)
+                    sem_post(&task->paquet.waitForBroadcastOnRadar);
+
+            if (session->inSightRevision > task->lastKnownRevision.inSight)
+                if (task->paquet.broadcastInSight != NULL)
+                    sem_post(&task->paquet.waitForBroadcastInSight);
+
+            if (session->onMapRevision > task->lastKnownRevision.onMap)
+                if (task->paquet.broadcastOnMap != NULL)
+                    sem_post(&task->paquet.waitForBroadcastOnMap);
+
+            pthread_spin_unlock(&task->paquet.broadcastLock);
+        }
+
+        rc = confirmSession(sockFD, session);
+        if (rc != 0)
+            break;
+    }
+}
+
+static int
+receiveSession(int sockFD, struct session *session)
+{
+	struct pollfd		pollFD;
+	ssize_t		        expectedSize;
+	ssize_t				receivedPerStep;
+	ssize_t				receivedTotal;
+
+	pollFD.fd = sockFD;
+	pollFD.events = POLLIN;
+
+	int pollRC = poll(&pollFD, 1, TIMEOUT_ON_POLL_FOR_RECEIPT);
+	if (pollFD.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+		reportError("Poll error on receive: revents=0x%04X", pollFD.revents);
+		return -1;
+	}
+
+	if (pollRC == 0) {
+		reportLog("Wait for receive timed out");
+		return -1;
+	} else if (pollRC != 1) {
+		reportError("Poll error on receive");
+		return -1;
+	}
+
+    expectedSize = sizeof(struct session);
+	receivedTotal = 0;
+
+	do {
+		receivedPerStep = read(sockFD,
+			session + receivedTotal,
+			expectedSize - receivedTotal);
+		if (receivedPerStep == 0) {
+			reportError("Nothing read from socket");
+			return -1;
+		} else if (receivedPerStep == -1) {
+			reportError("Error reading from socket: errno=%d", errno);
+			return -1;
+		}
+
+		receivedTotal += receivedPerStep;
+	} while (receivedTotal < expectedSize);
+
+	return 0;
+}
+
+static int
+confirmSession(int sockFD, struct session *session)
+{
+	struct pollfd		pollFD;
+	int                 pollRC;
+	ssize_t				bytesToSend;
+	ssize_t				sentPerStep;
+	ssize_t				sentTotal;
+	uint64              receiptId;
+
+	pollFD.fd = sockFD;
+	pollFD.events = POLLOUT;
+
+	pollRC = poll(&pollFD, 1, TIMEOUT_ON_WAIT_FOR_BEGIN_TO_TRANSMIT);
+	if (pollFD.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+		reportError("Poll error on send: revents=0x%04X", pollFD.revents);
+		return -1;
+	}
+
+	if (pollRC == 0) {
+		reportLog("Wait for send timed out");
+		return -1;
+	} else if (pollRC != 1) {
+		reportError("Poll error on send");
+		return -1;
+	}
+
+	bytesToSend = sizeof(uint64);
+	sentTotal = 0;
+
+    receiptId = htobe64(session->receiptId);
+
+	do {
+		sentPerStep = write(sockFD,
+			&receiptId + sentTotal,
+			bytesToSend - sentTotal);
+		if (sentPerStep == 0) {
+			reportError("Nothing written to socket");
+			return -1;
+		} else if (sentPerStep == -1) {
+			reportError("Error writing to socket: errno=%d", errno);
+			return -1;
+		}
+
+		sentTotal += sentPerStep;
+	} while (sentTotal < bytesToSend);
+
+    reportLog("Revised session confirmed");
+
+	return 0;
 }

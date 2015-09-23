@@ -9,11 +9,12 @@
 #define MAX_REVISED_SESSIONS_PER_STEP       100
 
 #define SLEEP_WHEN_LISTENER_IS_BUSY                2                // Seconds
-#define SLEEP_ON_CANNOT_OPEN_SOCKET                1 * 1000         // Microseconds
-#define SLEEP_ON_CANNOT_BIND_SOCKET                1 * 1000         // Microseconds
-#define SLEEP_ON_CANNOT_ACCEPT                          500         // Microseconds
+#define SLEEP_ON_CANNOT_OPEN_SOCKET                1 * 1000 * 1000  // Microseconds
+#define SLEEP_ON_CANNOT_BIND_SOCKET                1 * 1000 * 1000  // Microseconds
+#define SLEEP_ON_CANNOT_ACCEPT                          500 * 1000  // Microseconds
 #define TIMEOUT_DISCONNECT_IF_IDLE               300                // Seconds
 #define TIMEOUT_ON_WAIT_FOR_BEGIN_TO_TRANSMIT     10 * 1000 * 1000	// Milliseconds
+#define TIMEOUT_ON_POLL_FOR_RECEIPT                5 * 1000 * 1000	// Milliseconds
 
 typedef struct desk {
     struct {

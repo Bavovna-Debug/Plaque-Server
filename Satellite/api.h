@@ -29,12 +29,16 @@
 #define DialogueVerdictInvalidProfile			0xBED10002
 #define DialogueVerdictNewSession				0xBED10004
 
-#define CommandAnticipant                       0xABBA2015
-#define PaquetListOfPlaquesForBroadcast         0x00010000
-#define PaquetListOfPlaquesInSight              0x00010001
-#define PaquetListOfPlaquesOnMap                0x00010002
-#define PaquetDownloadPlaquesInSight            0x00010003
-#define PaquetDownloadPlaquesOnMap              0x00010004
+#define PaquetBroadcastForInCache               0x00010000
+#define PaquetBroadcastForOnRadar               0x00010001
+#define PaquetBroadcastForInSight               0x00010002
+#define PaquetBroadcastForOnMap                 0x00010004
+#define PaquetDisplacementOnRadar               0x00010101
+#define PaquetDisplacementInSight               0x00010102
+#define PaquetDisplacementOnMap                 0x00010104
+#define PaquetDownloadPlaquesOnRadar            0x00010201
+#define PaquetDownloadPlaquesInSight            0x00010202
+#define PaquetDownloadPlaquesOnMap              0x00010204
 #define PaquetPostNewPlaque                     0x00020001
 #define PaquetPlaqueModifiedLocation            0x00020002
 #define PaquetPlaqueModifiedOrientation         0x00020003
@@ -72,7 +76,10 @@
 #define BonjourCreateProfileEmailAlreadyInUse	0xFEFE0005
 #define BonjourCreateProfileEmailConstraint		0xFEFE0006
 
-#define PaquetCreatePlaqueSucceeded             0xFEFE0007
-#define PaquetCreatePlaqueError                 0xFEFE0008
+#define PaquetDisplacementSucceeded             0xFEFE0008
+#define PaquetDisplacementFailed	            0xFEFE0009
+
+#define PaquetCreatePlaqueSucceeded             0xFEFE000A
+#define PaquetCreatePlaqueError                 0xFEFE000B
 
 #endif

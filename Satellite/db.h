@@ -19,6 +19,8 @@
 #define VARCHAROID				1043
 #define UUIDOID					2950
 
+#define UUIDBinarySize			16
+
 #define UNIQUE_VIOLATION		"23505"
 #define CHECK_VIOLATION			"23514"
 
@@ -38,10 +40,17 @@ typedef struct dbChain {
 typedef struct dbh {
 	struct dbChain		*chain;
 	int					dbhId;
-	pthread_spinlock_t	lock;
 	PGconn				*conn;
 	PGresult			*result;
+	struct arguments {
+		int				numberOfArguments;
+		const char		*values  [8];
+    	Oid				types    [8];
+		int				lengths  [8];
+		int				formats  [8];
+	} arguments;
 } dbh_t;
+
 
 struct dbChain *
 initDBChain(const char *chainName, int numberOfConnections, char *conninfo);
@@ -62,19 +71,74 @@ inline int
 sqlState(PGresult *result, const char *checkState);
 
 inline int
-dbhTuplesOK(struct dbh *dbh, PGresult *result);
+__dbhTuplesOK(
+	const char	*functionName,
+	struct dbh	*dbh,
+	PGresult	*result);
+
+#define dbhTuplesOK(dbh, result) \
+	__dbhTuplesOK(__FUNCTION__, dbh, result)
 
 inline int
-dbhCommandOK(struct dbh *dbh, PGresult *result);
+__dbhCommandOK(
+	const char	*functionName,
+	struct dbh	*dbh,
+	PGresult	*result);
+
+#define dbhCommandOK(dbh, result) \
+	__dbhCommandOK(__FUNCTION__, dbh, result)
 
 inline int
-dbhCorrectNumberOfColumns(PGresult *result, int expectedNumberOfColumn);
+__dbhCorrectNumberOfColumns(
+	const char	*functionName,
+	PGresult	*result,
+	int			expectedNumberOfColumns);
+
+#define dbhCorrectNumberOfColumns(result, expectedNumberOfColumns) \
+	__dbhCorrectNumberOfColumns(__FUNCTION__, result, expectedNumberOfColumns)
 
 inline int
-dbhCorrectNumberOfRows(PGresult *result, int expectedNumberOfRows);
+__dbhCorrectNumberOfRows(
+	const char	*functionName,
+	PGresult	*result,
+	int			expectedNumberOfRows);
+
+#define dbhCorrectNumberOfRows(result, expectedNumberOfRows) \
+	__dbhCorrectNumberOfRows(__FUNCTION__, result, expectedNumberOfRows)
 
 inline int
-dbhCorrectColumnType(PGresult *result, int columnNumber, Oid expectedColumnType);
+__dbhCorrectColumnType(
+	const char	*functionName,
+	PGresult	*result,
+	int 		columnNumber,
+	Oid			expectedColumnType);
+
+#define dbhCorrectColumnType(result, columnNumber, expectedColumnType) \
+	__dbhCorrectColumnType(__FUNCTION__, result, columnNumber, expectedColumnType)
+
+inline void
+dbhExecute(struct dbh *dbh, const char *query);
+
+inline void
+dbhPushArgument(struct dbh *dbh, char *value, Oid type, int length, int format);
+
+inline void
+dbhPushBIGINT(struct dbh *dbh, uint64 *value);
+
+inline void
+dbhPushINTEGER(struct dbh *dbh, uint32 *value);
+
+inline void
+dbhPushDOUBLE(struct dbh *dbh, double *value);
+
+inline void
+dbhPushREAL(struct dbh *dbh, float *value);
+
+inline void
+dbhPushVARCHAR(struct dbh *dbh, char *value, int length);
+
+inline void
+dbhPushUUID(struct dbh *dbh, char *value);
 
 inline uint64
 dbhGetUInt64(PGresult *result, int rowNumber, int columnNumber);

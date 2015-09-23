@@ -1,6 +1,0 @@
-sndsize = 16384;
-setsockopt(socket, SOL_SOCKET, SO_SNDBUF, (char *)&sndsize,
-		(int)sizeof(sndsize)); 
-rcvsize = 16384;
-setsockopt(socket, SOL_SOCKET, SO_RCVBUF, (char *)&rcvsize,
-		(int)sizeof(rcvsize)); 

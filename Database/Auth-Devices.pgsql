@@ -55,6 +55,33 @@ CREATE INDEX devices_profile_key
 /*                                                                            */
 /******************************************************************************/
 
+DROP TRIGGER IF EXISTS devices_create_displacement_on_insert
+	ON auth.devices RESTRICT;
+
+CREATE OR REPLACE FUNCTION auth.devices_create_displacement_on_insert ()
+RETURNS TRIGGER AS
+$PLSQL$
+
+BEGIN
+	INSERT INTO journal.device_displacements (device_id)
+	VALUES (NEW.device_id);
+
+	RETURN NEW;
+END;
+
+$PLSQL$
+LANGUAGE plpgsql;
+
+CREATE TRIGGER devices_create_displacement_on_insert
+	AFTER INSERT
+	ON auth.devices
+	FOR EACH ROW
+	EXECUTE PROCEDURE auth.devices_create_displacement_on_insert();
+
+/******************************************************************************/
+/*                                                                            */
+/******************************************************************************/
+
 DROP TRIGGER IF EXISTS devices_drop_token_on_delete
 	ON auth.devices RESTRICT;
 

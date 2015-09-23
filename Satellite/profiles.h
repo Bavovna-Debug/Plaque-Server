@@ -6,4 +6,7 @@
 int
 getProfiles(struct paquet *paquet);
 
+uint64
+profileIdByToken(struct dbh *dbh, char *profileToken);
+
 #endif

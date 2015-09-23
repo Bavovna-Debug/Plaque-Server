@@ -4,15 +4,6 @@
 #include "paquet.h"
 
 int
-paquetListOfPlaquesForBroadcast(struct paquet *paquet);
-
-int
-paquetListOfPlaquesOnRadar(struct paquet *paquet);
-
-int
-paquetListOfPlaquesInSight(struct paquet *paquet);
-
-int
 paquetDownloadPlaques(struct paquet *paquet);
 
 #endif

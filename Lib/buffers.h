@@ -1,7 +1,7 @@
 #ifndef _BUFFERS_
 #define _BUFFERS_
 
-#include <netinet/in.h>
+#include <c.h>
 
 #define	KB 1024
 #define MB 1024 * 1024
@@ -113,13 +113,13 @@ struct buffer *
 getData(struct buffer *buffer, char *destData, int destDataSize);
 
 inline struct buffer *
-putUInt8(struct buffer *buffer, uint8_t sourceData);
+putUInt8(struct buffer *buffer, uint8 sourceData);
 
 inline struct buffer *
-putUInt32(struct buffer *buffer, uint32_t *sourceData);
+putUInt32(struct buffer *buffer, uint32 *sourceData);
 
 inline struct buffer *
-getUInt32(struct buffer *buffer, uint32_t *destData);
+getUInt32(struct buffer *buffer, uint32 *destData);
 
 inline struct buffer *
 putString(struct buffer *buffer, char *sourceData, int sourceDataSize);

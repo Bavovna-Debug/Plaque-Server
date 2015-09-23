@@ -47,7 +47,7 @@ statisticsThread(void *arg)
 
 	while (1)
 	{
-		printf("STATISTICS    DBH:%4d %4d %4d\tTASK:%5d\tPAQUET:%5d\t1K:%5d\t4K:%5d\t1M:%5d\n",
+		reportLog("STATISTICS  DBH: %-4d%-4d%-4d  TASK: %-4d  PAQUET: %-4d  256: %-4d  512: %-4d  1K: %-4d  4K: %-4d  1M: %-4d",
 			dbhInUse(desk->dbh.guardian),
 			dbhInUse(desk->dbh.auth),
 			dbhInUse(desk->dbh.plaque),
@@ -55,7 +55,9 @@ statisticsThread(void *arg)
 			buffersInUse(desk->pools.paquet, 0),
 			buffersInUse(desk->pools.dynamic, 0),
 			buffersInUse(desk->pools.dynamic, 1),
-			buffersInUse(desk->pools.dynamic, 2));
+			buffersInUse(desk->pools.dynamic, 2),
+			buffersInUse(desk->pools.dynamic, 3),
+			buffersInUse(desk->pools.dynamic, 4));
 		sleep(1);
 	}
 	pthread_exit(NULL);
@@ -166,7 +168,7 @@ initDesk(void)
 
 	desk->pools.task = initBufferPool(1);
 	desk->pools.paquet = initBufferPool(1);
-	desk->pools.dynamic = initBufferPool(3);
+	desk->pools.dynamic = initBufferPool(5);
 
 	initBufferChain(desk->pools.task, 0,
 		sizeof(struct task),
@@ -181,14 +183,24 @@ initDesk(void)
 	initBufferChain(desk->pools.dynamic, 0,
 		KB,
 		sizeof(struct paquetPilot),
-		NUMBER_OF_BUFFERS_1K);
+		NUMBER_OF_BUFFERS_256);
 
 	initBufferChain(desk->pools.dynamic, 1,
+		KB,
+		sizeof(struct paquetPilot),
+		NUMBER_OF_BUFFERS_512);
+
+	initBufferChain(desk->pools.dynamic, 2,
+		KB,
+		sizeof(struct paquetPilot),
+		NUMBER_OF_BUFFERS_1K);
+
+	initBufferChain(desk->pools.dynamic, 3,
 		4 * KB,
 		sizeof(struct paquetPilot),
 		NUMBER_OF_BUFFERS_4K);
 
-	initBufferChain(desk->pools.dynamic, 2,
+	initBufferChain(desk->pools.dynamic, 4,
 		MB,
 		sizeof(struct paquetPilot),
 		NUMBER_OF_BUFFERS_1M);
@@ -198,6 +210,8 @@ initDesk(void)
         reportError("Cannot initialize task list");
         return NULL;
     }
+
+    desk->listener.listenSockFD = 0;
 
 	return desk;
 }
