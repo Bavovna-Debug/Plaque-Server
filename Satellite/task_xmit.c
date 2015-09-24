@@ -346,6 +346,13 @@ sendPaquet(struct paquet *paquet)
 	}
 
 	struct buffer *buffer = paquet->outputBuffer;
+	if (buffer == NULL) {
+        pthread_spin_unlock(&task->xmit.sendLock);
+
+		reportError("No output buffer provided");
+		setTaskStatus(task, TaskStatusNoOutputDataProvided);
+		return -1;
+	}
 
 	struct paquetPilot *pilot = (struct paquetPilot *)buffer->data;
 	pilot->signature = htobe64(PaquetSignature);

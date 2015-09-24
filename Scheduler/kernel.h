@@ -2,7 +2,10 @@
 #define _KERNEL_
 
 int
-revisionSessionsForDeviceDisplacement(int *busy);
+revisionSessionsForDeviceDisplacementInSight(int *busy);
+
+int
+revisionSessionsForDeviceDisplacementOnMap(int *busy);
 
 int
 revisionSessionsForModifiedPlaques(int *busy);

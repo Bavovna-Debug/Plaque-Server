@@ -92,7 +92,7 @@ broadcasterDialog(struct desk *desk, int sockFD)
 {
 	int             sessionNumber;
 	struct session  *session;
-    uint64          receiptId;
+    uint64          satelliteTaskId;
     struct task     *task;
     int             rc;
 
@@ -104,53 +104,33 @@ broadcasterDialog(struct desk *desk, int sockFD)
         if (rc != 0)
             break;
 
-        session->receiptId        = be64toh(session->receiptId);
-        session->sessionId        = be64toh(session->sessionId);
-        session->inCacheRevision  = be32toh(session->inCacheRevision);
-        session->onRadarRevision  = be32toh(session->onRadarRevision);
-        session->inSightRevision  = be32toh(session->inSightRevision);
-        session->onMapRevision    = be32toh(session->onMapRevision);
-        session->satelliteTaskId  = be32toh(session->satelliteTaskId);
+        satelliteTaskId = be32toh(session->satelliteTaskId);
 
-        reportLog("Received revised session: receiptId=%lu sessionId=%lu, revisions=%u/%u/%u, taskId=%u",
-            session->receiptId,
-            session->sessionId,
-            session->inCacheRevision,
-            session->onRadarRevision,
-            session->inSightRevision,
-            session->satelliteTaskId);
-
-        task = taskListTaskById(desk, session->satelliteTaskId);
+        task = taskListTaskById(desk, satelliteTaskId);
         if (task == NULL) {
-            reportLog("Task %u is already closed",
-                session->satelliteTaskId);
+            reportLog("Task %u is already closed", satelliteTaskId);
         } else {
             //
-            // Touching semaphores has to be done inside of the broadcast lock.
+            // Changing broadcast values has to be done inside of the broadcast lock.
             //
-            pthread_spin_lock(&task->paquet.broadcastLock);
+            pthread_spin_lock(&task->broadcast.lock);
 
+            task->broadcast.currentRevision.onRadar = be32toh(session->onRadarRevision);
+            task->broadcast.currentRevision.inSight = be32toh(session->inSightRevision);
+            task->broadcast.currentRevision.onMap = be32toh(session->onMapRevision);
 
-reportLog("%u > %u 0x%08lX",
-session->onRadarRevision, task->lastKnownRevision.onRadar, task->paquet.broadcastOnRadar);
-reportLog("%u > %u 0x%08lX",
-session->inSightRevision, task->lastKnownRevision.inSight, task->paquet.broadcastInSight);
-reportLog("%u > %u 0x%08lX",
-session->onMapRevision, task->lastKnownRevision.onMap, task->paquet.broadcastOnMap);
+            reportLog("Received revised session: receiptId=%lu sessionId=%lu, revisions=%u/%u/%u, taskId=%u",
+                be64toh(session->receiptId),
+                be64toh(session->sessionId),
+                task->broadcast.currentRevision.onRadar,
+                task->broadcast.currentRevision.inSight,
+                task->broadcast.currentRevision.onMap,
+                satelliteTaskId);
 
-            if (session->onRadarRevision > task->lastKnownRevision.onRadar)
-                if (task->paquet.broadcastOnRadar != NULL)
-                    sem_post(&task->paquet.waitForBroadcastOnRadar);
+            if (task->broadcast.broadcastPaquet != NULL)
+                sem_post(&task->broadcast.waitForBroadcast);
 
-            if (session->inSightRevision > task->lastKnownRevision.inSight)
-                if (task->paquet.broadcastInSight != NULL)
-                    sem_post(&task->paquet.waitForBroadcastInSight);
-
-            if (session->onMapRevision > task->lastKnownRevision.onMap)
-                if (task->paquet.broadcastOnMap != NULL)
-                    sem_post(&task->paquet.waitForBroadcastOnMap);
-
-            pthread_spin_unlock(&task->paquet.broadcastLock);
+            pthread_spin_unlock(&task->broadcast.lock);
         }
 
         rc = confirmSession(sockFD, session);
@@ -213,7 +193,6 @@ confirmSession(int sockFD, struct session *session)
 	ssize_t				bytesToSend;
 	ssize_t				sentPerStep;
 	ssize_t				sentTotal;
-	uint64              receiptId;
 
 	pollFD.fd = sockFD;
 	pollFD.events = POLLOUT;
@@ -235,11 +214,9 @@ confirmSession(int sockFD, struct session *session)
 	bytesToSend = sizeof(uint64);
 	sentTotal = 0;
 
-    receiptId = htobe64(session->receiptId);
-
 	do {
 		sentPerStep = write(sockFD,
-			&receiptId + sentTotal,
+			&session->receiptId + sentTotal,
 			bytesToSend - sentTotal);
 		if (sentPerStep == 0) {
 			reportError("Nothing written to socket");

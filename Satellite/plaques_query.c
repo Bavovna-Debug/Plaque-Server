@@ -11,81 +11,10 @@
 #include "report.h"
 #include "tasks.h"
 
-/*
-static void
-journalUserLocation(
-    struct paquet *paquet,
-    struct dbh *dbh,
-    struct paquetRadar *radar)
-{
-	struct task	*task = paquet->task;
-
-	const char	*paramValues[6];
-    Oid			paramTypes[6];
-    int			paramLengths[6];
-	int			paramFormats[6];
-
-	paramValues   [0] = (char *)&task->deviceId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(uint64);
-	paramFormats  [0] = 1;
-
-	paramValues   [1] = (char *)&radar->latitude;
-	paramTypes    [1] = FLOAT8OID;
-	paramLengths  [1] = sizeof(double);
-	paramFormats  [1] = 1;
-
-	paramValues   [2] = (char *)&radar->longitude;
-	paramTypes    [2] = FLOAT8OID;
-	paramLengths  [2] = sizeof(double);
-	paramFormats  [2] = 1;
-
-	paramValues   [3] = (char *)&radar->altitude;
-	paramTypes    [3] = FLOAT4OID;
-	paramLengths  [3] = sizeof(float);
-	paramFormats  [3] = 1;
-
-	if (radar->courseAvailable == DeviceBooleanFalse) {
-		paramValues   [4] = NULL;
-		paramTypes    [4] = FLOAT4OID;
-		paramLengths  [4] = 0;
-		paramFormats  [4] = 1;
-	} else {
-		paramValues   [4] = (char *)&radar->course;
-		paramTypes    [4] = FLOAT4OID;
-		paramLengths  [4] = sizeof(float);
-		paramFormats  [4] = 1;
-	}
-
-	if (radar->floorLevelAvailable == DeviceBooleanFalse) {
-		paramValues   [5] = NULL;
-		paramTypes    [5] = INT4OID;
-		paramLengths  [5] = 0;
-		paramFormats  [5] = 1;
-	} else {
-		paramValues   [5] = (char *)&radar->floorLevel;
-		paramTypes    [5] = INT4OID;
-		paramLengths  [5] = sizeof(int32_t);
-		paramFormats  [5] = 1;
-	}
-
-	dbh->result = PQexecParams(dbh->conn, "\
-INSERT INTO journal.movements \
-(device_id, latitude, longitude, altitude, course, floor_level) \
-VALUES ($1, $2, $3, $4, $5, $6)",
-		6, paramTypes, paramValues, paramLengths, paramFormats, 1);
-}
-*/
-
 int
 paquetDownloadPlaques(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
-
-	const char	*paramValues[1];
-    Oid			paramTypes[1];
-    int			paramLengths[1];
-	int			paramFormats[1];
 
 	struct buffer *inputBuffer = paquet->inputBuffer;
 	struct buffer *outputBuffer = NULL;
@@ -129,20 +58,13 @@ paquetDownloadPlaques(struct paquet *paquet)
 	{
 		inputBuffer = getData(inputBuffer, plaqueToken, TokenBinarySize);
 
-		paramValues   [0] = (char *)&plaqueToken;
-		paramTypes    [0] = UUIDOID;
-		paramLengths  [0] = TokenBinarySize;
-		paramFormats  [0] = 1;
+        dbhPushUUID(dbh, plaqueToken);
 
-        if (dbh->result != NULL)
-        	PQclear(dbh->result);
-
-		dbh->result = PQexecParams(dbh->conn, "\
+	    dbhExecute(dbh, "\
 SELECT plaque_revision, profile_token, dimension, latitude, longitude, altitude, direction, tilt, width, height, background_color, foreground_color, font_size, inscription \
 FROM surrounding.plaques \
 JOIN auth.profiles USING (profile_id) \
-WHERE plaque_token = $1",
-			1, paramTypes, paramValues, paramLengths, paramFormats, 1);
+WHERE plaque_token = $1");
 
 		if (!dbhTuplesOK(dbh, dbh->result)) {
 			pokeDB(dbh);

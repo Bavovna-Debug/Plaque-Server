@@ -44,7 +44,9 @@ typedef struct paquetPilot {
 
 #pragma pack(push, 1)
 typedef struct paquetBroadcast {
-	uint32  		lastKnownRevision;
+	uint32  		lastKnownOnRadarRevision;
+	uint32  		lastKnownInSightRevision;
+	uint32  		lastKnownOnMapRevision;
 } paquetRadar;
 #pragma pack(pop)
 

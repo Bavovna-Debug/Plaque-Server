@@ -41,6 +41,7 @@
 #define TaskStatusNoDataSent					0x0000080000000000
 #define TaskStatusWriteToSocketFailed			0x0000100000000000
 #define TaskStatusWrongPayloadSize				0x0000200000000000
+#define TaskStatusNoOutputDataProvided			0x0000400000000000
 
 #define TaskStatusMissingDialogueDemande		0x0100000000000000
 #define TaskStatusMissingAnticipantRecord		0x0200000000000000
@@ -49,6 +50,12 @@
 #define TaskStatusOtherError					0x8000000000000000
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+struct revisions {
+	uint32				onRadar;
+	uint32				inSight;
+	uint32				onMap;
+} revisions_t;
 
 typedef struct task {
 	struct buffer		*containerBuffer;
@@ -63,12 +70,6 @@ typedef struct task {
 	char				clientIP[MAX(INET_ADDRSTRLEN, INET6_ADDRSTRLEN)];
 
 	struct {
-		uint32			onRadar;
-		uint32			inSight;
-		uint32			onMap;
-	} lastKnownRevision;
-
-	struct {
 		int					sockFD;
 		pthread_spinlock_t	receiveLock;
 		pthread_spinlock_t	sendLock;
@@ -76,17 +77,18 @@ typedef struct task {
 
 	struct {
 		pthread_spinlock_t	chainLock;
-		pthread_spinlock_t	broadcastLock;
 		pthread_spinlock_t	heavyJobLock;
 		pthread_spinlock_t	downloadLock;
 		struct paquet		*chainAnchor;
-		struct paquet		*broadcastOnRadar;
-		struct paquet		*broadcastInSight;
-		struct paquet		*broadcastOnMap;
-		sem_t				waitForBroadcastInSight;
-		sem_t				waitForBroadcastOnRadar;
-		sem_t				waitForBroadcastOnMap;
 	} paquet;
+
+	struct {
+		struct revisions	lastKnownRevision;
+		struct revisions	currentRevision;
+		pthread_spinlock_t	lock;
+		struct paquet		*broadcastPaquet;
+		sem_t				waitForBroadcast;
+	} broadcast;
 } task_t;
 
 typedef struct paquet {

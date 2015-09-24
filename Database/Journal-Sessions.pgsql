@@ -15,10 +15,6 @@ CREATE TABLE journal.sessions
 	on_radar_revised    BOOLEAN                     NOT NULL DEFAULT TRUE,
 	in_sight_revised    BOOLEAN                     NOT NULL DEFAULT TRUE,
 	on_map_revised      BOOLEAN                     NOT NULL DEFAULT TRUE,
-	on_radar_coordinate	EARTH						NULL DEFAULT NULL,
-	in_sight_coordinate	EARTH						NULL DEFAULT NULL,
-	on_radar_range      REAL                        NOT NULL DEFAULT 200000.0,
-	in_sight_range      REAL                        NOT NULL DEFAULT 20000.0,
 	satellite_id        BIGINT						NULL DEFAULT NULL,
 	satellite_task_id   INTEGER                     NULL DEFAULT NULL,
 
@@ -58,30 +54,6 @@ CREATE UNIQUE INDEX sessions_device_key
 	USING BTREE
 	(device_id)
 	WITH (FILLFACTOR = 80)
-	TABLESPACE vp_journal;
-
-CREATE INDEX sessions_on_radar_coordinate_key
-	ON journal.sessions
-	USING GiST
-	(on_radar_coordinate)
-	TABLESPACE vp_journal;
-
-CREATE INDEX sessions_on_radar_coordinate_and_range_key
-	ON journal.sessions
-	USING BTREE
-	(on_radar_coordinate, on_radar_range)
-	TABLESPACE vp_journal;
-
-CREATE INDEX sessions_in_sight_coordinate_key
-	ON journal.sessions
-	USING GiST
-	(in_sight_coordinate)
-	TABLESPACE vp_journal;
-
-CREATE INDEX sessions_in_sight_coordinate_and_range_key
-	ON journal.sessions
-	USING BTREE
-	(in_sight_coordinate, in_sight_range)
 	TABLESPACE vp_journal;
 
 CREATE INDEX sessions_in_sight_satellite_task_key

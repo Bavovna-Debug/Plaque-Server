@@ -81,7 +81,8 @@ schedulerMain(Datum *arg)
 	while (!gotSigTerm)
 	{
 	    numberOfProcessedSessions = 0;
-	    revisionSessionsForDeviceDisplacement(&numberOfProcessedSessions);
+	    revisionSessionsForDeviceDisplacementInSight(&numberOfProcessedSessions);
+	    revisionSessionsForDeviceDisplacementOnMap(&numberOfProcessedSessions);
 	    revisionSessionsForModifiedPlaques(&numberOfProcessedSessions);
 
         if (numberOfProcessedSessions > 0)

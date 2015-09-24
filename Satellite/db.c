@@ -390,7 +390,7 @@ dbhPushArgument(struct dbh *dbh, char *value, Oid type, int length, int format)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = type;
-	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = length;
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = (value == NULL) ? 0 : length;
 	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = format;
 	dbh->arguments.numberOfArguments++;
 }
@@ -400,7 +400,7 @@ dbhPushBIGINT(struct dbh *dbh, uint64 *value)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = INT8OID;
-	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = sizeof(uint64);
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = (value == NULL) ? 0 : sizeof(uint64);
 	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
 	dbh->arguments.numberOfArguments++;
 }
@@ -410,7 +410,7 @@ dbhPushINTEGER(struct dbh *dbh, uint32 *value)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = INT4OID;
-	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = sizeof(uint32);
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = (value == NULL) ? 0 : sizeof(uint32);
 	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
 	dbh->arguments.numberOfArguments++;
 }
@@ -420,7 +420,7 @@ dbhPushDOUBLE(struct dbh *dbh, double *value)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = FLOAT8OID;
-	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = sizeof(double);
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = (value == NULL) ? 0 : sizeof(double);
 	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
 	dbh->arguments.numberOfArguments++;
 }
@@ -430,18 +430,38 @@ dbhPushREAL(struct dbh *dbh, float *value)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = FLOAT4OID;
-	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = sizeof(float);
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = (value == NULL) ? 0 : sizeof(float);
 	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
 	dbh->arguments.numberOfArguments++;
 }
 
 inline void
-dbhPushVARCHAR(struct dbh *dbh, char *value, int maxLength)
+dbhPushCHAR(struct dbh *dbh, char *value, int length)
+{
+	dbh->arguments.values   [dbh->arguments.numberOfArguments] = value;
+	dbh->arguments.types    [dbh->arguments.numberOfArguments] = CHAROID;
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = (value == NULL) ? 0 : length;
+	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 0;
+	dbh->arguments.numberOfArguments++;
+}
+
+inline void
+dbhPushVARCHAR(struct dbh *dbh, char *value, int length)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = VARCHAROID;
-	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = maxLength;
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = (value == NULL) ? 0 : length;
 	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 0;
+	dbh->arguments.numberOfArguments++;
+}
+
+inline void
+dbhPushBYTEA(struct dbh *dbh, char *value, int length)
+{
+	dbh->arguments.values   [dbh->arguments.numberOfArguments] = value;
+	dbh->arguments.types    [dbh->arguments.numberOfArguments] = BYTEAOID;
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = (value == NULL) ? 0 : length;
+	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
 	dbh->arguments.numberOfArguments++;
 }
 
@@ -450,7 +470,7 @@ dbhPushUUID(struct dbh *dbh, char *value)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = UUIDOID;
-	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = UUIDBinarySize;
+	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = (value == NULL) ? 0 : UUIDBinarySize;
 	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
 	dbh->arguments.numberOfArguments++;
 }

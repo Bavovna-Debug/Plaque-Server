@@ -63,6 +63,7 @@ startTask(
 
     rc = pthread_create(&task->thread, NULL, &taskThread, task);
     if (rc != 0) {
+    	pokeBuffer(buffer);
         reportError("Cannot create main task: errno=%d", errno);
         return NULL;
     }
@@ -189,8 +190,6 @@ taskThread(void *arg)
     }
 #endif
 
-	close(task->xmit.sockFD);
-
     pthread_cleanup_pop(1);
 
 	pthread_exit(NULL);
@@ -227,12 +226,6 @@ taskInit(struct task *task)
         return -1;
     }
 
-	rc = pthread_spin_init(&task->paquet.broadcastLock, PTHREAD_PROCESS_PRIVATE);
-	if (rc != 0) {
-		reportError("Cannot initialize spinlock: errno=%d", errno);
-        return -1;
-    }
-
 	rc = pthread_spin_init(&task->paquet.heavyJobLock, PTHREAD_PROCESS_PRIVATE);
 	if (rc != 0) {
 		reportError("Cannot initialize spinlock: errno=%d", errno);
@@ -245,31 +238,27 @@ taskInit(struct task *task)
         return -1;
     }
 
-	task->lastKnownRevision.onRadar = 0;
-	task->lastKnownRevision.inSight = 0;
-	task->lastKnownRevision.onMap = 0;
+	rc = pthread_spin_init(&task->broadcast.lock, PTHREAD_PROCESS_PRIVATE);
+	if (rc != 0) {
+		reportError("Cannot initialize spinlock: errno=%d", errno);
+        return -1;
+    }
 
-	task->paquet.broadcastOnRadar = NULL;
-	task->paquet.broadcastInSight = NULL;
-	task->paquet.broadcastOnMap = NULL;
-
-    rc = sem_init(&task->paquet.waitForBroadcastInSight, 0, 0);
+    rc = sem_init(&task->broadcast.waitForBroadcast, 0, 0);
 	if (rc != 0) {
         reportError("Cannot initialize semaphore: errno=%d", errno);
         return -1;
     }
 
-    rc = sem_init(&task->paquet.waitForBroadcastOnRadar, 0, 0);
-	if (rc != 0) {
-        reportError("Cannot initialize semaphore: errno=%d", errno);
-        return -1;
-    }
+	task->broadcast.lastKnownRevision.onRadar = 0;
+	task->broadcast.lastKnownRevision.inSight = 0;
+	task->broadcast.lastKnownRevision.onMap = 0;
 
-    rc = sem_init(&task->paquet.waitForBroadcastOnMap, 0, 0);
-	if (rc != 0) {
-        reportError("Cannot initialize semaphore: errno=%d", errno);
-        return -1;
-    }
+	task->broadcast.currentRevision.onRadar = 0;
+	task->broadcast.currentRevision.inSight = 0;
+	task->broadcast.currentRevision.onMap = 0;
+
+	task->broadcast.broadcastPaquet = NULL;
 
     return 0;
 }
@@ -282,6 +271,8 @@ taskCleanup(void *arg)
 
 	while (task->paquet.chainAnchor != NULL)
 		paquetCancel(task->paquet.chainAnchor);
+
+	close(task->xmit.sockFD);
 
 	rc = pthread_spin_destroy(&task->statusLock);
 	if (rc != 0)
@@ -299,10 +290,6 @@ taskCleanup(void *arg)
 	if (rc != 0)
 		reportError("Cannot destroy spinlock: errno=%d", errno);
 
-	rc = pthread_spin_destroy(&task->paquet.broadcastLock);
-	if (rc != 0)
-		reportError("Cannot destroy spinlock: errno=%d", errno);
-
 	rc = pthread_spin_destroy(&task->paquet.heavyJobLock);
 	if (rc != 0)
 		reportError("Cannot destroy spinlock: errno=%d", errno);
@@ -311,15 +298,11 @@ taskCleanup(void *arg)
 	if (rc != 0)
 		reportError("Cannot destroy spinlock: errno=%d", errno);
 
-    rc = sem_init(&task->paquet.waitForBroadcastInSight, 0, 0);
-    if (rc != 0)
-        reportError("Cannot destroy semaphore: errno=%d", errno);
+	rc = pthread_spin_destroy(&task->broadcast.lock);
+	if (rc != 0)
+		reportError("Cannot destroy spinlock: errno=%d", errno);
 
-    rc = sem_init(&task->paquet.waitForBroadcastOnRadar, 0, 0);
-    if (rc != 0)
-        reportError("Cannot destroy semaphore: errno=%d", errno);
-
-    rc = sem_init(&task->paquet.waitForBroadcastOnMap, 0, 0);
+    rc = sem_init(&task->broadcast.waitForBroadcast, 0, 0);
     if (rc != 0)
         reportError("Cannot destroy semaphore: errno=%d", errno);
 

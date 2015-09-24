@@ -11,11 +11,6 @@
 int
 verifyGuest(struct task *task)
 {
-	const char	*paramValues[1];
-    Oid			paramTypes[1];
-    int			paramLengths[1];
-	int			paramFormats[1];
-
 	struct dbh *dbh = peekDB(task->desk->dbh.guardian);
 	if (dbh == NULL) {
 		reportError("No database handler available");
@@ -58,11 +53,6 @@ registerDevice(
 	struct dialogueAnticipant *anticipant,
 	char *deviceToken)
 {
-	const char	*paramValues[5];
-    Oid			paramTypes[5];
-    int			paramLengths[5];
-	int			paramFormats[5];
-
 	if (verifyGuest(task) != 0)
 		return -1;
 
@@ -129,11 +119,6 @@ int
 validateProfileName(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
-
-	const char	*paramValues[1];
-    Oid			paramTypes[1];
-    int			paramLengths[1];
-	int			paramFormats[1];
 
 	//if (deviceIdByToken(dbh, bonjourDeviceToken(task->request)) == 0)
 		//return -1;
@@ -208,11 +193,6 @@ createProfile(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	const char	*paramValues[4];
-    Oid			paramTypes[4];
-    int			paramLengths[4];
-	int			paramFormats[4];
-
 	//if (deviceIdByToken(dbh, bonjourDeviceToken(task->request)) == 0)
 		//return -1;
 
@@ -226,9 +206,7 @@ createProfile(struct paquet *paquet)
 
 	resetCursor(inputBuffer, 1);
 
-	struct bonjourCreateProfile profile;
-
-	inputBuffer = getData(inputBuffer, (char *)&profile, sizeof(profile));
+	struct bonjourCreateProfile *profile = (struct bonjourCreateProfile *)inputBuffer->cursor;
 
 	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
@@ -236,14 +214,12 @@ createProfile(struct paquet *paquet)
 		return -1;
 	}
 
-	paramValues   [0] = (char *)&profile.profileName;
-	paramTypes    [0] = VARCHAROID;
-	paramLengths  [0] = strnlen(profile.profileName, BonjourProfileNameLength);
-	paramFormats  [0] = 0;
+    dbhPushVARCHAR(dbh,
+    	(char *)&profile->profileName,
+    	strnlen(profile->profileName, BonjourProfileNameLength));
 
-	dbh->result = PQexecParams(dbh->conn,
-		"INSERT INTO auth.profiles (profile_name) VALUES (TRIM($1)) RETURNING profile_id",
-		1, paramTypes, paramValues, paramLengths, paramFormats, 1);
+	dbhExecute(dbh, "\
+INSERT INTO auth.profiles (profile_name) VALUES (TRIM($1)) RETURNING profile_id");
 
 	if (sqlState(dbh->result, CHECK_VIOLATION)) {
 		pokeDB(dbh);
@@ -296,52 +272,37 @@ createProfile(struct paquet *paquet)
 	}
 
 	uint64 profileIdBigEndian;
-	memcpy(&profileIdBigEndian, PQgetvalue(dbh->result, 0, 0), sizeof(profileIdBigEndian));
+	//memcpy(&profileIdBigEndian, PQgetvalue(dbh->result, 0, 0), sizeof(profileIdBigEndian));
+    profileIdBigEndian = *(uint64 *)PQgetvalue(dbh->result, 0, 0);
 
-	PQclear(dbh->result);
+    dbhPushBIGINT(dbh, &profileIdBigEndian);
+    dbhPushVARCHAR(dbh,
+    	(char *)&profile->userName,
+    	strnlen(profile->userName, BonjourUserNameLength));
 
-	paramValues   [0] = (char *)&profileIdBigEndian;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(profileIdBigEndian);
-	paramFormats  [0] = 1;
-
-	paramValues   [1] = (char *)&profile.userName;
-	paramTypes    [1] = VARCHAROID;
-	paramLengths  [1] = strnlen(profile.userName, BonjourUserNameLength);
-	paramFormats  [1] = 0;
-
-	if (strnlen(profile.passwordMD5, BonjourMD5Length) == 0) {
-		paramValues   [2] = NULL;
-		paramTypes    [2] = CHAROID;
-		paramLengths  [2] = 0;
-		paramFormats  [2] = 0;
+	if (strnlen(profile->passwordMD5, BonjourMD5Length) == 0) {
+	    dbhPushCHAR(dbh, NULL, 0);
 	} else {
-		paramValues   [2] = (char *)&profile.passwordMD5;
-		paramTypes    [2] = CHAROID;
-		paramLengths  [2] = strnlen(profile.passwordMD5, BonjourMD5Length);
-		paramFormats  [2] = 0;
+	    dbhPushCHAR(dbh,
+	    	(char *)&profile->passwordMD5,
+	    	strnlen(profile->passwordMD5, BonjourMD5Length));
 	}
 
-	if (strnlen(profile.emailAddress, BonjourEmailAddressLength) == 0) {
-		paramValues   [3] = NULL;
-		paramTypes    [3] = VARCHAROID;
-		paramLengths  [3] = 0;
-		paramFormats  [3] = 0;
+	if (strnlen(profile->emailAddress, BonjourEmailAddressLength) == 0) {
+	    dbhPushVARCHAR(dbh, NULL, 0);
 	} else {
-		paramValues   [3] = (char *)&profile.emailAddress;
-		paramTypes    [3] = VARCHAROID;
-		paramLengths  [3] = strnlen(profile.emailAddress, BonjourEmailAddressLength);
-		paramFormats  [3] = 0;
+	    dbhPushVARCHAR(dbh,
+	    	(char *)&profile->emailAddress,
+	    	strnlen(profile->emailAddress, BonjourEmailAddressLength));
 	}
 
-	dbh->result = PQexecParams(dbh->conn, "\
+	dbhExecute(dbh, "\
 UPDATE auth.profiles \
 SET user_name = TRIM($2), \
 	password_md5 = $3, \
 	email_address = TRIM($4) \
 WHERE profile_id = $1 \
-RETURNING profile_token",
-		4, paramTypes, paramValues, paramLengths, paramFormats, 1);
+RETURNING profile_token");
 
 	if (sqlState(dbh->result, CHECK_VIOLATION)) {
 		pokeDB(dbh);
@@ -421,11 +382,6 @@ notificationsToken(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	const char	*paramValues[2];
-    Oid			paramTypes[2];
-    int			paramLengths[2];
-	int			paramFormats[2];
-
 	struct buffer *inputBuffer = paquet->inputBuffer;
 	struct buffer *outputBuffer = paquet->inputBuffer;
 
@@ -457,19 +413,13 @@ notificationsToken(struct paquet *paquet)
 		return -1;
 	}
 
-	paramValues   [0] = (char *)&task->deviceId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(task->deviceId);
-	paramFormats  [0] = 1;
+    dbhPushBIGINT(dbh, &task->deviceId);
+    dbhPushBYTEA(dbh,
+    	(char *)&payload.notificationsToken,
+    	NotificationsTokenBinarySize);
 
-	paramValues   [1] = (char *)payload.notificationsToken;
-	paramTypes    [1] = BYTEAOID;
-	paramLengths  [1] = NotificationsTokenBinarySize;
-	paramFormats  [1] = 1;
-
-	dbh->result = PQexecParams(dbh->conn,
-		"SELECT journal.set_apns_token($1, $2)",
-		2, paramTypes, paramValues, paramLengths, paramFormats, 1);
+	dbhExecute(dbh, "\
+SELECT journal.set_apns_token($1, $2)");
 
 	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);

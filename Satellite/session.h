@@ -25,6 +25,11 @@ int
 setSessionOffline(struct task *task);
 
 int
+getSessionRevisions(
+    struct task         *task,
+    struct revisions    *revisions);
+
+int
 getSessionOnRadarRevision(
     struct task *task,
     struct dbh  *dbh,
@@ -41,28 +46,5 @@ getSessionOnMapRevision(
     struct task *task,
     struct dbh  *dbh,
     uint32      *revision);
-
-/*
-int
-getOnRadarMissingRevisions(
-    struct task *task,
-    struct dbh  *dbh,
-    uint32      lastKnownRevision,
-    uint32      *missingRevisions);
-
-int
-getInSightMissingRevisions(
-    struct task *task,
-    struct dbh  *dbh,
-    uint32      lastKnownRevision,
-    uint32      *missingRevisions);
-
-int
-getOnMapMissingRevisions(
-    struct task *task,
-    struct dbh  *dbh,
-    uint32      lastKnownRevision,
-    uint32      *missingRevisions);
-*/
 
 #endif

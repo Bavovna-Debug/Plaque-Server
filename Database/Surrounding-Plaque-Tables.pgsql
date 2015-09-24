@@ -1,4 +1,4 @@
-SET search_path = public, surrounding;
+SET search_path = surrounding;
 
 /******************************************************************************/
 /*                                                                            */

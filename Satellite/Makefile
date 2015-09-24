@@ -3,7 +3,7 @@ DEFINES := -D NETWORK_RECEIVE -D NETWORK_SEND -D DB_PEEK_POKE -D STATISTICS -D T
 
 all: vp_satellite
 
-vp_satellite: main.o anticipant.o broadcaster.o buffers.o db.o listener.o paquet.o paquet_broadcast.o plaques_edit.o plaques_query.o profiles.o session.o tasks.o task_kernel.o task_list.o task_xmit.o
+vp_satellite: main.o anticipant.o broadcaster.o buffers.o db.o listener.o paquet.o paquet_broadcast.o paquet_displacement.o plaques_edit.o plaques_query.o profiles.o session.o tasks.o task_kernel.o task_list.o task_xmit.o
 	$(CC) -pthread -L/usr/pgsql-9.4/lib/ -o $@ $^ -lpq
 
 main.o: main.c broadcaster.h db.h desk.h listener.h paquet.h session.h tasks.h task_list.h ../lib/buffers.h ../api/broadcaster_api.h
@@ -21,10 +21,13 @@ db.o: db.c db.h
 listener.o: listener.c desk.h listener.h tasks.h
 	$(CC) -c $(CFLAGS) $(INCLUDE) $(DEFINES) $< -o $@
 
-paquet.o: paquet.c api.h db.h paquet.h paquet_broadcast.h tasks.h ../lib/buffers.h
+paquet.o: paquet.c api.h db.h paquet.h paquet_broadcast.h paquet_displacement.h plaques_edit.h plaques_query.h tasks.h ../lib/buffers.h
 	$(CC) -c $(CFLAGS) $(INCLUDE) $(DEFINES) $< -o $@
 
 paquet_broadcast.o: paquet_broadcast.c api.h db.h paquet.h paquet_broadcast.h tasks.h ../lib/buffers.h
+	$(CC) -c $(CFLAGS) $(INCLUDE) $(DEFINES) $< -o $@
+
+paquet_displacement.o: paquet_displacement.c db.h paquet.h paquet_displacement.h tasks.h ../lib/buffers.h
 	$(CC) -c $(CFLAGS) $(INCLUDE) $(DEFINES) $< -o $@
 
 plaques_query.o: plaques_query.c api.h db.h desk.h paquet.h plaques_query.h tasks.h ../lib/buffers.h

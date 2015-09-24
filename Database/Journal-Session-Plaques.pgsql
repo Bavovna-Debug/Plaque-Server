@@ -29,7 +29,7 @@ CREATE INDEX session_in_cache_plaques_session_key
 	WITH (FILLFACTOR = 80)
 	TABLESPACE vp_journal;
 
-CREATE INDEX session_in_cache_plaques_session_in_cache_revision_key
+CREATE INDEX session_in_cache_plaques_session_revision_key
 	ON journal.session_in_cache_plaques
 	USING BTREE
 	(session_id, in_cache_revision)
@@ -38,52 +38,6 @@ CREATE INDEX session_in_cache_plaques_session_in_cache_revision_key
 
 CREATE INDEX session_in_cache_plaques_session_plaque_key
 	ON journal.session_in_cache_plaques
-	USING BTREE
-	(session_id, plaque_id)
-	WITH (FILLFACTOR = 80)
-	TABLESPACE vp_journal;
-
-/******************************************************************************/
-/*                                                                            */
-/******************************************************************************/
-
-CREATE TABLE journal.session_in_sight_plaques
-(
-	session_id			BIGINT  					NOT NULL,
-	in_sight_revision   INTEGER                     NOT NULL,
-	plaque_id			BIGINT						NOT NULL,
-	disappeared         BOOLEAN                     NOT NULL DEFAULT FALSE,
-
-	CONSTRAINT session_in_sight_plaques_session_foreign_key
-		FOREIGN KEY (session_id)
-		REFERENCES journal.sessions (session_id)
-		ON UPDATE NO ACTION
-		ON DELETE CASCADE,
-
-	CONSTRAINT session_in_sight_plaques_plaque_foreign_key
-		FOREIGN KEY (plaque_id)
-		REFERENCES surrounding.plaques (plaque_id)
-		ON UPDATE NO ACTION
-		ON DELETE RESTRICT
-)
-TABLESPACE vp_journal;
-
-CREATE INDEX session_in_sight_plaques_session_key
-	ON journal.session_in_sight_plaques
-	USING BTREE
-	(session_id)
-	WITH (FILLFACTOR = 80)
-	TABLESPACE vp_journal;
-
-CREATE INDEX session_in_sight_plaques_session_in_sight_revision_key
-	ON journal.session_in_sight_plaques
-	USING BTREE
-	(session_id, in_sight_revision)
-	WITH (FILLFACTOR = 80)
-	TABLESPACE vp_journal;
-
-CREATE UNIQUE INDEX session_in_sight_plaques_session_plaque_key
-	ON journal.session_in_sight_plaques
 	USING BTREE
 	(session_id, plaque_id)
 	WITH (FILLFACTOR = 80)
@@ -121,7 +75,7 @@ CREATE INDEX session_on_radar_plaques_session_key
 	WITH (FILLFACTOR = 80)
 	TABLESPACE vp_journal;
 
-CREATE INDEX session_on_radar_plaques_session_in_cache_revision_key
+CREATE INDEX session_on_radar_plaques_session_revision_key
 	ON journal.session_on_radar_plaques
 	USING BTREE
 	(session_id, on_radar_revision)
@@ -130,6 +84,98 @@ CREATE INDEX session_on_radar_plaques_session_in_cache_revision_key
 
 CREATE INDEX session_on_radar_plaques_session_plaque_key
 	ON journal.session_on_radar_plaques
+	USING BTREE
+	(session_id, plaque_id)
+	WITH (FILLFACTOR = 80)
+	TABLESPACE vp_journal;
+
+/******************************************************************************/
+/*                                                                            */
+/******************************************************************************/
+
+CREATE TABLE journal.session_in_sight_plaques
+(
+	session_id			BIGINT  					NOT NULL,
+	in_sight_revision   INTEGER                     NOT NULL,
+	plaque_id			BIGINT						NOT NULL,
+	disappeared         BOOLEAN                     NOT NULL DEFAULT FALSE,
+
+	CONSTRAINT session_in_sight_plaques_session_foreign_key
+		FOREIGN KEY (session_id)
+		REFERENCES journal.sessions (session_id)
+		ON UPDATE NO ACTION
+		ON DELETE CASCADE,
+
+	CONSTRAINT session_in_sight_plaques_plaque_foreign_key
+		FOREIGN KEY (plaque_id)
+		REFERENCES surrounding.plaques (plaque_id)
+		ON UPDATE NO ACTION
+		ON DELETE RESTRICT
+)
+TABLESPACE vp_journal;
+
+CREATE INDEX session_in_sight_plaques_session_key
+	ON journal.session_in_sight_plaques
+	USING BTREE
+	(session_id)
+	WITH (FILLFACTOR = 80)
+	TABLESPACE vp_journal;
+
+CREATE INDEX session_in_sight_plaques_session_revision_key
+	ON journal.session_in_sight_plaques
+	USING BTREE
+	(session_id, in_sight_revision)
+	WITH (FILLFACTOR = 80)
+	TABLESPACE vp_journal;
+
+CREATE UNIQUE INDEX session_in_sight_plaques_session_plaque_key
+	ON journal.session_in_sight_plaques
+	USING BTREE
+	(session_id, plaque_id)
+	WITH (FILLFACTOR = 80)
+	TABLESPACE vp_journal;
+
+/******************************************************************************/
+/*                                                                            */
+/******************************************************************************/
+
+CREATE TABLE journal.session_on_map_plaques
+(
+	session_id			BIGINT  					NOT NULL,
+	on_map_revision     INTEGER                     NOT NULL,
+	plaque_id			BIGINT						NOT NULL,
+	disappeared         BOOLEAN                     NOT NULL DEFAULT FALSE,
+
+	CONSTRAINT session_on_map_plaques_session_foreign_key
+		FOREIGN KEY (session_id)
+		REFERENCES journal.sessions (session_id)
+		ON UPDATE NO ACTION
+		ON DELETE CASCADE,
+
+	CONSTRAINT session_on_map_plaques_plaque_foreign_key
+		FOREIGN KEY (plaque_id)
+		REFERENCES surrounding.plaques (plaque_id)
+		ON UPDATE NO ACTION
+		ON DELETE RESTRICT
+)
+TABLESPACE vp_journal;
+
+CREATE INDEX session_on_map_plaques_session_key
+	ON journal.session_on_map_plaques
+	USING BTREE
+	(session_id)
+	WITH (FILLFACTOR = 80)
+	TABLESPACE vp_journal;
+
+CREATE INDEX session_on_map_plaques_session_revision_key
+	ON journal.session_on_map_plaques
+	USING BTREE
+	(session_id, on_map_revision)
+	WITH (FILLFACTOR = 80)
+	TABLESPACE vp_journal;
+
+CREATE INDEX session_on_map_plaques_session_plaque_key
+	ON journal.session_on_map_plaques
 	USING BTREE
 	(session_id, plaque_id)
 	WITH (FILLFACTOR = 80)
@@ -244,8 +290,9 @@ DECLARE
     var_processed_sessions  INTEGER;
     var_plaque_id           BIGINT;
     var_session_id          BIGINT;
-    var_in_sight_revision   INTEGER;
     var_on_radar_revision   INTEGER;
+    var_in_sight_revision   INTEGER;
+    var_on_map_revision     INTEGER;
 
 BEGIN
     var_processed_sessions := 0;
@@ -256,6 +303,34 @@ BEGIN
 		DELETE FROM journal.modified_plaques
         RETURNING plaque_id
 	LOOP
+        -- Process "on radar"
+        --
+	    FOR var_session_id IN
+	        SELECT DISTINCT session_id
+            FROM journal.session_on_radar_plaques
+            WHERE plaque_id = var_plaque_id
+        LOOP
+            UPDATE journal.sessions
+            SET on_radar_revised = TRUE,
+                on_radar_revision = on_radar_revision + 1
+            WHERE session_id = var_session_id
+            RETURNING on_radar_revision
+            INTO var_on_radar_revision;
+
+            UPDATE journal.session_on_radar_plaques
+            SET on_radar_revision = var_on_radar_revision
+            WHERE session_id = var_session_id
+              AND plaque_id = var_plaque_id;
+
+            INSERT INTO journal.revised_sessions (session_id)
+            VALUES (var_session_id);
+
+    		RAISE LOG 'Plaque has changed on radar: session=% plaqueId=%',
+    		    var_session_id, var_plaque_id;
+
+    		var_processed_sessions := var_processed_sessions + 1;
+	    END LOOP;
+
 	    -- Process "in sight"
 	    --
 	    FOR var_session_id IN
@@ -284,29 +359,29 @@ BEGIN
     		var_processed_sessions := var_processed_sessions + 1;
 	    END LOOP;
 
-        -- Process "on radar"
+        -- Process "on map"
         --
 	    FOR var_session_id IN
 	        SELECT DISTINCT session_id
-            FROM journal.session_on_radar_plaques
+            FROM journal.session_on_map_plaques
             WHERE plaque_id = var_plaque_id
         LOOP
             UPDATE journal.sessions
-            SET on_radar_revised = TRUE,
-                on_radar_revision = on_radar_revision + 1
+            SET on_map_revised = TRUE,
+                on_map_revision = on_map_revision + 1
             WHERE session_id = var_session_id
-            RETURNING on_radar_revision
-            INTO var_on_radar_revision;
+            RETURNING on_map_revision
+            INTO var_on_map_revision;
 
-            UPDATE journal.session_on_radar_plaques
-            SET on_radar_revision = var_on_radar_revision
+            UPDATE journal.session_on_map_plaques
+            SET on_map_revision = var_on_map_revision
             WHERE session_id = var_session_id
               AND plaque_id = var_plaque_id;
 
             INSERT INTO journal.revised_sessions (session_id)
             VALUES (var_session_id);
 
-    		RAISE LOG 'Plaque has changed on radar: session=% plaqueId=%',
+    		RAISE LOG 'Plaque has changed on map: session=% plaqueId=%',
     		    var_session_id, var_plaque_id;
 
     		var_processed_sessions := var_processed_sessions + 1;

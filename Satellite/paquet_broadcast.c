@@ -20,15 +20,18 @@ static int
 paquetBroadcastPlaquesOnMap(struct paquet *paquet);
 
 int
-paquetBroadcastForOnRadar(struct paquet *paquet)
+paquetBroadcast(struct paquet *paquet)
 {
-    struct task *task;
-	uint32      lastKnownRevision;
-	uint32      currentRevisions;
-	uint32      missingRevisions;
-    int         rc;
+    struct task         *task;
+    struct revisions    *lastKnownRevision;
+    struct revisions    *currentRevision;
+    struct revisions    missingRevision;
+    int                 rc;
 
     task = paquet->task;
+
+    lastKnownRevision = &task->broadcast.lastKnownRevision;
+    currentRevision = &task->broadcast.currentRevision;
 
 	if (!expectedPayloadSize(paquet, sizeof(struct paquetBroadcast))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
@@ -36,46 +39,67 @@ paquetBroadcastForOnRadar(struct paquet *paquet)
 	}
 
 	resetCursor(paquet->inputBuffer, 1);
-	getUInt32(paquet->inputBuffer, &lastKnownRevision);
 
-	pokeBuffer(paquet->inputBuffer);
-	paquet->inputBuffer = NULL;
+	struct paquetBroadcast *broadcast = (struct paquetBroadcast *)paquet->inputBuffer->cursor;
 
-	pthread_spin_lock(&task->paquet.broadcastLock);
+	lastKnownRevision->onRadar = be32toh(broadcast->lastKnownOnRadarRevision);
+	lastKnownRevision->inSight = be32toh(broadcast->lastKnownInSightRevision);
+	lastKnownRevision->onMap = be32toh(broadcast->lastKnownOnMapRevision);
 
-	if (task->paquet.broadcastOnRadar != NULL)
-		paquetCancel(task->paquet.broadcastOnRadar);
-
-	task->paquet.broadcastOnRadar = paquet;
-    task->lastKnownRevision.onRadar = lastKnownRevision;
-
-	pthread_spin_unlock(&task->paquet.broadcastLock);
-
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
-	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
-		return -1;
-	}
-
-    rc = getSessionOnRadarRevision(task, dbh, &currentRevisions);
+    rc = getSessionRevisions(task, currentRevision);
     if (rc != 0) {
-        pokeDB(dbh);
 		setTaskStatus(task, TaskStatusOtherError);
 		return -1;
     }
 
-    pokeDB(dbh);
+    reportLog("'On radar' revisions: 'last known' %u 'current' %u",
+        lastKnownRevision->onRadar,
+        currentRevision->onRadar);
+    reportLog("'In sight' revisions: 'last known' %u 'current' %u",
+        lastKnownRevision->inSight,
+        currentRevision->inSight);
+    reportLog("'On map' revisions: 'last known' %u 'current' %u",
+        lastKnownRevision->onMap,
+        currentRevision->onMap);
 
-    if (lastKnownRevision > currentRevisions)
-        lastKnownRevision = 0;
+    if (lastKnownRevision->onRadar > currentRevision->onRadar)
+        lastKnownRevision->onRadar = 0;
 
-    missingRevisions = currentRevisions - lastKnownRevision;
+    if (lastKnownRevision->inSight > currentRevision->inSight)
+        lastKnownRevision->inSight = 0;
 
-    if (missingRevisions == 0) {
-        reportLog("Waiting for broadcast 'on radar' with known revision %u",
-            task->lastKnownRevision.onRadar);
+    if (lastKnownRevision->onMap > currentRevision->onMap)
+        lastKnownRevision->onMap = 0;
 
-        rc = sem_wait(&task->paquet.waitForBroadcastOnRadar);
+    pthread_spin_lock(&task->broadcast.lock);
+
+	if (task->broadcast.broadcastPaquet != NULL) {
+		//paquetCancel(task->broadcast.broadcastPaquet);
+	    pthread_spin_unlock(&task->broadcast.lock);
+		reportLog("Broadcast request received while another broadcast request is still in process");
+	    return -1;
+	}
+
+	task->broadcast.broadcastPaquet = paquet;
+
+	pthread_spin_unlock(&task->broadcast.lock);
+
+    missingRevision.onRadar = currentRevision->onRadar - lastKnownRevision->onRadar;
+    missingRevision.inSight = currentRevision->inSight - lastKnownRevision->inSight;
+    missingRevision.onMap = currentRevision->onMap - lastKnownRevision->onMap;
+
+    if ((missingRevision.onRadar > 0) || (missingRevision.inSight > 0) || (missingRevision.onMap > 0)) {
+        reportLog("Do not wait for boradcast because there are already %u / %u / %u missing revisions",
+            missingRevision.onRadar,
+            missingRevision.inSight,
+            missingRevision.onMap);
+    } else {
+        reportLog("Waiting for broadcast with known revisions %u / %u / %u",
+            lastKnownRevision->onRadar,
+            lastKnownRevision->inSight,
+            lastKnownRevision->onMap);
+
+        rc = sem_wait(&task->broadcast.waitForBroadcast);
         if (rc == -1) {
             //
             // Semaphore error! Break the loop.
@@ -84,289 +108,36 @@ paquetBroadcastForOnRadar(struct paquet *paquet)
             return -1;
         }
 
-        reportLog("Received broadcast 'on radar'");
-    } else {
-        reportLog("Do not wait for boradcast 'on radar' because there are already %u missing revisions", missingRevisions);
+        reportLog("Received broadcast");
     }
 
-    rc = paquetBroadcastPlaquesOnRadar(paquet);
+	pthread_spin_lock(&task->broadcast.lock);
 
-	pthread_spin_lock(&task->paquet.broadcastLock);
+    if (currentRevision->onRadar > lastKnownRevision->onRadar) {
+        reportLog("Fetch 'on radar' for broadcast from revision %u to %u",
+            lastKnownRevision->onRadar,
+            currentRevision->onRadar);
+        rc = paquetBroadcastPlaquesOnRadar(paquet);
+    } else if (currentRevision->inSight > lastKnownRevision->inSight) {
+        reportLog("Fetch 'in sight' for broadcast from revision %u to %u",
+            lastKnownRevision->inSight,
+            currentRevision->inSight);
+        rc = paquetBroadcastPlaquesInSight(paquet);
+    } else if (currentRevision->onMap > lastKnownRevision->onMap) {
+        reportLog("Fetch 'on map' for broadcast from revision %u to %u",
+            lastKnownRevision->onMap,
+            currentRevision->onMap);
+        rc = paquetBroadcastPlaquesOnMap(paquet);
+    } else {
+        reportLog("Nothing to fetch for broadcast");
+        rc = -1;
+    }
 
-	task->paquet.broadcastOnRadar = NULL;
-    task->lastKnownRevision.onRadar = 0;
+	task->broadcast.broadcastPaquet = NULL;
 
-	pthread_spin_unlock(&task->paquet.broadcastLock);
+	pthread_spin_unlock(&task->broadcast.lock);
 
     return rc;
-}
-
-int
-paquetBroadcastForInSight(struct paquet *paquet)
-{
-    struct task *task;
-	uint32      lastKnownRevision;
-	uint32      currentRevisions;
-	uint32      missingRevisions;
-    int         rc;
-
-    task = paquet->task;
-
-	if (!expectedPayloadSize(paquet, sizeof(struct paquetBroadcast))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
-		return -1;
-	}
-
-	resetCursor(paquet->inputBuffer, 1);
-	getUInt32(paquet->inputBuffer, &lastKnownRevision);
-
-	pokeBuffer(paquet->inputBuffer);
-	paquet->inputBuffer = NULL;
-
-	pthread_spin_lock(&task->paquet.broadcastLock);
-
-	if (task->paquet.broadcastInSight != NULL)
-		paquetCancel(task->paquet.broadcastInSight);
-
-    task->paquet.broadcastInSight = paquet;
-    task->lastKnownRevision.inSight = lastKnownRevision;
-
-    pthread_spin_unlock(&task->paquet.broadcastLock);
-
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
-	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
-		return -1;
-	}
-
-    rc = getSessionInSightRevision(task, dbh, &currentRevisions);
-    if (rc != 0) {
-        pokeDB(dbh);
-		setTaskStatus(task, TaskStatusOtherError);
-		return -1;
-    }
-
-    pokeDB(dbh);
-
-    if (lastKnownRevision > currentRevisions)
-        lastKnownRevision = 0;
-
-    missingRevisions = currentRevisions - lastKnownRevision;
-
-    if (missingRevisions == 0) {
-        reportLog("Waiting for broadcast 'in sight' with known revision %u",
-            task->lastKnownRevision.inSight);
-
-        rc = sem_wait(&task->paquet.waitForBroadcastInSight);
-        if (rc == -1) {
-            //
-            // Semaphore error! Break the loop.
-            //
-            reportError("Error has ocurred while whaiting for semaphore: errno=%d", errno);
-            return -1;
-        }
-
-        reportLog("Received broadcast 'in sight'");
-    } else {
-        reportLog("Do not wait for boradcast 'in sight' because there are already %u missing revisions", missingRevisions);
-    }
-
-    rc = paquetBroadcastPlaquesInSight(paquet);
-
-	pthread_spin_lock(&task->paquet.broadcastLock);
-
-	task->paquet.broadcastInSight = NULL;
-    task->lastKnownRevision.inSight = 0;
-
-	pthread_spin_unlock(&task->paquet.broadcastLock);
-
-    return rc;
-}
-
-int
-paquetBroadcastForOnMap(struct paquet *paquet)
-{
-    struct task *task;
-	uint32      lastKnownRevision;
-	uint32      currentRevisions;
-	uint32      missingRevisions;
-    int         rc;
-
-    task = paquet->task;
-
-	if (!expectedPayloadSize(paquet, sizeof(struct paquetBroadcast))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
-		return -1;
-	}
-
-	resetCursor(paquet->inputBuffer, 1);
-	getUInt32(paquet->inputBuffer, &lastKnownRevision);
-
-	pokeBuffer(paquet->inputBuffer);
-	paquet->inputBuffer = NULL;
-
-	pthread_spin_lock(&task->paquet.broadcastLock);
-
-	if (task->paquet.broadcastOnMap != NULL)
-		paquetCancel(task->paquet.broadcastOnMap);
-
-    task->paquet.broadcastOnMap = paquet;
-    task->lastKnownRevision.onMap = lastKnownRevision;
-
-    pthread_spin_unlock(&task->paquet.broadcastLock);
-
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
-	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
-		return -1;
-	}
-
-    rc = getSessionOnMapRevision(task, dbh, &currentRevisions);
-    if (rc != 0) {
-        pokeDB(dbh);
-		setTaskStatus(task, TaskStatusOtherError);
-		return -1;
-    }
-
-    pokeDB(dbh);
-
-    if (lastKnownRevision > currentRevisions)
-        lastKnownRevision = 0;
-
-    missingRevisions = currentRevisions - lastKnownRevision;
-
-    if (missingRevisions == 0) {
-        reportLog("Waiting for broadcast 'on map' with known revision %u",
-            task->lastKnownRevision.onMap);
-
-        rc = sem_wait(&task->paquet.waitForBroadcastOnMap);
-        if (rc == -1) {
-            //
-            // Semaphore error! Break the loop.
-            //
-            reportError("Error has ocurred while whaiting for semaphore: errno=%d", errno);
-            return -1;
-        }
-
-        reportLog("Received broadcast 'on map'");
-    } else {
-        reportLog("Do not wait for boradcast 'on map' because there are already %u missing revisions", missingRevisions);
-    }
-
-    rc = paquetBroadcastPlaquesOnMap(paquet);
-
-	pthread_spin_lock(&task->paquet.broadcastLock);
-
-	task->paquet.broadcastOnMap = NULL;
-    task->lastKnownRevision.onMap = 0;
-
-	pthread_spin_unlock(&task->paquet.broadcastLock);
-
-    return rc;
-}
-
-int
-paquetDisplacementOnRadar(struct paquet *paquet)
-{
-	struct task	*task = paquet->task;
-
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
-
-	if (!expectedPayloadSize(paquet, sizeof(struct paquetDisplacement))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
-		return -1;
-	}
-
-	resetCursor(inputBuffer, 1);
-
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
-	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
-		return -1;
-	}
-
-	struct paquetDisplacement *displacement = (struct paquetDisplacement *)inputBuffer->cursor;
-
-    dbhPushBIGINT(dbh, &task->deviceId);
-    dbhPushDOUBLE(dbh, &displacement->latitude);
-    dbhPushDOUBLE(dbh, &displacement->longitude);
-    dbhPushREAL(dbh, &displacement->range);
-
-	dbhExecute(dbh, "\
-UPDATE journal.device_displacements \
-SET on_radar_coordinate = LL_TO_EARTH($2, $3), \
-    on_radar_range = $4 \
-WHERE device_id = $1");
-
-	if (!dbhCommandOK(dbh, dbh->result)) {
-		pokeDB(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
-		return -1;
-	}
-
-	resetBufferData(outputBuffer, 1);
-
-    uint32 result = PaquetCreatePlaqueSucceeded;
-    outputBuffer = putUInt32(outputBuffer, &result);
-
-	pokeDB(dbh);
-
-	paquet->outputBuffer = paquet->inputBuffer;
-
-	return 0;
-}
-
-int
-paquetDisplacementInSight(struct paquet *paquet)
-{
-	struct task	*task = paquet->task;
-
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
-
-	if (!expectedPayloadSize(paquet, sizeof(struct paquetDisplacement))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
-		return -1;
-	}
-
-	resetCursor(inputBuffer, 1);
-
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
-	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
-		return -1;
-	}
-
-	struct paquetDisplacement *displacement = (struct paquetDisplacement *)inputBuffer->cursor;
-
-    dbhPushBIGINT(dbh, &task->deviceId);
-    dbhPushDOUBLE(dbh, &displacement->latitude);
-    dbhPushDOUBLE(dbh, &displacement->longitude);
-    dbhPushREAL(dbh, &displacement->range);
-
-	dbhExecute(dbh, "\
-UPDATE journal.device_displacements \
-SET in_sight_coordinate = LL_TO_EARTH($2, $3), \
-    in_sight_range = $4 \
-WHERE device_id = $1");
-
-	if (!dbhCommandOK(dbh, dbh->result)) {
-		pokeDB(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
-		return -1;
-	}
-
-	resetBufferData(outputBuffer, 1);
-
-    uint32 result = PaquetCreatePlaqueSucceeded;
-    outputBuffer = putUInt32(outputBuffer, &result);
-
-	pokeDB(dbh);
-
-	paquet->outputBuffer = paquet->inputBuffer;
-
-	return 0;
 }
 
 static int
@@ -374,7 +145,15 @@ paquetBroadcastPlaquesOnRadar(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 256);
+    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 512);
+	if (outputBuffer == NULL) {
+		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
+		return -1;
+	}
+
+	resetBufferData(outputBuffer, 1);
+
+    paquet->outputBuffer = outputBuffer;
 
 	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
@@ -388,7 +167,7 @@ paquetBroadcastPlaquesOnRadar(struct paquet *paquet)
 		return -1;
 	}
 
-    uint32 lastKnownRevision = htobe32(task->lastKnownRevision.onRadar);
+    uint32 lastKnownRevision = htobe32(task->broadcast.lastKnownRevision.onRadar);
     dbhPushBIGINT(dbh, &task->sessionId);
     dbhPushINTEGER(dbh, &lastKnownRevision);
 
@@ -432,6 +211,9 @@ WHERE session_id = $1 \
 
 	resetBufferData(outputBuffer, 1);
 
+    uint32 broadcastDestination = BroadcastDestinationOnRadar;
+	outputBuffer = putUInt32(outputBuffer, &broadcastDestination);
+
 	outputBuffer = putUInt32(outputBuffer, &currentRevision);
 
 	uint32 numberOfPlaques = PQntuples(dbh->result);
@@ -439,7 +221,7 @@ WHERE session_id = $1 \
 	reportLog("Found %u plaques for 'on radar' current revision %u last known revision %u",
 	    numberOfPlaques,
 	    currentRevision,
-	    task->lastKnownRevision.onRadar);
+	    task->broadcast.lastKnownRevision.onRadar);
 
 	outputBuffer = putUInt32(outputBuffer, &numberOfPlaques);
 
@@ -463,8 +245,6 @@ WHERE session_id = $1 \
 
 	pokeDB(dbh);
 
-    paquet->outputBuffer = outputBuffer;
-
 	return 0;
 }
 
@@ -473,7 +253,15 @@ paquetBroadcastPlaquesInSight(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 256);
+    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 512);
+	if (outputBuffer == NULL) {
+		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
+		return -1;
+	}
+
+	resetBufferData(outputBuffer, 1);
+
+    paquet->outputBuffer = outputBuffer;
 
 	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
@@ -487,7 +275,7 @@ paquetBroadcastPlaquesInSight(struct paquet *paquet)
 		return -1;
 	}
 
-    uint32 lastKnownRevision = htobe32(task->lastKnownRevision.inSight);
+    uint32 lastKnownRevision = htobe32(task->broadcast.lastKnownRevision.inSight);
     dbhPushBIGINT(dbh, &task->sessionId);
     dbhPushINTEGER(dbh, &lastKnownRevision);
 
@@ -531,6 +319,9 @@ WHERE session_id = $1 \
 
 	resetBufferData(outputBuffer, 1);
 
+    uint32 broadcastDestination = BroadcastDestinationInSight;
+	outputBuffer = putUInt32(outputBuffer, &broadcastDestination);
+
 	outputBuffer = putUInt32(outputBuffer, &currentRevision);
 
 	uint32 numberOfPlaques = PQntuples(dbh->result);
@@ -538,7 +329,7 @@ WHERE session_id = $1 \
 	reportLog("Found %u plaques for 'in sight' current revision %u last known revision %u",
 	    numberOfPlaques,
 	    currentRevision,
-	    task->lastKnownRevision.inSight);
+	    task->broadcast.lastKnownRevision.inSight);
 
 	outputBuffer = putUInt32(outputBuffer, &numberOfPlaques);
 
@@ -562,8 +353,6 @@ WHERE session_id = $1 \
 
 	pokeDB(dbh);
 
-    paquet->outputBuffer = outputBuffer;
-
 	return 0;
 }
 
@@ -572,7 +361,15 @@ paquetBroadcastPlaquesOnMap(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 256);
+    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 512);
+	if (outputBuffer == NULL) {
+		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
+		return -1;
+	}
+
+	resetBufferData(outputBuffer, 1);
+
+    paquet->outputBuffer = outputBuffer;
 
 	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
@@ -586,7 +383,7 @@ paquetBroadcastPlaquesOnMap(struct paquet *paquet)
 		return -1;
 	}
 
-    uint32 lastKnownRevision = htobe32(task->lastKnownRevision.onMap);
+    uint32 lastKnownRevision = htobe32(task->broadcast.lastKnownRevision.onMap);
     dbhPushBIGINT(dbh, &task->sessionId);
     dbhPushINTEGER(dbh, &lastKnownRevision);
 
@@ -628,7 +425,8 @@ WHERE session_id = $1 \
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+    uint32 broadcastDestination = BroadcastDestinationOnMap;
+	outputBuffer = putUInt32(outputBuffer, &broadcastDestination);
 
 	outputBuffer = putUInt32(outputBuffer, &currentRevision);
 
@@ -637,7 +435,7 @@ WHERE session_id = $1 \
 	reportLog("Found %u plaques for 'on map' current revision %u last known revision %u",
 	    numberOfPlaques,
 	    currentRevision,
-	    task->lastKnownRevision.onMap);
+	    task->broadcast.lastKnownRevision.onMap);
 
 	outputBuffer = putUInt32(outputBuffer, &numberOfPlaques);
 
@@ -660,8 +458,6 @@ WHERE session_id = $1 \
 	}
 
 	pokeDB(dbh);
-
-    paquet->outputBuffer = outputBuffer;
 
 	return 0;
 }

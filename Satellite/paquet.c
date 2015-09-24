@@ -2,10 +2,13 @@
 #include <string.h>
 
 #include "api.h"
+#include "buffers.h"
 #include "db.h"
 #include "paquet.h"
 #include "paquet_broadcast.h"
-#include "buffers.h"
+#include "paquet_displacement.h"
+#include "plaques_edit.h"
+#include "plaques_query.h"
 #include "report.h"
 #include "tasks.h"
 
@@ -28,16 +31,8 @@ paquetThread(void *arg)
 
 	switch (paquet->commandCode)
 	{
-		case PaquetBroadcastForOnRadar:
-			rc = paquetBroadcastForOnRadar(paquet);
-			break;
-
-		case PaquetBroadcastForInSight:
-			rc = paquetBroadcastForInSight(paquet);
-			break;
-
-		case PaquetBroadcastForOnMap:
-			rc = paquetBroadcastForOnMap(paquet);
+		case PaquetBroadcast:
+			rc = paquetBroadcast(paquet);
 			break;
 
 		case PaquetDisplacementOnRadar:
@@ -46,6 +41,10 @@ paquetThread(void *arg)
 
 		case PaquetDisplacementInSight:
 			rc = paquetDisplacementInSight(paquet);
+			break;
+
+		case PaquetDisplacementOnMap:
+			rc = paquetDisplacementOnMap(paquet);
 			break;
 
 		case PaquetDownloadPlaquesOnRadar:
@@ -111,6 +110,18 @@ paquetThread(void *arg)
 	if (rc == 0)
 		sendPaquet(paquet);
 
+    pthread_cleanup_pop(1);
+
+	pthread_exit(NULL);
+}
+
+void *
+paquetCleanup(void *arg)
+{
+	struct paquet *paquet = (struct paquet *)arg;
+
+	removePaquetFromTask(paquet->task, paquet);
+
 	if (paquet->inputBuffer == paquet->outputBuffer) {
 		if (paquet->inputBuffer != NULL)
 			pokeBuffer(paquet->inputBuffer);
@@ -121,20 +132,7 @@ paquetThread(void *arg)
 			pokeBuffer(paquet->outputBuffer);
 	}
 
-    pthread_cleanup_pop(1);
-
-	pthread_exit(NULL);
-}
-
-void *
-paquetCleanup(void *arg)
-{
-	struct paquet *paquet = (struct paquet *)arg;
-	struct buffer *buffer = paquet->containerBuffer;
-
-	removePaquetFromTask(paquet->task, paquet);
-
-    pokeBuffer(buffer);
+    pokeBuffer(paquet->containerBuffer);
 }
 
 void
@@ -149,6 +147,8 @@ paquetCancel(struct paquet *paquet)
 	    } else {
 	    	reportError("Cannot cancel paquet thread: rc=%d", rc);
 	    }
+	} else {
+	    reportError("Paquet thread cancelled");
 	}
 }
 
@@ -185,47 +185,27 @@ expectedPayloadSize(struct paquet *paquet, int expectedSize)
 uint64
 deviceIdByToken(struct dbh *dbh, char *deviceToken)
 {
-	PGresult	*result;
-	const char	*paramValues[1];
-    Oid			paramTypes[1];
-    int			paramLengths[1];
-	int			paramFormats[1];
+    dbhPushUUID(dbh, deviceToken);
 
-	paramValues   [0] = deviceToken;
-	paramTypes    [0] = UUIDOID;
-	paramLengths  [0] = TokenBinarySize;
-	paramFormats  [0] = 1;
-
-	result = PQexecParams(dbh->conn, "\
+	dbhExecute(dbh, "\
 SELECT device_id \
 FROM auth.devices \
-WHERE device_token = $1",
-		1, paramTypes, paramValues, paramLengths, paramFormats, 1);
+WHERE device_token = $1");
 
-	if (!dbhTuplesOK(dbh, result)) {
-		PQclear(result);
+	if (!dbhTuplesOK(dbh, dbh->result))
 		return 0;
-	}
 
-	if (PQnfields(result) != 1) {
-		PQclear(result);
+	if (PQnfields(dbh->result) != 1)
 		return 0;
-	}
 
-	if (PQntuples(result) != 1) {
-		PQclear(result);
+	if (PQntuples(dbh->result) != 1)
 		return 0;
-	}
 
-	if (PQftype(result, 0) != INT8OID) {
-		PQclear(result);
+	if (PQftype(dbh->result, 0) != INT8OID)
 		return 0;
-	}
 
 	uint64 deviceIdBigEndian;
-	memcpy(&deviceIdBigEndian, PQgetvalue(result, 0, 0), sizeof(deviceIdBigEndian));
-
-	PQclear(result);
+	memcpy(&deviceIdBigEndian, PQgetvalue(dbh->result, 0, 0), sizeof(deviceIdBigEndian));
 
 	return deviceIdBigEndian;
 }

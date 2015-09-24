@@ -4,18 +4,6 @@
 #include "paquet.h"
 
 int
-paquetBroadcastForOnRadar(struct paquet *paquet);
-
-int
-paquetBroadcastForInSight(struct paquet *paquet);
-
-int
-paquetBroadcastForOnMap(struct paquet *paquet);
-
-int
-paquetDisplacementOnRadar(struct paquet *paquet);
-
-int
-paquetDisplacementInSight(struct paquet *paquet);
+paquetBroadcast(struct paquet *paquet);
 
 #endif

@@ -135,7 +135,13 @@ inline void
 dbhPushREAL(struct dbh *dbh, float *value);
 
 inline void
+dbhPushCHAR(struct dbh *dbh, char *value, int length);
+
+inline void
 dbhPushVARCHAR(struct dbh *dbh, char *value, int length);
+
+inline void
+dbhPushBYTEA(struct dbh *dbh, char *value, int length);
 
 inline void
 dbhPushUUID(struct dbh *dbh, char *value);

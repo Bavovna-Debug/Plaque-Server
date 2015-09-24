@@ -68,12 +68,12 @@ dialogueRegular(struct task *task)
 		setTaskStatus(task, TaskStatusCannotSetSessionOnline);
 	}
 
+    struct paquet *paquet = NULL;
 	do {
 #ifdef ANTICIPANT_DIALOGUE_REGULAR
         reportLog("Dialoque loop");
 #endif
     	struct buffer *buffer;
-        struct paquet *paquet;
 
 		// Get a buffer for new paquet.
 		//
@@ -214,18 +214,33 @@ dialogueRegular(struct task *task)
 		// Start new thread to process current paquet.
 		//
 	    rc = pthread_create(&paquet->thread, NULL, &paquetThread, paquet);
-    	if (rc != 0) {
+    	if (rc == 0) {
+    	    paquet = NULL;
+    	} else {
 #ifdef ANTICIPANT_DIALOGUE_REGULAR
         	reportError("Cannot create paquet thread: errno=%d", errno);
 #endif
 			setTaskStatus(task, TaskStatusCannotCreatePaquetThread);
+/*
 			if (receiveBuffer != NULL)
 				pokeBuffer(receiveBuffer);
 			pokeBuffer(paquet->inputBuffer);
+*/
         	break;
         }
 	} while (getTaskStatus(task) == TaskStatusGood);
 
+    // Release ressources of paquet in case something went wrong.
+    //
+    if (paquet != NULL) {
+        if (paquet->inputBuffer != NULL)
+            pokeBuffer(paquet->inputBuffer);
+
+        pokeBuffer(paquet->containerBuffer);
+    }
+
+    // Release ressources of temporary receive buffer in case something went wrong.
+    //
 	if (receiveBuffer != NULL)
 		pokeBuffer(receiveBuffer);
 
