@@ -44,6 +44,15 @@ sigHupHandler(SIGNAL_ARGS);
 static struct desk *
 initDesk(void);
 
+static void
+cleanupDesk(struct desk *desk);
+
+static int
+startListener(struct desk *desk);
+
+static int
+stopListener(struct desk *desk);
+
 void
 _PG_init(void)
 {
@@ -70,7 +79,6 @@ broadcasterMain(Datum *arg)
     int             latchStatus;
     struct desk     *desk;
 	uint64          numberOfSessions;
-	int             rc;
 
 	if (PQisthreadsafe() != 1)
 		proc_exit(-1);
@@ -93,11 +101,8 @@ broadcasterMain(Datum *arg)
 
     desk->listener.portNumber = BROADCASTER_PORT_NUMBER;
 
-	rc = pthread_create(&desk->listener.thread, NULL, &listenerThread, desk);
-    if (rc != 0) {
-        reportError("Cannot create thread: errno=%d", errno);
+    if (startListener(desk) != 0)
         proc_exit(-1);
-    }
 
 	while (!gotSigTerm)
 	{
@@ -121,27 +126,20 @@ broadcasterMain(Datum *arg)
             latchTimeout);
     	ResetLatch(&MyProc->procLatch);
 
-    	/*
-	     * Emergency bailout if postmaster has died.
-   		 */
-    	if (latchStatus & WL_POSTMASTER_DEATH) {
-	    	int rc = pthread_join(desk->listener.thread, NULL);
-            if (rc != 0) {
-                reportError("Error has occurred while waiting for listener thread: errno=%d", errno);
-                proc_exit(-2);
-            }
-
+    	// Emergency bailout if postmaster has died.
+   		//
+    	if (latchStatus & WL_POSTMASTER_DEATH)
             break;
-        }
 
-		/*
-		 * In case of a SIGHUP, just reload the configuration.
-		 */
+		// In case of a SIGHUP, just reload the configuration.
+		//
 		if (gotSigHup)
-		{
               gotSigHup = false;
-		}
     }
+
+    stopListener(desk);
+
+    cleanupDesk(desk);
 
 	proc_exit(0);
 }
@@ -173,6 +171,7 @@ initDesk(void)
 {
 	struct desk *desk;
     bool found;
+	pthread_mutexattr_t mutexAttr;
 	int rc;
 
 	LWLockAcquire(AddinShmemInitLock, LW_EXCLUSIVE);
@@ -184,19 +183,72 @@ initDesk(void)
         return NULL;
     }
 
-    desk->listener.readyToGo = sem_open("vpBroadcasterListener", O_CREAT, 0644, 0);
-    if (desk->listener.readyToGo == SEM_FAILED) {
-        reportError("Cannot initialize semaphore: errno=%d", errno);
+    pthread_mutexattr_init(&mutexAttr);
+    //pthread_mutexattr_setpshared(&mutexAttr, PTHREAD_PROCESS_SHARED);
+
+    rc = pthread_mutex_init(&desk->listener.readyToGoMutex, &mutexAttr);
+	if (rc != 0) {
+		reportError("Cannot initialize mutex: rc=%d", rc);
         return NULL;
     }
 
-	rc = pthread_spin_init(&desk->watchdog.lock, PTHREAD_PROCESS_PRIVATE);
+    rc = pthread_cond_init(&desk->listener.readyToGoCond, NULL);
 	if (rc != 0) {
-		reportError("Cannot initialize spinlock: %d", errno);
+		reportError("Cannot initialize condition: rc=%d", rc);
+        return NULL;
+    }
+
+	rc = pthread_mutex_init(&desk->watchdog.mutex, &mutexAttr);
+	if (rc != 0) {
+		reportError("Cannot initialize mutex: rc=%d", rc);
         return NULL;
     }
 
 	desk->watchdog.lastReceiptId = 0;
 
     return desk;
+}
+
+static void
+cleanupDesk(struct desk *desk)
+{
+}
+
+static int
+startListener(struct desk *desk)
+{
+    int rc;
+
+    // For portability, explicitly create threads in a joinable state.
+    //
+    pthread_attr_init(&desk->listener.attributes);
+    pthread_attr_setdetachstate(&desk->listener.attributes, PTHREAD_CREATE_JOINABLE);
+
+	rc = pthread_create(&desk->listener.thread, &desk->listener.attributes, &listenerThread, desk);
+    if (rc != 0) {
+        reportError("Cannot create listener thread: errno=%d", errno);
+        return -1;
+    }
+
+    return 0;
+}
+
+static int
+stopListener(struct desk *desk)
+{
+    int rc;
+
+    rc = pthread_cancel(desk->listener.thread);
+    if ((rc != 0) && (rc != ESRCH)) {
+        reportError("Cannot cancel listener thread: rc=%d", rc);
+        return -1;
+    }
+
+    rc = pthread_attr_destroy(&desk->listener.attributes);
+    if (rc != 0) {
+        reportError("Cannot destroy thread attributes: rc=%d", rc);
+        return -1;
+    }
+
+    return 0;
 }

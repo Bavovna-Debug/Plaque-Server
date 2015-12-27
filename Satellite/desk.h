@@ -38,6 +38,15 @@
 
 #endif
 
+#define BUFFER_DIALOGUE_PAQUET      0xDD000000
+#define BUFFER_DIALOGUE_FIRST       0xDD000001
+#define BUFFER_DIALOGUE_FOLLOWING   0xDD000002
+#define BUFFER_XMIT                 0xEE000000
+#define BUFFER_TASK                 0x22000000
+#define BUFFER_BROADCAST            0xBB000000
+#define BUFFER_PROFILES             0xFF000000
+#define BUFFER_PLAQUES              0xAA000000
+
 typedef struct desk {
     struct {
         struct pool     *task;

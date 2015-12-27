@@ -98,14 +98,35 @@ listenerThread(void *arg)
 void
 listenerKnockKnock(struct desk *desk)
 {
-    reportLog("Broadcaster knock... knock...");
-    sem_post(desk->listener.readyToGo);
+    int rc;
+
+    reportLog("Messenger knock... knock...");
+
+    rc = pthread_mutex_lock(&desk->listener.readyToGoMutex);
+    if (rc != 0) {
+        reportError("Error has occurred on mutex lock: rc=%d", rc);
+        return;
+    }
+
+    rc = pthread_cond_signal(&desk->listener.readyToGoCond);
+    if (rc != 0) {
+        pthread_mutex_unlock(&desk->listener.readyToGoMutex);
+        reportError("Error has occurred on condition signal: rc=%d", rc);
+        return;
+    }
+
+    rc = pthread_mutex_unlock(&desk->listener.readyToGoMutex);
+    if (rc != 0) {
+        reportError("Error has occurred on mutex unlock: rc=%d", rc);
+        return;
+    }
 }
 
 static int
 conversation(struct desk *desk, int sockFD)
 {
 	struct timespec     ts;
+	int                 timedout;
 	int                 rc;
 
     // Immediately after a connection is established try to send revised sessions
@@ -117,7 +138,7 @@ conversation(struct desk *desk, int sockFD)
 
     while (1)
     {
-        // Prepare timer for semaphore.
+        // Prepare timer for timed condition wait.
         //
         rc = clock_gettime(CLOCK_REALTIME_COARSE, &ts);
         if (rc == -1) {
@@ -127,31 +148,45 @@ conversation(struct desk *desk, int sockFD)
 
         ts.tv_sec += TIMEOUT_DISCONNECT_IF_IDLE;
 
-        // Wait for semaphore for some time.
+        // Wait for condition for some time.
         //
-        reportLog("Broadcaster thread whating %d seconds for revised sessions",
+        reportLog("Broadcaster thread waiting %d seconds for revised sessions",
             TIMEOUT_DISCONNECT_IF_IDLE);
-        rc = sem_timedwait(desk->listener.readyToGo, &ts);
-        if (rc == -1) {
-            if (errno != ETIMEDOUT) {
-                //
-                // Semaphore error! Break the loop.
-                //
-                reportError("Error has ocurred while whaiting for timed semaphore: errno=%d", errno);
-                break;
-            } else {
-                //
-                // Semaphore has timed out.
-                // Disconnect from APNS and start waiting for semaphore without timer.
-                //
-                reportLog("Broadcaster connection idle for %d seconds - disconnect",
-                    TIMEOUT_DISCONNECT_IF_IDLE);
 
-                break;
-            }
+        rc = pthread_mutex_lock(&desk->listener.readyToGoMutex);
+        if (rc != 0) {
+            reportError("Error has occurred on mutex lock: rc=%d", rc);
+            rc = -1;
+            break;
+        }
+
+        rc = pthread_cond_timedwait(&desk->listener.readyToGoCond, &desk->listener.readyToGoMutex, &ts);
+        timedout = (rc == ETIMEDOUT) ? 1 : 0;
+        if ((rc != 0) && (timedout == 0)) {
+            pthread_mutex_unlock(&desk->listener.readyToGoMutex);
+            reportError("Error has occurred while whaiting for condition: rc=%d", rc);
+            rc = -1;
+            break;
+        }
+
+        rc = pthread_mutex_unlock(&desk->listener.readyToGoMutex);
+        if (rc != 0) {
+            reportError("Error has occurred on mutex unlock: rc=%d", rc);
+            rc = -1;
+            break;
+        }
+
+        if (timedout == 1) {
+            //
+            // Condition wait has timed out.
+            //
+            reportLog("Broadcaster connection idle for %d seconds - disconnect",
+                TIMEOUT_DISCONNECT_IF_IDLE);
+
+            break;
         } else {
             //
-            // Semaphore show green light to start transfer.
+            // Condition show green light to start transfer.
             //
             rc = broadcasterDialog(desk, sockFD);
             if (rc != 0)
@@ -170,7 +205,7 @@ broadcasterDialog(struct desk *desk, int sockFD)
     uint64              receiptId;
     int                 rc;
 
-    pthread_spin_lock(&desk->watchdog.lock);
+    pthread_mutex_lock(&desk->watchdog.mutex);
 
     if (desk->watchdog.numberOfSessions == 0) {
         rc = 0;
@@ -209,7 +244,7 @@ broadcasterDialog(struct desk *desk, int sockFD)
             desk->watchdog.numberOfSessions = 0;
     }
 
-    pthread_spin_unlock(&desk->watchdog.lock);
+    pthread_mutex_unlock(&desk->watchdog.mutex);
 
     return rc;
 }
@@ -298,7 +333,7 @@ receiveReceipt(int sockFD, struct session *session, uint64 *receiptId)
 			reportError("Nothing read from socket");
 			return -1;
 		} else if (receivedPerStep == -1) {
-			reportError("Error reading from socket: errno=%d", errno);
+			reportError("Error reading from listener socket: errno=%d", errno);
 			return -1;
 		}
 

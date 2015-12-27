@@ -21,83 +21,91 @@ typedef struct pool {
 #ifdef BUFFERS_EYECATCHER
 	char				eyeCatcher[EYECATCHER_SIZE];
 #endif
-	int					numberOfChains;
-	struct chain		*chains[];
+	unsigned int		numberOfBanks;
+	struct bank		    *banks[];
 } pool_t;
 
-typedef struct chain {
+typedef struct bank {
 #ifdef BUFFERS_EYECATCHER
 	char				eyeCatcher[EYECATCHER_SIZE];
 #endif
 	pthread_spinlock_t	lock;
-	int					chainId;
+	unsigned int		bankId;
 	struct pool			*pool;
-	int					numberOfBuffers;
-	int					bufferSize;
-	int					pilotSize;
-	int					peekCursor;
-	int					pokeCursor;
-	int                 numberOfBlocks;
+	unsigned int		numberOfBuffers;
+	unsigned int		bufferSize;
+	unsigned int		pilotSize;
+	unsigned int		peekCursor;
+	unsigned int		pokeCursor;
+	unsigned int        numberOfBlocks;
     size_t				eachBlockSize;
     size_t				lastBlockSize;
-    int					buffersPerBlock;
+    unsigned int		buffersPerBlock;
 	void				**blocks;
-	int					ids[];
-} chain_t;
+	unsigned int		ids[];
+} bank_t;
 
 typedef struct buffer {
 #ifdef BUFFERS_EYECATCHER
 	char				eyeCatcher[EYECATCHER_SIZE];
 #endif
-	int					bufferId;
-	struct chain		*chain;
+	unsigned int		bufferId;
+	struct bank		    *bank;
+	struct buffer		*prev;
 	struct buffer		*next;
-	int					bufferSize;
-	int					pilotSize;
-	int					dataSize;
+	unsigned int		bufferSize;
+	unsigned int		pilotSize;
+	unsigned int		dataSize;
+	unsigned int		userId;
 	char				*data;
 	char				*cursor;
 } buffer_t;
 
 struct pool *
-initBufferPool(int numberOfChains);
+initBufferPool(unsigned int numberOfBanks);
 
 int
-initBufferChain(
-	struct pool	*pool,
-	int			chainId,
-	int			bufferSize,
-	int			pilotSize,
-	int			numberOfBuffers);
+initBufferBank(
+	struct pool     *pool,
+	unsigned int    bankId,
+	unsigned int    bufferSize,
+	unsigned int    pilotSize,
+	unsigned int    numberOfBuffers);
 
 struct buffer *
-bufferById(struct pool *pool, int chainId, int bufferId);
+peekBuffer(struct pool *pool, unsigned int userId);
 
 struct buffer *
-peekBuffer(struct pool *pool);
+peekBufferOfSize(struct pool *pool, unsigned int preferredSize, unsigned int userId);
 
 struct buffer *
-peekBufferOfSize(struct pool *pool, int preferredSize);
-
-struct buffer *
-peekBufferFromChain(struct pool *pool, int chainId);
+peekBufferFromBank(struct pool *pool, unsigned int bankId, unsigned int userId);
 
 void
 pokeBuffer(struct buffer *buffer);
 
-struct buffer *
+inline struct buffer *
+previousBuffer(struct buffer *buffer);
+
+inline struct buffer *
 nextBuffer(struct buffer *buffer);
 
-struct buffer *
+inline struct buffer *
+firstBuffer(struct buffer *buffer);
+
+inline struct buffer *
 lastBuffer(struct buffer *buffer);
 
-struct buffer *
+inline struct buffer *
+extendBuffer(struct buffer *buffer);
+
+inline struct buffer *
 appendBuffer(struct buffer *destination, struct buffer *appendage);
 
-int
+unsigned int
 copyBuffer(struct buffer *destination, struct buffer *source);
 
-int
+unsigned int
 totalDataSize(struct buffer *buffer);
 
 void
@@ -107,13 +115,22 @@ void
 resetCursor(struct buffer *buffer, int leavePilot);
 
 struct buffer *
-putData(struct buffer *buffer, char *sourceData, int sourceDataSize);
+putData(struct buffer *buffer, char *sourceData, unsigned int sourceDataSize);
 
 struct buffer *
-getData(struct buffer *buffer, char *destData, int destDataSize);
+getData(struct buffer *buffer, char *destData, unsigned int destDataSize);
 
 inline struct buffer *
-putUInt8(struct buffer *buffer, uint8 sourceData);
+putUInt8(struct buffer *buffer, uint8 *sourceData);
+
+inline struct buffer *
+getUInt8(struct buffer *buffer, uint8 *destData);
+
+inline struct buffer *
+putUInt16(struct buffer *buffer, uint16 *sourceData);
+
+inline struct buffer *
+getUInt16(struct buffer *buffer, uint16 *destData);
 
 inline struct buffer *
 putUInt32(struct buffer *buffer, uint32 *sourceData);
@@ -122,7 +139,13 @@ inline struct buffer *
 getUInt32(struct buffer *buffer, uint32 *destData);
 
 inline struct buffer *
-putString(struct buffer *buffer, char *sourceData, int sourceDataSize);
+putUInt64(struct buffer *buffer, uint64 *sourceData);
+
+inline struct buffer *
+getUInt64(struct buffer *buffer, uint64 *destData);
+
+inline struct buffer *
+putString(struct buffer *buffer, char *sourceData, unsigned int sourceDataSize);
 
 inline void
 booleanInternetToPostgres(char *value);
@@ -136,7 +159,7 @@ isPostgresBooleanTrue(char *value);
 inline int
 isPostgresBooleanFalse(char *value);
 
-int
-buffersInUse(struct pool *pool, int chainId);
+unsigned int
+buffersInUse(struct pool *pool, unsigned int bankId);
 
 #endif

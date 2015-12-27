@@ -1,5 +1,4 @@
 #include <errno.h>
-#include <semaphore.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
@@ -30,7 +29,7 @@ startTask(
 	int				sockFD,
 	char			*clientIP)
 {
-	struct buffer	*buffer;
+	struct buffer	*taskBuffer;
 	struct task		*task;
 	int rc;
 
@@ -38,16 +37,16 @@ startTask(
 	reportLog("Starting new task");
 #endif
 
-	buffer = peekBuffer(desk->pools.task);
-	if (buffer == NULL) {
+	taskBuffer = peekBuffer(desk->pools.task, BUFFER_TASK);
+	if (taskBuffer == NULL) {
         reportError("Out of memory");
         return NULL;
     }
 
-	task = (struct task *)buffer->data;
-	task->containerBuffer = buffer;
+	task = (struct task *)taskBuffer->data;
+	task->containerBuffer = taskBuffer;
 
-	task->taskId = buffer->bufferId;
+	task->taskId = taskBuffer->bufferId;
 
 	task->desk = desk;
 
@@ -63,8 +62,8 @@ startTask(
 
     rc = pthread_create(&task->thread, NULL, &taskThread, task);
     if (rc != 0) {
-    	pokeBuffer(buffer);
-        reportError("Cannot create main task: errno=%d", errno);
+    	pokeBuffer(taskBuffer);
+        reportError("Cannot create task: errno=%d", errno);
         return NULL;
     }
 
@@ -142,23 +141,22 @@ void *
 taskThread(void *arg)
 {
 	struct task *task = (struct task *)arg;
-	struct dialogueDemande dialogueDemande;
 	int rc;
-
-    pthread_cleanup_push(taskCleanup, task);
 
 	rc = taskInit(task);
 	if (rc != 0)
 		pthread_exit(NULL);
 
-	rc = receiveFixed(task, (char *)&dialogueDemande, sizeof(dialogueDemande));
+    pthread_cleanup_push(taskCleanup, task);
+
+	rc = receiveFixed(task, (char *)&task->dialogue.demande, sizeof(task->dialogue.demande));
 	if (rc != 0) {
 #ifdef TASK_THREAD
        	reportLog("No dialoge demande");
 #endif
 		setTaskStatus(task, TaskStatusMissingDialogueDemande);
 	} else {
-		uint32 dialogueType = be32toh(dialogueDemande.dialogueType);
+		uint32 dialogueType = be32toh(task->dialogue.demande.dialogueType);
 		switch (dialogueType)
 		{
 			case DialogueTypeAnticipant:
@@ -169,7 +167,7 @@ taskThread(void *arg)
 				break;
 
 			case DialogueTypeRegular:
-				authentifyDialogue(task, &dialogueDemande);
+				authentifyDialogue(task);
 #ifdef TASK_THREAD
 		       	reportLog("Start regular dialogue");
 #endif
@@ -198,9 +196,13 @@ taskThread(void *arg)
 int
 taskInit(struct task *task)
 {
-	int rc;
+	pthread_mutexattr_t mutexAttr;
+	int					rc;
 
     taskListPushTask(task->desk, task->taskId, task);
+
+    pthread_mutexattr_init(&mutexAttr);
+    //pthread_mutexattr_setpshared(&mutexAttr, PTHREAD_PROCESS_SHARED);
 
 	rc = pthread_spin_init(&task->statusLock, PTHREAD_PROCESS_PRIVATE);
 	if (rc != 0) {
@@ -208,15 +210,15 @@ taskInit(struct task *task)
         return -1;
     }
 
-	rc = pthread_spin_init(&task->xmit.receiveLock, PTHREAD_PROCESS_PRIVATE);
+    rc = pthread_mutex_init(&task->xmit.receiveMutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize spinlock: errno=%d", errno);
+		reportError("Cannot initialize mutex: rc=%d", rc);
         return -1;
     }
 
-	rc = pthread_spin_init(&task->xmit.sendLock, PTHREAD_PROCESS_PRIVATE);
+    rc = pthread_mutex_init(&task->xmit.sendMutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize spinlock: errno=%d", errno);
+		reportError("Cannot initialize mutex: rc=%d", rc);
         return -1;
     }
 
@@ -232,21 +234,27 @@ taskInit(struct task *task)
         return -1;
     }
 
-	rc = pthread_spin_init(&task->paquet.downloadLock, PTHREAD_PROCESS_PRIVATE);
+    rc = pthread_mutex_init(&task->paquet.downloadMutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize spinlock: errno=%d", errno);
+		reportError("Cannot initialize mutex: rc=%d", rc);
         return -1;
     }
 
-	rc = pthread_spin_init(&task->broadcast.lock, PTHREAD_PROCESS_PRIVATE);
+    rc = pthread_mutex_init(&task->broadcast.editMutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize spinlock: errno=%d", errno);
+		reportError("Cannot initialize mutex: rc=%d", rc);
         return -1;
     }
 
-    rc = sem_init(&task->broadcast.waitForBroadcast, 0, 0);
+    rc = pthread_mutex_init(&task->broadcast.waitMutex, &mutexAttr);
 	if (rc != 0) {
-        reportError("Cannot initialize semaphore: errno=%d", errno);
+		reportError("Cannot initialize mutex: rc=%d", rc);
+        return -1;
+    }
+
+    rc = pthread_cond_init(&task->broadcast.waitCondition, NULL);
+	if (rc != 0) {
+		reportError("Cannot initialize condition: rc=%d", rc);
         return -1;
     }
 
@@ -278,13 +286,13 @@ taskCleanup(void *arg)
 	if (rc != 0)
 		reportError("Cannot destroy spinlock: errno=%d", errno);
 
-	rc = pthread_spin_destroy(&task->xmit.receiveLock);
+	rc = pthread_mutex_destroy(&task->xmit.receiveMutex);
 	if (rc != 0)
-		reportError("Cannot destroy spinlock: errno=%d", errno);
+		reportError("Cannot destroy mutex: rc=%d", rc);
 
-	rc = pthread_spin_destroy(&task->xmit.sendLock);
+	rc = pthread_mutex_destroy(&task->xmit.sendMutex);
 	if (rc != 0)
-		reportError("Cannot destroy spinlock: errno=%d", errno);
+		reportError("Cannot destroy mutex: rc=%d", rc);
 
 	rc = pthread_spin_destroy(&task->paquet.chainLock);
 	if (rc != 0)
@@ -294,17 +302,21 @@ taskCleanup(void *arg)
 	if (rc != 0)
 		reportError("Cannot destroy spinlock: errno=%d", errno);
 
-	rc = pthread_spin_destroy(&task->paquet.downloadLock);
+	rc = pthread_mutex_destroy(&task->paquet.downloadMutex);
 	if (rc != 0)
-		reportError("Cannot destroy spinlock: errno=%d", errno);
+		reportError("Cannot destroy mutex: rc=%d", rc);
 
-	rc = pthread_spin_destroy(&task->broadcast.lock);
+	rc = pthread_mutex_destroy(&task->broadcast.editMutex);
 	if (rc != 0)
-		reportError("Cannot destroy spinlock: errno=%d", errno);
+		reportError("Cannot destroy mutex: rc=%d", rc);
 
-    rc = sem_init(&task->broadcast.waitForBroadcast, 0, 0);
-    if (rc != 0)
-        reportError("Cannot destroy semaphore: errno=%d", errno);
+	rc = pthread_mutex_destroy(&task->broadcast.waitMutex);
+	if (rc != 0)
+		reportError("Cannot destroy mutex: rc=%d", rc);
+
+    rc = pthread_cond_destroy(&task->broadcast.waitCondition);
+	if (rc != 0)
+		reportError("Cannot destroy condition: rc=%d", rc);
 
     taskListPushTask(task->desk, task->taskId, NULL);
 

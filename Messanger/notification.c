@@ -12,7 +12,6 @@
 #include <storage/lwlock.h>
 #include <storage/proc.h>
 #include <storage/shmem.h>
-#include <storage/spin.h>
 #include <access/xact.h>
 #include <executor/spi.h>
 #include <fmgr.h>
@@ -149,11 +148,11 @@ ORDER BY notification_id"
 	if (SPI_processed > 0) {
         tupdesc = SPI_tuptable->tupdesc;
 
-        pthread_spin_lock(&desk->outstandingNotifications.lock);
+        pthread_mutex_lock(&desk->outstandingNotifications.mutex);
 
 	    for (notificationNumber = 0; notificationNumber < SPI_processed; notificationNumber++)
 	    {
-	        buffer = peekBuffer(desk->pools.notifications);
+	        buffer = peekBuffer(desk->pools.notifications, BUFFER_NOTIFICATION);
 	        if (buffer == NULL)
 	            break;
 
@@ -166,7 +165,7 @@ ORDER BY notification_id"
             desk->outstandingNotifications.buffers = appendBuffer(desk->outstandingNotifications.buffers, buffer);
         }
 
-        pthread_spin_unlock(&desk->outstandingNotifications.lock);
+        pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 	}
 
     reportLog("Fetched a list of %u outstanding notifications", SPI_processed);
@@ -188,12 +187,12 @@ fetchNotificationsToMessanger(struct desk *desk)
 	char                *deviceToken;
 	int                 rc;
 
-    pthread_spin_lock(&desk->outstandingNotifications.lock);
+    pthread_mutex_lock(&desk->outstandingNotifications.mutex);
 
     // If nothing to do, then quit.
     //
     if (desk->outstandingNotifications.buffers == NULL) {
-        pthread_spin_unlock(&desk->outstandingNotifications.lock);
+        pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
         return 0;
     }
 
@@ -216,7 +215,7 @@ WHERE notification_id = %lu",
 
         rc = SPI_exec(infoData.data, 1);
 	    if (rc != SPI_OK_SELECT) {
-            pthread_spin_unlock(&desk->outstandingNotifications.lock);
+            pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 
 		    reportError("Cannot execute statement, rc=%d", rc);
    	        PGBGW_ROLLBACK;
@@ -224,7 +223,7 @@ WHERE notification_id = %lu",
         }
 
     	if (SPI_processed != 1) {
-            pthread_spin_unlock(&desk->outstandingNotifications.lock);
+            pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 
 		    reportError("Unexpected number of tuples");
    	        PGBGW_ROLLBACK;
@@ -249,7 +248,7 @@ WHERE device_id = %lu",
 
         rc = SPI_exec(infoData.data, 1);
 	    if (rc != SPI_OK_SELECT) {
-            pthread_spin_unlock(&desk->outstandingNotifications.lock);
+            pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 
 		    reportError("Cannot execute statement, rc=%d", rc);
    	        PGBGW_ROLLBACK;
@@ -257,7 +256,7 @@ WHERE device_id = %lu",
         }
 
     	if (SPI_processed != 1) {
-            pthread_spin_unlock(&desk->outstandingNotifications.lock);
+            pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 
 		    reportError("Unexpected number of tuples");
    	        PGBGW_ROLLBACK;
@@ -288,7 +287,7 @@ WHERE notification_id = %lu",
         SetCurrentStatementStartTimestamp();
         rc = SPI_exec(infoData.data, 0);
 	    if (rc != SPI_OK_UPDATE) {
-            pthread_spin_unlock(&desk->outstandingNotifications.lock);
+            pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 
 		    reportError("Cannot execute statement, rc=%d", rc);
    	        PGBGW_ROLLBACK;
@@ -300,7 +299,7 @@ WHERE notification_id = %lu",
 
    	PGBGW_COMMIT;
 
-    pthread_spin_unlock(&desk->outstandingNotifications.lock);
+    pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 
 	return 0;
 }
@@ -308,16 +307,16 @@ WHERE notification_id = %lu",
 int
 moveOutstandingToInTheAir(struct desk *desk)
 {
-    pthread_spin_lock(&desk->outstandingNotifications.lock);
-    pthread_spin_lock(&desk->inTheAirNotifications.lock);
+    pthread_mutex_lock(&desk->outstandingNotifications.mutex);
+    pthread_mutex_lock(&desk->inTheAirNotifications.mutex);
 
     desk->inTheAirNotifications.buffers =
         appendBuffer(desk->inTheAirNotifications.buffers, desk->outstandingNotifications.buffers);
 
     desk->outstandingNotifications.buffers = NULL;
 
-    pthread_spin_unlock(&desk->inTheAirNotifications.lock);
-    pthread_spin_unlock(&desk->outstandingNotifications.lock);
+    pthread_mutex_unlock(&desk->inTheAirNotifications.mutex);
+    pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 
     return 0;
 }
@@ -330,13 +329,13 @@ flagSentNotification(struct desk *desk)
 	struct notification *notification;
 	int                 rc;
 
-    if (pthread_spin_trylock(&desk->sentNotifications.lock) != 0)
+    if (pthread_mutex_trylock(&desk->sentNotifications.mutex) != 0)
         return 0;
 
     // If nothing to do, then quit.
     //
     if (desk->sentNotifications.buffers == NULL) {
-        pthread_spin_unlock(&desk->sentNotifications.lock);
+        pthread_mutex_unlock(&desk->sentNotifications.mutex);
         return 0;
     }
 
@@ -360,7 +359,7 @@ WHERE notification_id = %lu",
         SetCurrentStatementStartTimestamp();
         rc = SPI_exec(infoData.data, 0);
 	    if (rc != SPI_OK_UPDATE) {
-            pthread_spin_unlock(&desk->sentNotifications.lock);
+            pthread_mutex_unlock(&desk->sentNotifications.mutex);
 
 		    reportError("Cannot execute statement, rc=%d", rc);
        	    PGBGW_ROLLBACK;
@@ -372,14 +371,14 @@ WHERE notification_id = %lu",
 
    	PGBGW_COMMIT;
 
-    pthread_spin_lock(&desk->processedNotifications.lock);
+    pthread_mutex_lock(&desk->processedNotifications.mutex);
     desk->processedNotifications.buffers =
         appendBuffer(desk->processedNotifications.buffers, desk->sentNotifications.buffers);
-    pthread_spin_unlock(&desk->processedNotifications.lock);
+    pthread_mutex_unlock(&desk->processedNotifications.mutex);
 
     desk->sentNotifications.buffers = NULL;
 
-    pthread_spin_unlock(&desk->sentNotifications.lock);
+    pthread_mutex_unlock(&desk->sentNotifications.mutex);
 
 	return 0;
 }
@@ -392,12 +391,12 @@ releaseProcessedNotificationsFromMessanger(struct desk *desk)
 	struct notification *notification;
 	int                 rc;
 
-    pthread_spin_lock(&desk->processedNotifications.lock);
+    pthread_mutex_lock(&desk->processedNotifications.mutex);
 
     // If nothing to do, then quit.
     //
     if (desk->processedNotifications.buffers == NULL) {
-        pthread_spin_unlock(&desk->processedNotifications.lock);
+        pthread_mutex_unlock(&desk->processedNotifications.mutex);
         return 0;
     }
 
@@ -421,7 +420,7 @@ WHERE notification_id = %lu",
         SetCurrentStatementStartTimestamp();
         rc = SPI_exec(infoData.data, 0);
 	    if (rc != SPI_OK_UPDATE) {
-            pthread_spin_unlock(&desk->processedNotifications.lock);
+            pthread_mutex_unlock(&desk->processedNotifications.mutex);
 
 		    reportError("Cannot execute statement, rc=%d", rc);
        	    PGBGW_ROLLBACK;
@@ -436,7 +435,7 @@ WHERE notification_id = %lu",
     pokeBuffer(desk->processedNotifications.buffers);
     desk->processedNotifications.buffers = NULL;
 
-    pthread_spin_unlock(&desk->processedNotifications.lock);
+    pthread_mutex_unlock(&desk->processedNotifications.mutex);
 
 	return 0;
 }

@@ -1,3 +1,5 @@
+#include <pgstat.h>
+
 #define PGBGW_BEGIN \
     do { \
         StartTransactionCommand(); \

@@ -158,7 +158,8 @@ registerSignalHandler(void)
 struct desk *
 initDesk(void)
 {
-	struct desk *desk;
+	struct desk	*desk;
+	int			rc;
 
 	desk = malloc(sizeof(struct desk));
 	if (desk == NULL) {
@@ -170,40 +171,68 @@ initDesk(void)
 	desk->pools.paquet = initBufferPool(1);
 	desk->pools.dynamic = initBufferPool(5);
 
-	initBufferChain(desk->pools.task, 0,
+	rc = initBufferBank(desk->pools.task, 0,
 		sizeof(struct task),
 		0,
 		NUMBER_OF_BUFFERS_TASK);
+	if (rc != 0) {
+		reportError("Cannot create buffer bank: rc=%d", rc);
+        return NULL;
+    }
 
-	initBufferChain(desk->pools.paquet, 0,
+	rc = initBufferBank(desk->pools.paquet, 0,
 		sizeof(struct paquet),
 		0,
 		NUMBER_OF_BUFFERS_PAQUET);
+	if (rc != 0) {
+		reportError("Cannot create buffer bank: rc=%d", rc);
+        return NULL;
+    }
 
-	initBufferChain(desk->pools.dynamic, 0,
+	rc = initBufferBank(desk->pools.dynamic, 0,
 		KB,
 		sizeof(struct paquetPilot),
 		NUMBER_OF_BUFFERS_256);
+	if (rc != 0) {
+		reportError("Cannot create buffer bank: rc=%d", rc);
+        return NULL;
+    }
 
-	initBufferChain(desk->pools.dynamic, 1,
+	rc = initBufferBank(desk->pools.dynamic, 1,
 		KB,
 		sizeof(struct paquetPilot),
 		NUMBER_OF_BUFFERS_512);
+	if (rc != 0) {
+		reportError("Cannot create buffer bank: rc=%d", rc);
+        return NULL;
+    }
 
-	initBufferChain(desk->pools.dynamic, 2,
+	rc = initBufferBank(desk->pools.dynamic, 2,
 		KB,
 		sizeof(struct paquetPilot),
 		NUMBER_OF_BUFFERS_1K);
+	if (rc != 0) {
+		reportError("Cannot create buffer bank: rc=%d", rc);
+        return NULL;
+    }
 
-	initBufferChain(desk->pools.dynamic, 3,
+	rc = initBufferBank(desk->pools.dynamic, 3,
 		4 * KB,
 		sizeof(struct paquetPilot),
 		NUMBER_OF_BUFFERS_4K);
+	if (rc != 0) {
+		reportError("Cannot create buffer bank: rc=%d", rc);
+        return NULL;
+    }
 
-	initBufferChain(desk->pools.dynamic, 4,
+	rc = initBufferBank(desk->pools.dynamic, 4,
 		MB,
 		sizeof(struct paquetPilot),
 		NUMBER_OF_BUFFERS_1M);
+	if (rc != 0) {
+		reportError("Cannot create buffer bank: rc=%d", rc);
+        return NULL;
+    }
 
 	desk->tasks.list = initTaskList(desk);
 	if (desk->tasks.list == NULL) {

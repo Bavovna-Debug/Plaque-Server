@@ -1,5 +1,5 @@
 INCLUDE := -I/usr/pgsql-9.4/include/ -I/usr/pgsql-9.4/include/server/ -I../lib/ -I../api/
-DEFINES := -D NETWORK_RECEIVE -D NETWORK_SEND -D DB_PEEK_POKE -D STATISTICS -D TASKS -D TASK_THREAD -D ANTICIPANT_ALL
+DEFINES := -D BUFFERS_PEEK_POKE -D NETWORK_RECEIVE -D NETWORK_SEND -D DB_PEEK_POKE -D STATISTICS -D TASKS -D TASK_THREAD -D ANTICIPANT_ALL
 
 all: vp_satellite
 
@@ -42,7 +42,7 @@ profiles.o: profiles.c api.h db.h desk.h paquet.h tasks.h ../lib/buffers.h
 session.o: session.c api.h db.h tasks.h
 	$(CC) -c $(CFLAGS) $(INCLUDE) $(DEFINES) $< -o $@
 
-tasks.o: tasks.c desk.h paquet.h tasks.h task_kernel.h task_xmit.h ../lib/buffers.h
+tasks.o: tasks.c api.h desk.h paquet.h tasks.h task_kernel.h task_xmit.h ../lib/buffers.h
 	$(CC) -c $(CFLAGS) $(INCLUDE) $(DEFINES) $< -o $@
 
 task_kernel.o: task_kernel.c anticipant.h api.h desk.h paquet.h plaques_edit.h plaques_query.h profiles.h session.h tasks.h task_kernel.h task_xmit.h ../lib/buffers.h
@@ -61,7 +61,7 @@ install: all
 	cp vp_satellite /opt/vp/
 
 clean:
-	rm *.o vp_satellite
+	rm -fv *.o vp_satellite
 
 xfer:
 	scp Makefile *.c *.h aquarium:satellite/

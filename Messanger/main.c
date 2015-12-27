@@ -1,7 +1,6 @@
 #include <errno.h>
 #include <libpq-fe.h>
 #include <pthread.h>
-#include <semaphore.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -10,7 +9,6 @@
 #include <storage/ipc.h>
 #include <storage/latch.h>
 #include <storage/proc.h>
-#include <storage/spin.h>
 #include <executor/spi.h>
 #include <fmgr.h>
 
@@ -45,8 +43,14 @@ sigHupHandler(SIGNAL_ARGS);
 static struct desk *
 initDesk(void);
 
+static void
+cleanupDesk(struct desk *desk);
+
 static int
 startAPNS(struct desk *desk);
+
+static int
+stopAPNS(struct desk *desk);
 
 void
 _PG_init(void)
@@ -114,18 +118,20 @@ messangerMain(Datum *arg)
             LATCH_TIMEOUT);
     	ResetLatch(&MyProc->procLatch);
 
-    	/*
-	     * Emergency bailout if postmaster has died.
-   		 */
+    	// Emergency bailout if postmaster has died.
+   		//
     	if (latchStatus & WL_POSTMASTER_DEATH)
-    	    break;
+            break;
 
-		/*
-		 * In case of a SIGHUP, just reload the configuration.
-		 */
+		// In case of a SIGHUP, just reload the configuration.
+		//
 		if (gotSigHup)
               gotSigHup = false;
     }
+
+    stopAPNS(desk);
+
+    cleanupDesk(desk);
 
 	proc_exit(0);
 }
@@ -155,10 +161,10 @@ sigHupHandler(SIGNAL_ARGS)
 static struct desk *
 initDesk(void)
 {
-	struct desk *desk;
-    bool found;
-	//pthread_mutexattr_t mutexAttr;
-	int rc;
+	struct desk         *desk;
+    bool                found;
+	pthread_mutexattr_t mutexAttr;
+	int                 rc;
 
 	LWLockAcquire(AddinShmemInitLock, LW_EXCLUSIVE);
 	desk = ShmemInitStruct("vpMessangerDesk", sizeof(struct desk), &found);
@@ -169,13 +175,18 @@ initDesk(void)
         return NULL;
     }
 
-    //pthread_mutexattr_init(&mutexAttr);
+    pthread_mutexattr_init(&mutexAttr);
     //pthread_mutexattr_setpshared(&mutexAttr, PTHREAD_PROCESS_SHARED);
 
-    //rc = sem_init(&desk->apns.readyToGo, 1, 0);
-    desk->apns.readyToGo = sem_open("vpMessangerAPNS", O_CREAT, 0644, 0);
-    if (desk->apns.readyToGo == SEM_FAILED) {
-        reportError("Cannot initialize semaphore: errno=%d", errno);
+    rc = pthread_mutex_init(&desk->apns.readyToGoMutex, &mutexAttr);
+	if (rc != 0) {
+		reportError("Cannot initialize mutex: rc=%d", rc);
+        return NULL;
+    }
+
+    rc = pthread_cond_init(&desk->apns.readyToGoCond, NULL);
+	if (rc != 0) {
+		reportError("Cannot initialize condition: rc=%d", rc);
         return NULL;
     }
 
@@ -185,12 +196,12 @@ initDesk(void)
         return NULL;
     }
 
-	rc = initBufferChain(desk->pools.notifications, 0,
+	rc = initBufferBank(desk->pools.notifications, 0,
 		sizeof(struct notification),
 		0,
 		POOL_NOTIFICATIONS_NUMBER_OF_BUFFERS);
 	if (rc != 0) {
-		reportError("Cannot create buffer chain: rc=%d", rc);
+		reportError("Cannot create buffer bank: rc=%d", rc);
         return NULL;
     }
 
@@ -200,12 +211,12 @@ initDesk(void)
         return NULL;
     }
 
-	rc = initBufferChain(desk->pools.apns, 0,
+	rc = initBufferBank(desk->pools.apns, 0,
 		POOL_APNS_SIZE_OF_BUFFER,
 		0,
 		POOL_APNS_NUMBER_OF_BUFFERS);
 	if (rc != 0) {
-		reportError("Cannot create buffer chain: rc=%d", rc);
+		reportError("Cannot create buffer bank: rc=%d", rc);
         return NULL;
     }
 
@@ -214,57 +225,96 @@ initDesk(void)
     desk->sentNotifications.buffers = NULL;
     desk->processedNotifications.buffers = NULL;
 
-	rc = pthread_spin_init(&desk->outstandingNotifications.lock, PTHREAD_PROCESS_SHARED);
-	//rc = pthread_mutex_init(&desk->outstandingNotifications.lock, &mutexAttr);
+	rc = pthread_mutex_init(&desk->outstandingNotifications.mutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize spinlock: errno=%d", errno);
+		reportError("Cannot initialize mutex: rc=%d", rc);
         return NULL;
     }
 
-	rc = pthread_spin_init(&desk->inTheAirNotifications.lock, PTHREAD_PROCESS_SHARED);
-	//rc = pthread_mutex_init(&desk->inTheAirNotifications.lock, &mutexAttr);
+	rc = pthread_mutex_init(&desk->inTheAirNotifications.mutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize spinlock: errno=%d", errno);
+		reportError("Cannot initialize mutex: rc=%d", rc);
         return NULL;
     }
 
-	rc = pthread_spin_init(&desk->sentNotifications.lock, PTHREAD_PROCESS_SHARED);
-	//rc = pthread_mutex_init(&desk->sentNotifications.lock, &mutexAttr);
+	rc = pthread_mutex_init(&desk->sentNotifications.mutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize spinlock: errno=%d", errno);
+		reportError("Cannot initialize mutex: rc=%d", rc);
         return NULL;
     }
 
-	rc = pthread_spin_init(&desk->processedNotifications.lock, PTHREAD_PROCESS_SHARED);
-	//rc = pthread_mutex_init(&desk->processedNotifications.lock, &mutexAttr);
+	rc = pthread_mutex_init(&desk->processedNotifications.mutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize spinlock: errno=%d", errno);
+		reportError("Cannot initialize mutex: rc=%d", rc);
         return NULL;
     }
 
 	return desk;
 }
 
+static void
+cleanupDesk(struct desk *desk)
+{
+    int rc;
+
+	rc = pthread_mutex_destroy(&desk->apns.readyToGoMutex);
+	if (rc != 0)
+		reportError("Cannot destroy mutex: rc=%d", rc);
+
+	rc = pthread_cond_destroy(&desk->apns.readyToGoCond);
+	if (rc != 0)
+		reportError("Cannot destroy condition: rc=%d", rc);
+
+	rc = pthread_mutex_destroy(&desk->outstandingNotifications.mutex);
+	if (rc != 0)
+		reportError("Cannot destroy mutex: rc=%d", rc);
+
+	rc = pthread_mutex_destroy(&desk->inTheAirNotifications.mutex);
+	if (rc != 0)
+		reportError("Cannot destroy mutex: rc=%d", rc);
+
+	rc = pthread_mutex_destroy(&desk->sentNotifications.mutex);
+	if (rc != 0)
+		reportError("Cannot destroy mutex: rc=%d", rc);
+
+	rc = pthread_mutex_destroy(&desk->processedNotifications.mutex);
+	if (rc != 0)
+		reportError("Cannot destroy mutex: rc=%d", rc);
+}
+
 static int
 startAPNS(struct desk *desk)
 {
-/*
-    pid_t pid;
-
-    pid = fork();
-
-    if (pid < 0) {
-        reportError("Cannot create APN process: errno=%d", errno);
-        return -1;
-    } else if (pid == 0) {
-        apnsThread(desk);
-    }
-*/
     int rc;
 
-    rc = pthread_create(&desk->apns.thread, NULL, &apnsThread, desk);
+    // For portability, explicitly create threads in a joinable state.
+    //
+    pthread_attr_init(&desk->apns.attributes);
+    pthread_attr_setdetachstate(&desk->apns.attributes, PTHREAD_CREATE_JOINABLE);
+
+    rc = pthread_create(&desk->apns.thread, &desk->apns.attributes, &apnsThread, desk);
     if (rc != 0) {
-        reportError("Cannot create APN thread: %d", errno);
+        reportError("Cannot create APNS thread: %d", errno);
+        return -1;
+    }
+
+    return 0;
+}
+
+static int
+stopAPNS(struct desk *desk)
+{
+    int rc;
+
+    rc = pthread_cancel(desk->apns.thread);
+    if ((rc != 0) && (rc != ESRCH)) {
+        reportError("Cannot cancel APNS thread: rc=%d", rc);
+        return -1;
+    }
+
+    rc = pthread_attr_destroy(&desk->apns.attributes);
+    if (rc != 0) {
+        reportError("Cannot destroy thread attributes: rc=%d", rc);
         return -1;
     }
 

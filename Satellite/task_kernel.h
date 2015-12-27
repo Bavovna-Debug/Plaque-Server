@@ -2,7 +2,7 @@
 #define _TASK_KERNEL_
 
 int
-authentifyDialogue(struct task *task, struct dialogueDemande *dialogueDemande);
+authentifyDialogue(struct task *task);
 
 void
 dialogueAnticipant(struct task *task);

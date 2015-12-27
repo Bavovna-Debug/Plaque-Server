@@ -8,30 +8,6 @@
 #include "tasks.h"
 
 #pragma pack(push, 1)
-typedef struct dialogueDemande {
-	uint64  		dialogueSignature;
-	double			deviceTimestamp;
-	uint32  		dialogueType;
-	uint8  			applicationVersion;
-	uint8  			applicationSubersion;
-	uint16  		applicationRelease;
-	uint16  		deviceType;
-	char			applicationBuild[6];
-	char			deviceToken[TokenBinarySize];
-	char			profileToken[TokenBinarySize];
-	char			sessionToken[TokenBinarySize];
-} dialogueDemande;
-#pragma pack(pop)
-
-#pragma pack(push, 1)
-typedef struct dialogueVerdict {
-	uint64  		dialogueSignature;
-	uint32  		verdictCode;
-	char			sessionToken[TokenBinarySize];
-} dialogueVerdict;
-#pragma pack(pop)
-
-#pragma pack(push, 1)
 typedef struct paquetPilot {
 	uint64  		signature;
 	uint32  		paquetId;

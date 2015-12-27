@@ -16,6 +16,11 @@ do
 			echo "Copy ${FILE}"
 			scp ${FILE} ${HOST}:${DESTINATION}
 
+			if [ $? -ne 0 ]; then
+				echo "Break"
+				exit
+			fi
+
 			if [ $COMPONENT != "api" -a $COMPONENT != "lib" ]; then
 				MUST_BUILD=1
 			fi

@@ -2,7 +2,7 @@ MODULES = vp_messanger
 PG_CONFIG = /usr/pgsql-9.4/bin/pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 INCLUDE := -I/usr/pgsql-9.4/include/ -I/usr/pgsql-9.4/include/server/ -I../lib/
-DEFINES := -D PGBGW -D BUFFERS_INIT_CHAIN -D BUFFERS_PEEK_POKE -D APNS_XMIT
+DEFINES := -D PGBGW -D BUFFERS_INIT_BANK -D BUFFERS_PEEK_POKE -D APNS_XMIT
 
 include $(PGXS)
 

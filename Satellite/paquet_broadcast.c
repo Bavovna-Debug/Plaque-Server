@@ -1,5 +1,4 @@
 #include <c.h>
-#include <semaphore.h>
 #include <string.h>
 
 #include "api.h"
@@ -71,18 +70,18 @@ paquetBroadcast(struct paquet *paquet)
     if (lastKnownRevision->onMap > currentRevision->onMap)
         lastKnownRevision->onMap = 0;
 
-    pthread_spin_lock(&task->broadcast.lock);
+    pthread_mutex_lock(&task->broadcast.editMutex);
 
 	if (task->broadcast.broadcastPaquet != NULL) {
 		//paquetCancel(task->broadcast.broadcastPaquet);
-	    pthread_spin_unlock(&task->broadcast.lock);
+	    pthread_mutex_unlock(&task->broadcast.editMutex);
 		reportLog("Broadcast request received while another broadcast request is still in process");
 	    return -1;
 	}
 
 	task->broadcast.broadcastPaquet = paquet;
 
-	pthread_spin_unlock(&task->broadcast.lock);
+	pthread_mutex_unlock(&task->broadcast.editMutex);
 
     missingRevision.onRadar = currentRevision->onRadar - lastKnownRevision->onRadar;
     missingRevision.inSight = currentRevision->inSight - lastKnownRevision->inSight;
@@ -99,19 +98,29 @@ paquetBroadcast(struct paquet *paquet)
             lastKnownRevision->inSight,
             lastKnownRevision->onMap);
 
-        rc = sem_wait(&task->broadcast.waitForBroadcast);
-        if (rc == -1) {
-            //
-            // Semaphore error! Break the loop.
-            //
-            reportError("Error has ocurred while whaiting for semaphore: errno=%d", errno);
+        rc = pthread_mutex_lock(&task->broadcast.waitMutex);
+        if (rc != 0) {
+            reportError("Error has occurred on mutex lock: rc=%d", rc);
+            return -1;
+        }
+
+        rc = pthread_cond_wait(&task->broadcast.waitCondition, &task->broadcast.waitMutex);
+        if (rc != 0) {
+            pthread_mutex_unlock(&task->broadcast.waitMutex);
+            reportError("Error has occurred while whaiting for condition: rc=%d", rc);
+            return -1;
+        }
+
+        rc = pthread_mutex_unlock(&task->broadcast.waitMutex);
+        if (rc != 0) {
+            reportError("Error has occurred on mutex unlock: rc=%d", rc);
             return -1;
         }
 
         reportLog("Received broadcast");
     }
 
-	pthread_spin_lock(&task->broadcast.lock);
+	pthread_mutex_lock(&task->broadcast.editMutex);
 
     if (currentRevision->onRadar > lastKnownRevision->onRadar) {
         reportLog("Fetch 'on radar' for broadcast from revision %u to %u",
@@ -135,7 +144,7 @@ paquetBroadcast(struct paquet *paquet)
 
 	task->broadcast.broadcastPaquet = NULL;
 
-	pthread_spin_unlock(&task->broadcast.lock);
+	pthread_mutex_unlock(&task->broadcast.editMutex);
 
     return rc;
 }
@@ -145,7 +154,7 @@ paquetBroadcastPlaquesOnRadar(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 512);
+    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
@@ -253,7 +262,7 @@ paquetBroadcastPlaquesInSight(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 512);
+    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
@@ -361,7 +370,7 @@ paquetBroadcastPlaquesOnMap(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 512);
+    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;

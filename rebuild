@@ -1,0 +1,12 @@
+#!/bin/bash
+
+HOST="aquarium"
+COMPONENT=$1
+
+DESTINATION="vp/${COMPONENT}"
+
+echo "################################################################################"
+echo "Build target: ${COMPONENT}"
+echo "################################################################################"
+
+ssh ${HOST} "cd ${DESTINATION} ; make clean ; make install"

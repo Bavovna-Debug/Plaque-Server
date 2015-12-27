@@ -13,7 +13,10 @@
 #include "tasks.h"
 
 static void
-rejectPaquetASBusy(struct paquet *paquet);
+rejectPaquetAsBusy(struct paquet *paquet);
+
+static void
+rejectPaquetAsError(struct paquet *paquet);
 
 void *
 paquetCleanup(void *arg);
@@ -50,11 +53,11 @@ paquetThread(void *arg)
 		case PaquetDownloadPlaquesOnRadar:
 		case PaquetDownloadPlaquesInSight:
 		case PaquetDownloadPlaquesOnMap:
-			if (pthread_spin_trylock(&task->paquet.downloadLock) == 0) {
+			if (pthread_mutex_trylock(&task->paquet.downloadMutex) == 0) {
 				rc = paquetDownloadPlaques(paquet);
-				pthread_spin_unlock(&task->paquet.downloadLock);
+				pthread_mutex_unlock(&task->paquet.downloadMutex);
 			} else {
-				rejectPaquetASBusy(paquet);
+				rejectPaquetAsBusy(paquet);
 			}
 			break;
 
@@ -107,8 +110,10 @@ paquetThread(void *arg)
 			rc = -1;
 	}
 
-	if (rc == 0)
-		sendPaquet(paquet);
+	if (rc != 0)
+		rejectPaquetAsError(paquet);
+
+	sendPaquet(paquet);
 
     pthread_cleanup_pop(1);
 
@@ -211,12 +216,27 @@ WHERE device_token = $1");
 }
 
 static void
-rejectPaquetASBusy(struct paquet *paquet)
+rejectPaquetAsBusy(struct paquet *paquet)
 {
-	paquet->outputBuffer = paquet->inputBuffer;
+	if (paquet->outputBuffer == NULL)
+		paquet->outputBuffer = paquet->inputBuffer;
+
 	resetBufferData(paquet->outputBuffer, 1);
 
 	struct paquetPilot *pilot = (struct paquetPilot *)paquet->outputBuffer;
 	pilot->commandSubcode = PaquetRejectBusy;
+	pilot->payloadSize = 0;
+}
+
+static void
+rejectPaquetAsError(struct paquet *paquet)
+{
+	if (paquet->outputBuffer == NULL)
+		paquet->outputBuffer = paquet->inputBuffer;
+
+	resetBufferData(paquet->outputBuffer, 1);
+
+	struct paquetPilot *pilot = (struct paquetPilot *)paquet->outputBuffer;
+	pilot->commandSubcode = PaquetRejectError;
 	pilot->payloadSize = 0;
 }

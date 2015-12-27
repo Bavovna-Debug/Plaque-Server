@@ -2,7 +2,6 @@
 #define _DESK_
 
 #include <pthread.h>
-#include <semaphore.h>
 
 #include "broadcaster_api.h"
 
@@ -20,11 +19,13 @@ typedef struct desk {
     struct {
         uint16_t            portNumber;
 	    pthread_t           thread;
-        sem_t               *readyToGo;
+        pthread_attr_t      attributes;
+        pthread_mutex_t     readyToGoMutex;
+        pthread_cond_t      readyToGoCond;
     } listener;
 
     struct {
-	    pthread_spinlock_t	lock;
+	    pthread_mutex_t     mutex;
         uint32              numberOfSessions;
         struct session      sessions[MAX_REVISED_SESSIONS_PER_STEP];
         uint64              lastReceiptId;

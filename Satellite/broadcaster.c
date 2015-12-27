@@ -1,5 +1,4 @@
 #include <errno.h>
-#include <semaphore.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -113,7 +112,11 @@ broadcasterDialog(struct desk *desk, int sockFD)
             //
             // Changing broadcast values has to be done inside of the broadcast lock.
             //
-            pthread_spin_lock(&task->broadcast.lock);
+            rc = pthread_mutex_lock(&task->broadcast.editMutex);
+            if (rc != 0) {
+                reportError("Error has occurred on mutex lock: rc=%d", rc);
+                break;
+            }
 
             task->broadcast.currentRevision.onRadar = be32toh(session->onRadarRevision);
             task->broadcast.currentRevision.inSight = be32toh(session->inSightRevision);
@@ -127,10 +130,35 @@ broadcasterDialog(struct desk *desk, int sockFD)
                 task->broadcast.currentRevision.onMap,
                 satelliteTaskId);
 
-            if (task->broadcast.broadcastPaquet != NULL)
-                sem_post(&task->broadcast.waitForBroadcast);
+            if (task->broadcast.broadcastPaquet != NULL) {
+                rc = pthread_mutex_lock(&task->broadcast.waitMutex);
+                if (rc != 0) {
+                    pthread_mutex_unlock(&task->broadcast.editMutex);
+                    reportError("Error has occurred on mutex lock: rc=%d", rc);
+                    break;
+                }
 
-            pthread_spin_unlock(&task->broadcast.lock);
+                rc = pthread_cond_signal(&task->broadcast.waitCondition);
+                if (rc != 0) {
+                    pthread_mutex_unlock(&task->broadcast.waitMutex);
+                    pthread_mutex_unlock(&task->broadcast.editMutex);
+                    reportError("Error has occurred on condition signal: rc=%d", rc);
+                    break;
+                }
+
+                rc = pthread_mutex_unlock(&task->broadcast.waitMutex);
+                if (rc != 0) {
+                    pthread_mutex_unlock(&task->broadcast.editMutex);
+                    reportError("Error has occurred on mutex unlock: rc=%d", rc);
+                    break;
+                }
+            }
+
+            rc = pthread_mutex_unlock(&task->broadcast.editMutex);
+            if (rc != 0) {
+                reportError("Error has occurred on mutex unlock: rc=%d", rc);
+                break;
+            }
         }
 
         rc = confirmSession(sockFD, session);
@@ -175,7 +203,7 @@ receiveSession(int sockFD, struct session *session)
 			reportError("Nothing read from socket");
 			return -1;
 		} else if (receivedPerStep == -1) {
-			reportError("Error reading from socket: errno=%d", errno);
+			reportError("Error reading from broadcaster socket: errno=%d", errno);
 			return -1;
 		}
 

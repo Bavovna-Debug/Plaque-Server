@@ -95,15 +95,13 @@ schedulerMain(Datum *arg)
             latchTimeout);
     	ResetLatch(&MyProc->procLatch);
 
-    	/*
-	     * Emergency bailout if postmaster has died.
-   		 */
+    	// Emergency bailout if postmaster has died.
+   		//
     	if (latchStatus & WL_POSTMASTER_DEATH)
-    	    break;
+            break;
 
-		/*
-		 * In case of a SIGHUP, just reload the configuration.
-		 */
+		// In case of a SIGHUP, just reload the configuration.
+		//
 		if (gotSigHup)
               gotSigHup = false;
     }

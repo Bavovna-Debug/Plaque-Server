@@ -50,14 +50,14 @@ receiveFixed(
 	ssize_t				receivedPerStep;
 	ssize_t				receivedTotal;
 
-    pthread_spin_lock(&task->xmit.receiveLock);
+    pthread_mutex_lock(&task->xmit.receiveMutex);
 
 	pollFD.fd = sockFD;
 	pollFD.events = POLLIN;
 
 	int pollRC = poll(&pollFD, 1, TIMEOUT_ON_POLL_FOR_PILOT);
 	if (pollFD.revents & (POLLERR | POLLHUP | POLLNVAL)) {
-        pthread_spin_unlock(&task->xmit.receiveLock);
+        pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 		reportError("Poll error on receive: revents=0x%04X", pollFD.revents);
 		setTaskStatus(task, TaskStatusPollForReceiveFailed);
@@ -65,13 +65,13 @@ receiveFixed(
 	}
 
 	if (pollRC == 0) {
-        pthread_spin_unlock(&task->xmit.receiveLock);
+        pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 		reportLog("Wait for receive timed out");
 		setTaskStatus(task, TaskStatusPollForReceiveTimeout);
 		return -1;
 	} else if (pollRC != 1) {
-        pthread_spin_unlock(&task->xmit.receiveLock);
+        pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 		reportError("Poll error on receive");
 		setTaskStatus(task, TaskStatusPollForReceiveError);
@@ -85,15 +85,15 @@ receiveFixed(
 			buffer + receivedTotal,
 			expectedSize - receivedTotal);
 		if (receivedPerStep == 0) {
-            pthread_spin_unlock(&task->xmit.receiveLock);
+            pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 			reportError("Nothing read from socket");
 			setTaskStatus(task, TaskStatusNoDataReceived);
 			return -1;
 		} else if (receivedPerStep == -1) {
-            pthread_spin_unlock(&task->xmit.receiveLock);
+            pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-			reportError("Error reading from socket: errno=%d", errno);
+			reportError("Error reading from socket for fixed data: errno=%d", errno);
 			setTaskStatus(task, TaskStatusReadFromSocketFailed);
 			return -1;
 		}
@@ -101,7 +101,7 @@ receiveFixed(
 		receivedTotal += receivedPerStep;
 	} while (receivedTotal < expectedSize);
 
-    pthread_spin_unlock(&task->xmit.receiveLock);
+    pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 	return 0;
 }
@@ -117,14 +117,14 @@ sendFixed(
 	ssize_t				sentPerStep;
 	ssize_t				sentTotal;
 
-    pthread_spin_lock(&task->xmit.sendLock);
+    pthread_mutex_lock(&task->xmit.sendMutex);
 
 	pollFD.fd = sockFD;
 	pollFD.events = POLLOUT;
 
 	int pollRC = poll(&pollFD, 1, TIMEOUT_ON_WAIT_FOR_BEGIN_TO_TRANSMIT);
 	if (pollFD.revents & (POLLERR | POLLHUP | POLLNVAL)) {
-        pthread_spin_unlock(&task->xmit.sendLock);
+        pthread_mutex_unlock(&task->xmit.sendMutex);
 
 		reportError("Poll error on send: revents=0x%04X", pollFD.revents);
 		setTaskStatus(task, TaskStatusPollForSendFailed);
@@ -132,13 +132,13 @@ sendFixed(
 	}
 
 	if (pollRC == 0) {
-        pthread_spin_unlock(&task->xmit.sendLock);
+        pthread_mutex_unlock(&task->xmit.sendMutex);
 
 		reportLog("Wait for send timed out");
 		setTaskStatus(task, TaskStatusPollForSendTimeout);
 		return -1;
 	} else if (pollRC != 1) {
-        pthread_spin_unlock(&task->xmit.sendLock);
+        pthread_mutex_unlock(&task->xmit.sendMutex);
 
 		reportError("Poll error on send");
 		setTaskStatus(task, TaskStatusPollForSendError);
@@ -151,13 +151,13 @@ sendFixed(
 			buffer + sentTotal,
 			bytesToSend - sentTotal);
 		if (sentPerStep == 0) {
-            pthread_spin_unlock(&task->xmit.sendLock);
+            pthread_mutex_unlock(&task->xmit.sendMutex);
 
 			reportError("Nothing written to socket");
 			setTaskStatus(task, TaskStatusNoDataSent);
 			return -1;
 		} else if (sentPerStep == -1) {
-            pthread_spin_unlock(&task->xmit.sendLock);
+            pthread_mutex_unlock(&task->xmit.sendMutex);
 
 			reportError("Error writing to socket: errno=%d", errno);
 			setTaskStatus(task, TaskStatusWriteToSocketFailed);
@@ -167,7 +167,7 @@ sendFixed(
 		sentTotal += sentPerStep;
 	} while (sentTotal < bytesToSend);
 
-    pthread_spin_unlock(&task->xmit.sendLock);
+    pthread_mutex_unlock(&task->xmit.sendMutex);
 
 	return 0;
 }
@@ -184,14 +184,14 @@ receivePaquet(struct paquet *paquet, struct buffer *receiveBuffer)
 	ssize_t				toReceivePerBuffer;
 	ssize_t				toReceiveTotal;
 
-    pthread_spin_lock(&task->xmit.receiveLock);
+    pthread_mutex_lock(&task->xmit.receiveMutex);
 
 	pollFD->fd = sockFD;
 	pollFD->events = POLLIN;
 
 	int pollRC = poll(pollFD, 1, TIMEOUT_ON_POLL_FOR_PAQUET);
 	if (pollFD->revents & (POLLERR | POLLHUP | POLLNVAL)) {
-        pthread_spin_unlock(&task->xmit.receiveLock);
+        pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 		reportError("Poll error on receive: revents=0x%04X", pollFD->revents);
 		setTaskStatus(task, TaskStatusPollForReceiveFailed);
@@ -199,13 +199,13 @@ receivePaquet(struct paquet *paquet, struct buffer *receiveBuffer)
 	}
 
 	if (pollRC == 0) {
-        pthread_spin_unlock(&task->xmit.receiveLock);
+        pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 		reportLog("Wait for receive timed out");
 		setTaskStatus(task, TaskStatusPollForReceiveTimeout);
 		return -1;
 	} else if (pollRC != 1) {
-        pthread_spin_unlock(&task->xmit.receiveLock);
+        pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 		reportError("Poll error on receive");
 		setTaskStatus(task, TaskStatusPollForReceiveError);
@@ -234,15 +234,15 @@ receivePaquet(struct paquet *paquet, struct buffer *receiveBuffer)
 				buffer->data + receivedPerBuffer,
 				toReceivePerBuffer - receivedPerBuffer);
 			if (receivedPerStep == 0) {
-                pthread_spin_unlock(&task->xmit.receiveLock);
+                pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 				reportError("Nothing read from socket");
 				setTaskStatus(task, TaskStatusNoDataReceived);
 				return -1;
 			} else if (receivedPerStep == -1) {
-                pthread_spin_unlock(&task->xmit.receiveLock);
+                pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-				reportError("Error reading from socket: errno=%d", errno);
+				reportError("Error reading from socket for paquet: errno=%d", errno);
 				setTaskStatus(task, TaskStatusReadFromSocketFailed);
 				return -1;
 			}
@@ -256,7 +256,7 @@ receivePaquet(struct paquet *paquet, struct buffer *receiveBuffer)
 
 				uint64 signature = be64toh(pilot->signature);
 				if (signature != PaquetSignature) {
-                    pthread_spin_unlock(&task->xmit.receiveLock);
+                    pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 					reportError("No valid paquet signature: 0x%016X", signature);
 					setTaskStatus(task, TaskStatusMissingPaquetSignature);
@@ -276,9 +276,9 @@ receivePaquet(struct paquet *paquet, struct buffer *receiveBuffer)
 
 		if (receivedTotal < toReceiveTotal) {
 		    struct pool *pool = task->desk->pools.dynamic;
-			struct buffer *nextBuffer = peekBufferOfSize(pool, toReceiveTotal - receivedTotal);
+			struct buffer *nextBuffer = peekBufferOfSize(pool, toReceiveTotal - receivedTotal, BUFFER_XMIT);
 			if (nextBuffer == NULL) {
-                pthread_spin_unlock(&task->xmit.receiveLock);
+                pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 				reportError("Cannot extend buffer");
 				setTaskStatus(task, TaskStatusCannotExtendBufferForInput);
@@ -295,14 +295,14 @@ receivePaquet(struct paquet *paquet, struct buffer *receiveBuffer)
 	}
 
 	if (receivedTotal < sizeof(struct paquetPilot)) {
-        pthread_spin_unlock(&task->xmit.receiveLock);
+        pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 		reportError("Missing paquet pilot (received %d bytes only)", (int)receivedTotal);
 		setTaskStatus(task, TaskStatusMissingPaquetPilot);
 		return -1;
 	}
 
-    pthread_spin_unlock(&task->xmit.receiveLock);
+    pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 	return 0;
 }
@@ -317,14 +317,14 @@ sendPaquet(struct paquet *paquet)
 	ssize_t				sentPerStep;
 	ssize_t				sentPerBuffer;
 
-    pthread_spin_lock(&task->xmit.sendLock);
+    pthread_mutex_lock(&task->xmit.sendMutex);
 
 	pollFD->fd = sockFD;
 	pollFD->events = POLLOUT;
 
 	int pollRC = poll(pollFD, 1, TIMEOUT_ON_WAIT_FOR_BEGIN_TO_TRANSMIT);
 	if (pollFD->revents & (POLLERR | POLLHUP | POLLNVAL)) {
-        pthread_spin_unlock(&task->xmit.sendLock);
+        pthread_mutex_unlock(&task->xmit.sendMutex);
 
 		reportError("Poll error on send: 0x%04X", pollFD->revents);
 		setTaskStatus(task, TaskStatusPollForSendFailed);
@@ -332,13 +332,13 @@ sendPaquet(struct paquet *paquet)
 	}
 
 	if (pollRC == 0) {
-        pthread_spin_unlock(&task->xmit.sendLock);
+        pthread_mutex_unlock(&task->xmit.sendMutex);
 
 		reportLog("Wait for send timed out");
 		setTaskStatus(task, TaskStatusPollForSendTimeout);
 		return -1;
 	} else if (pollRC != 1) {
-        pthread_spin_unlock(&task->xmit.sendLock);
+        pthread_mutex_unlock(&task->xmit.sendMutex);
 
 		reportError("Poll error on send");
 		setTaskStatus(task, TaskStatusPollForSendError);
@@ -347,7 +347,7 @@ sendPaquet(struct paquet *paquet)
 
 	struct buffer *buffer = paquet->outputBuffer;
 	if (buffer == NULL) {
-        pthread_spin_unlock(&task->xmit.sendLock);
+        pthread_mutex_unlock(&task->xmit.sendMutex);
 
 		reportError("No output buffer provided");
 		setTaskStatus(task, TaskStatusNoOutputDataProvided);
@@ -368,13 +368,13 @@ sendPaquet(struct paquet *paquet)
 			    buffer->data + sentPerBuffer,
 			    toSendPerBuffer);
 			if (sentPerStep == 0) {
-                pthread_spin_unlock(&task->xmit.sendLock);
+                pthread_mutex_unlock(&task->xmit.sendMutex);
 
 				reportError("Nothing written to socket");
 				setTaskStatus(task, TaskStatusNoDataSent);
 				return -1;
 			} else if (sentPerStep == -1) {
-                pthread_spin_unlock(&task->xmit.sendLock);
+                pthread_mutex_unlock(&task->xmit.sendMutex);
 
 				reportError("Error writing to socket: errno=%d", errno);
 				setTaskStatus(task, TaskStatusWriteToSocketFailed);
@@ -387,7 +387,7 @@ sendPaquet(struct paquet *paquet)
 		buffer = buffer->next;
 	} while (buffer != NULL);
 
-    pthread_spin_unlock(&task->xmit.sendLock);
+    pthread_mutex_unlock(&task->xmit.sendMutex);
 
 	return 0;
 }

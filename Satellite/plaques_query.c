@@ -1,5 +1,4 @@
 #include <c.h>
-#include <semaphore.h>
 #include <string.h>
 
 #include "api.h"
@@ -36,7 +35,7 @@ paquetDownloadPlaques(struct paquet *paquet)
 		return -1;
 	}
 
-	outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 4 * KB);
+	outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, KB, BUFFER_PLAQUES);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
@@ -135,6 +134,9 @@ WHERE plaque_token = $1");
 			return -1;
 		}
 
+        uint32 plaqueStrobe = PaquetPlaqueStrobe;
+		outputBuffer = putUInt32(outputBuffer, &plaqueStrobe);
+
 		outputBuffer = putData(outputBuffer, plaqueToken, TokenBinarySize);
 		outputBuffer = putData(outputBuffer, plaqueRevision, sizeof(uint32));
 		outputBuffer = putData(outputBuffer, profileToken, TokenBinarySize);
@@ -142,9 +144,9 @@ WHERE plaque_token = $1");
 		outputBuffer = putData(outputBuffer, latitude, sizeof(double));
 		outputBuffer = putData(outputBuffer, longitude, sizeof(double));
 		outputBuffer = putData(outputBuffer, altitude, sizeof(float));
-		outputBuffer = putUInt8(outputBuffer, directed);
+		outputBuffer = putUInt8(outputBuffer, &directed);
 		outputBuffer = putData(outputBuffer, direction, sizeof(float));
-		outputBuffer = putUInt8(outputBuffer, tilted);
+		outputBuffer = putUInt8(outputBuffer, &tilted);
 		outputBuffer = putData(outputBuffer, tilt, sizeof(float));
 		outputBuffer = putData(outputBuffer, width, sizeof(float));
 		outputBuffer = putData(outputBuffer, height, sizeof(float));

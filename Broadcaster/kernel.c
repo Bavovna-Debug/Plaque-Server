@@ -86,7 +86,7 @@ getListOfRevisedSessions(struct desk *desk)
 	struct session  *session;
 	int             rc;
 
-    if (pthread_spin_trylock(&desk->watchdog.lock) != 0) {
+    if (pthread_mutex_trylock(&desk->watchdog.mutex) != 0) {
         reportLog("Broadcaster is still busy with xmit, wait for %d seconds",
             SLEEP_WHEN_LISTENER_IS_BUSY);
         sleep(SLEEP_WHEN_LISTENER_IS_BUSY);
@@ -104,7 +104,7 @@ RETURNING session_id"
 
     rc = SPI_exec(infoData.data, MAX_REVISED_SESSIONS_PER_STEP);
 	if (rc != SPI_OK_DELETE_RETURNING) {
-        pthread_spin_unlock(&desk->watchdog.lock);
+        pthread_mutex_unlock(&desk->watchdog.mutex);
 
 		reportError("Cannot execute statement, rc=%d", rc);
    	    PGBGW_ROLLBACK;
@@ -149,7 +149,7 @@ RETURNING in_cache_revision, on_radar_revision, in_sight_revision, on_map_revisi
 
             rc = SPI_exec(infoData.data, 1);
 	        if (rc != SPI_OK_UPDATE_RETURNING) {
-                pthread_spin_unlock(&desk->watchdog.lock);
+                pthread_mutex_unlock(&desk->watchdog.mutex);
 
     	    	reportError("Cannot execute statement, rc=%d", rc);
    	            PGBGW_ROLLBACK;
@@ -198,7 +198,7 @@ RETURNING in_cache_revision, on_radar_revision, in_sight_revision, on_map_revisi
                 //
                 // Otherwise, this is an error.
                 //
-                pthread_spin_unlock(&desk->watchdog.lock);
+                pthread_mutex_unlock(&desk->watchdog.mutex);
 
 		        reportError("Unexpected number of tuples");
    	            PGBGW_ROLLBACK;
@@ -211,7 +211,7 @@ RETURNING in_cache_revision, on_radar_revision, in_sight_revision, on_map_revisi
 
     PGBGW_COMMIT;
 
-    pthread_spin_unlock(&desk->watchdog.lock);
+    pthread_mutex_unlock(&desk->watchdog.mutex);
 
 	return 0;
 }

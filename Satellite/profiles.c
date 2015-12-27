@@ -39,7 +39,7 @@ getProfiles(struct paquet *paquet)
 		return -1;
 	}
 
-	outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, KB);
+	outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, KB, BUFFER_PROFILES);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;

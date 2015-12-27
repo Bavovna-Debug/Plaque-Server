@@ -3,8 +3,8 @@
 
 #include <poll.h>
 #include <pthread.h>
-#include <semaphore.h>
 
+#include "api.h"
 #include "buffers.h"
 #include "desk.h"
 #include "report.h"
@@ -51,6 +51,30 @@
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
+#pragma pack(push, 1)
+typedef struct dialogueDemande {
+	uint64  		dialogueSignature;
+	double			deviceTimestamp;
+	uint32  		dialogueType;
+	uint8  			applicationVersion;
+	uint8  			applicationSubersion;
+	uint16  		applicationRelease;
+	uint16  		deviceType;
+	char			applicationBuild[6];
+	char			deviceToken[TokenBinarySize];
+	char			profileToken[TokenBinarySize];
+	char			sessionToken[TokenBinarySize];
+} dialogueDemande;
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+typedef struct dialogueVerdict {
+	uint64  		dialogueSignature;
+	uint32  		verdictCode;
+	char			sessionToken[TokenBinarySize];
+} dialogueVerdict;
+#pragma pack(pop)
+
 struct revisions {
 	uint32				onRadar;
 	uint32				inSight;
@@ -70,24 +94,30 @@ typedef struct task {
 	char				clientIP[MAX(INET_ADDRSTRLEN, INET6_ADDRSTRLEN)];
 
 	struct {
+		struct dialogueDemande	demande;
+		struct dialogueVerdict	verdict;
+	} dialogue;
+
+	struct {
 		int					sockFD;
-		pthread_spinlock_t	receiveLock;
-		pthread_spinlock_t	sendLock;
+		pthread_mutex_t		receiveMutex;
+		pthread_mutex_t		sendMutex;
 	} xmit;
 
 	struct {
 		pthread_spinlock_t	chainLock;
 		pthread_spinlock_t	heavyJobLock;
-		pthread_spinlock_t	downloadLock;
+		pthread_mutex_t		downloadMutex;
 		struct paquet		*chainAnchor;
 	} paquet;
 
 	struct {
 		struct revisions	lastKnownRevision;
 		struct revisions	currentRevision;
-		pthread_spinlock_t	lock;
 		struct paquet		*broadcastPaquet;
-		sem_t				waitForBroadcast;
+		pthread_mutex_t		editMutex;
+		pthread_mutex_t		waitMutex;
+		pthread_cond_t		waitCondition;
 	} broadcast;
 } task_t;
 

@@ -48,7 +48,10 @@
 #define PaquetValidateProfileName               0x00040001
 #define PaquetCreateProfile                     0x00040002
 
-#define PaquetRejectBusy						0xFCFC0000
+#define PaquetRejectBusy						0xFBFB0000
+#define PaquetRejectError						0xFEFE0000
+
+#define PaquetPlaqueStrobe						0xA0B0C0D0
 
 #define AnticipantDeviceNameLength              40
 #define AnticipantDeviceModelLength             20

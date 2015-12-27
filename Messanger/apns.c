@@ -1,6 +1,5 @@
 #include <errno.h>
 #include <netdb.h>
-#include <semaphore.h>
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -148,6 +147,7 @@ apnsThread(void *arg)
 	struct desk *desk = (struct desk *)arg;
 	struct connection   connection;
 	struct timespec     ts;
+	int                 timedout;
 	int                 rc;
 
     bzero(&connection, sizeof(connection));
@@ -156,10 +156,11 @@ apnsThread(void *arg)
 
     while (1)
     {
-        // Wait for semaphore only if this is the first run or if the previous run was successful.
+        // Wait for condition only if this is the first run or if the previous run was successful.
         //
         if (rc == RC_OK) {
-            // Prepare timer for semaphore.
+            //
+            // Prepare timer for timed condition wait.
             //
             rc = clock_gettime(CLOCK_REALTIME_COARSE, &ts);
             if (rc == -1) {
@@ -170,38 +171,65 @@ apnsThread(void *arg)
 
             ts.tv_sec += APNS_DISCONNECT_IF_IDLE;
 
-            // Wait for semaphore for some time.
+            // Wait for condition for some time.
             //
-            reportLog("APNS thread whating %d seconds for pending notifications",
+            reportLog("APNS thread waiting %d seconds for pending notifications",
                 APNS_DISCONNECT_IF_IDLE);
-            rc = sem_timedwait(desk->apns.readyToGo, &ts);
-            if (rc == -1) {
-                if (errno != ETIMEDOUT) {
-                    //
-                    // Semaphore error! Break the loop.
-                    //
-                    reportError("Error has ocurred while whaiting for timed semaphore: errno=%d", errno);
+
+            rc = pthread_mutex_lock(&desk->apns.readyToGoMutex);
+            if (rc != 0) {
+                reportError("Error has occurred on mutex lock: rc=%d", rc);
+                rc = RC_ERROR;
+                break;
+            }
+
+            rc = pthread_cond_timedwait(&desk->apns.readyToGoCond, &desk->apns.readyToGoMutex, &ts);
+            timedout = (rc == ETIMEDOUT) ? 1 : 0;
+            if ((rc != 0) && (timedout == 0)) {
+                pthread_mutex_unlock(&desk->apns.readyToGoMutex);
+                reportError("Error has occurred while whaiting for condition: rc=%d", rc);
+                rc = RC_ERROR;
+                break;
+            }
+
+            rc = pthread_mutex_unlock(&desk->apns.readyToGoMutex);
+            if (rc != 0) {
+                reportError("Error has occurred on mutex unlock: rc=%d", rc);
+                rc = RC_ERROR;
+                break;
+            }
+
+            if (timedout == 1) {
+                //
+                // Condition wait has timed out.
+                // Disconnect from APNS and start waiting for condition without timer.
+                //
+                reportLog("No pending notifications");
+
+                disconnectFromAPNS(&connection);
+
+                reportLog("APNS thread waiting for pending notifications");
+
+                rc = pthread_mutex_lock(&desk->apns.readyToGoMutex);
+                if (rc != 0) {
+                    reportError("Error has occurred on mutex lock: rc=%d", rc);
                     rc = RC_ERROR;
                     break;
-                } else {
-                    //
-                    // Semaphore has timed out.
-                    // Disconnect from APNS and start waiting for semaphore without timer.
-                    //
-                    reportLog("No pending notifications");
+                }
 
-                    disconnectFromAPNS(&connection);
+                rc = pthread_cond_wait(&desk->apns.readyToGoCond, &desk->apns.readyToGoMutex);
+                if (rc != 0) {
+                    pthread_mutex_unlock(&desk->apns.readyToGoMutex);
+                    reportError("Error has occurred while whaiting for condition: rc=%d", rc);
+                    rc = RC_ERROR;
+                    break;
+                }
 
-                    reportLog("APNS thread waiting for pending notifications");
-                    rc = sem_wait(desk->apns.readyToGo);
-                    if (rc == -1) {
-                        //
-                        // Semaphore error! Break the loop.
-                        //
-                        reportError("Error has ocurred while whaiting for semaphore: errno=%d", errno);
-                        rc = RC_ERROR;
-                        break;
-                    }
+                rc = pthread_mutex_unlock(&desk->apns.readyToGoMutex);
+                if (rc != 0) {
+                    reportError("Error has occurred on mutex unlock: rc=%d", rc);
+                    rc = RC_ERROR;
+                    break;
                 }
             }
         }
@@ -260,8 +288,28 @@ apnsThread(void *arg)
 void
 apnsKnockKnock(struct desk *desk)
 {
+    int rc;
+
     reportLog("Messenger knock... knock...");
-    sem_post(desk->apns.readyToGo);
+
+    rc = pthread_mutex_lock(&desk->apns.readyToGoMutex);
+    if (rc != 0) {
+        reportError("Error has occurred on mutex lock: rc=%d", rc);
+        return;
+    }
+
+    rc = pthread_cond_signal(&desk->apns.readyToGoCond);
+    if (rc != 0) {
+        pthread_mutex_unlock(&desk->apns.readyToGoMutex);
+        reportError("Error has occurred on condition signal: rc=%d", rc);
+        return;
+    }
+
+    rc = pthread_mutex_unlock(&desk->apns.readyToGoMutex);
+    if (rc != 0) {
+        reportError("Error has occurred on mutex unlock: rc=%d", rc);
+        return;
+    }
 }
 
 static void
@@ -467,7 +515,7 @@ apnsSendOneByOne(struct desk *desk, struct connection *connection)
     int                 messageSize;
     int                 bytesSent;
 
-    messageBuffer = peekBuffer(desk->pools.apns);
+    messageBuffer = peekBuffer(desk->pools.apns, BUFFER_XMIT);
     if (messageBuffer == NULL) {
         reportLog("APNS thread cannot get a buffer");
         return RC_RESOURCES_BUSY;
@@ -475,7 +523,7 @@ apnsSendOneByOne(struct desk *desk, struct connection *connection)
 
     message = (struct apnsMessage *)messageBuffer->data;
 
-    if (pthread_spin_trylock(&desk->inTheAirNotifications.lock) != 0) {
+    if (pthread_mutex_trylock(&desk->inTheAirNotifications.mutex) != 0) {
         reportLog("APNS thread cannot begin transmit because queue is locked");
         return RC_RESOURCES_BUSY;
     }
@@ -492,7 +540,7 @@ apnsSendOneByOne(struct desk *desk, struct connection *connection)
             reportLog("Cannot send message: sent %d of %d bytes.",
                 bytesSent, messageSize);
 
-            pthread_spin_unlock(&desk->inTheAirNotifications.lock);
+            pthread_mutex_unlock(&desk->inTheAirNotifications.mutex);
 
             return RC_XMIT_ERROR;
         }
@@ -503,12 +551,12 @@ apnsSendOneByOne(struct desk *desk, struct connection *connection)
 
         notificationBuffer->next = NULL;
 
-        pthread_spin_lock(&desk->sentNotifications.lock);
+        pthread_mutex_lock(&desk->sentNotifications.mutex);
         desk->sentNotifications.buffers = appendBuffer(desk->sentNotifications.buffers, notificationBuffer);
-        pthread_spin_unlock(&desk->sentNotifications.lock);
+        pthread_mutex_unlock(&desk->sentNotifications.mutex);
     }
 
-    pthread_spin_unlock(&desk->inTheAirNotifications.lock);
+    pthread_mutex_unlock(&desk->inTheAirNotifications.mutex);
 
     pokeBuffer(messageBuffer);
 
@@ -534,13 +582,13 @@ apnsSendAsFrame(struct desk *desk, struct connection *connection)
     int                                 bytesSent;
     int                                 bytesRead;
 
-    messageBuffer = peekBuffer(desk->pools.apns);
+    messageBuffer = peekBuffer(desk->pools.apns, BUFFER_XMIT);
     if (messageBuffer == NULL) {
         reportLog("APNS thread cannot get a buffer");
         return RC_RESOURCES_BUSY;
     }
 
-    if (pthread_spin_trylock(&desk->inTheAirNotifications.lock) != 0) {
+    if (pthread_mutex_trylock(&desk->inTheAirNotifications.mutex) != 0) {
         reportLog("APNS thread cannot begin transmit because queue is locked");
         return RC_RESOURCES_BUSY;
     }
@@ -588,9 +636,9 @@ apnsSendAsFrame(struct desk *desk, struct connection *connection)
 
         notificationBuffer->next = NULL;
 
-        pthread_spin_lock(&desk->sentNotifications.lock);
+        pthread_mutex_lock(&desk->sentNotifications.mutex);
         desk->sentNotifications.buffers = appendBuffer(desk->sentNotifications.buffers, notificationBuffer);
-        pthread_spin_unlock(&desk->sentNotifications.lock);
+        pthread_mutex_unlock(&desk->sentNotifications.mutex);
 
 /* FIXME
         if (frameLength >= (POOL_APNS_SIZE_OF_BUFFER * 0.8))
@@ -600,7 +648,7 @@ apnsSendAsFrame(struct desk *desk, struct connection *connection)
 
     frame->frameLength = be32toh(frameLength);
 
-    pthread_spin_unlock(&desk->inTheAirNotifications.lock);
+    pthread_mutex_unlock(&desk->inTheAirNotifications.mutex);
 
     bytesToSend = sizeof(struct apnsFrame) + frameLength;
 
