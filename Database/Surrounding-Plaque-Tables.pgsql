@@ -45,25 +45,25 @@ CREATE TABLE surrounding.plaques
 	CONSTRAINT plaques_token_foreign_key
 		FOREIGN KEY (plaque_token)
 		REFERENCES operator.tokens (token)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT,
 
 	CONSTRAINT plaques_device_foreign_key
 		FOREIGN KEY (device_id)
 		REFERENCES auth.devices (device_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT,
 
 	CONSTRAINT plaques_profile_foreign_key
 		FOREIGN KEY (profile_id)
 		REFERENCES auth.profiles (profile_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT,
 
 	CONSTRAINT plaques_time_slot_foreign_key
 		FOREIGN KEY (time_slot_id)
 		REFERENCES surrounding.time_slots (time_slot_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT,
 
 	CONSTRAINT plaques_direction_check

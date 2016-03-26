@@ -25,19 +25,19 @@ CREATE TABLE journal.sessions
 	CONSTRAINT sessions_token_foreign_key
 		FOREIGN KEY (session_token)
 		REFERENCES operator.tokens (token)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT,
 
 	CONSTRAINT sessions_device_foreign_key
 		FOREIGN KEY (device_id)
 		REFERENCES auth.devices (device_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE CASCADE,
 
 	CONSTRAINT sessions_satellite_foreign_key
 		FOREIGN KEY (satellite_id)
 		REFERENCES operator.satellites (satellite_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE SET NULL
 )
 TABLESPACE vp_journal;
@@ -73,7 +73,7 @@ CREATE TABLE journal.sessions_for_revision
 	CONSTRAINT sessions_for_revision_session_foreign_key
 		FOREIGN KEY (session_id)
 		REFERENCES journal.sessions (session_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE CASCADE
 )
 TABLESPACE vp_journal;

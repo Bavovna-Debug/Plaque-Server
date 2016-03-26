@@ -35,13 +35,13 @@ CREATE TABLE auth.tan_lists
 	CONSTRAINT tan_lists_token_foreign_key
 		FOREIGN KEY (tan_list_token)
 		REFERENCES operator.tokens (token)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT,
 
 	CONSTRAINT tan_lists_device_foreign_key
 		FOREIGN KEY (device_id)
 		REFERENCES auth.devices (device_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT
 )
 TABLESPACE plaque_auth;

@@ -22,13 +22,13 @@ CREATE TABLE auth.devices
 	CONSTRAINT devices_token_foreign_key
 		FOREIGN KEY (device_token)
 		REFERENCES operator.tokens (token)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT,
 
 	CONSTRAINT devices_profile_foreign_key
 		FOREIGN KEY (profile_id)
 		REFERENCES auth.profiles (profile_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT,
 
 	CONSTRAINT devices_device_name_check

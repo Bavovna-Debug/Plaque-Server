@@ -56,7 +56,7 @@ CREATE TABLE reception.anticipants
 	CONSTRAINT anticipants_device_foreign_key
 		FOREIGN KEY (device_id)
 		REFERENCES auth.devices (device_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT,
 
 	CONSTRAINT anticipants_unique

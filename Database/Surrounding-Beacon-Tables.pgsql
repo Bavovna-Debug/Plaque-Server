@@ -23,13 +23,13 @@ CREATE TABLE journal.beacons
 	CONSTRAINT beacons_token_foreign_key
 		FOREIGN KEY (beacon_token)
 		REFERENCES hash.repository (token)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT,
 
 	CONSTRAINT beacons_device_foreign_key
 		FOREIGN KEY (device_id)
 		REFERENCES auth.devices (device_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT,
 
 	CONSTRAINT beacons_notification_check
@@ -74,7 +74,7 @@ CREATE TABLE journal.plain_texts
 	CONSTRAINT plain_texts_beacon_foreign_key
 		FOREIGN KEY (beacon_id)
 		REFERENCES journal.beacons (beacon_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT
 )
 TABLESPACE plaque_journal;

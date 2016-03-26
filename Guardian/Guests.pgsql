@@ -41,7 +41,7 @@ CREATE TABLE pool.source_hits
 	CONSTRAINT source_hits_source_foreign_key
 		FOREIGN KEY (source_id)
 		REFERENCES pool.sources (source_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT
 )
 TABLESPACE guardian_pool;

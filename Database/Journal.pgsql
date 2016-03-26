@@ -23,7 +23,7 @@ CREATE TABLE journal.movements
 	CONSTRAINT movements_device_foreign_key
 		FOREIGN KEY (device_id)
 		REFERENCES auth.devices (device_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT
 )
 TABLESPACE vp_journal;

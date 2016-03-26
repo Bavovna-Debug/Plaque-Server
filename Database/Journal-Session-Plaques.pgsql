@@ -11,13 +11,13 @@ CREATE TABLE journal.session_in_cache_plaques
 	CONSTRAINT session_in_cache_plaques_session_foreign_key
 		FOREIGN KEY (session_id)
 		REFERENCES journal.sessions (session_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE CASCADE,
 
 	CONSTRAINT session_in_cache_plaques_plaque_foreign_key
 		FOREIGN KEY (plaque_id)
 		REFERENCES surrounding.plaques (plaque_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT
 )
 TABLESPACE vp_journal;
@@ -57,13 +57,13 @@ CREATE TABLE journal.session_on_radar_plaques
 	CONSTRAINT session_on_radar_plaques_session_foreign_key
 		FOREIGN KEY (session_id)
 		REFERENCES journal.sessions (session_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE CASCADE,
 
 	CONSTRAINT session_on_radar_plaques_plaque_foreign_key
 		FOREIGN KEY (plaque_id)
 		REFERENCES surrounding.plaques (plaque_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT
 )
 TABLESPACE vp_journal;
@@ -103,13 +103,13 @@ CREATE TABLE journal.session_in_sight_plaques
 	CONSTRAINT session_in_sight_plaques_session_foreign_key
 		FOREIGN KEY (session_id)
 		REFERENCES journal.sessions (session_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE CASCADE,
 
 	CONSTRAINT session_in_sight_plaques_plaque_foreign_key
 		FOREIGN KEY (plaque_id)
 		REFERENCES surrounding.plaques (plaque_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT
 )
 TABLESPACE vp_journal;
@@ -149,13 +149,13 @@ CREATE TABLE journal.session_on_map_plaques
 	CONSTRAINT session_on_map_plaques_session_foreign_key
 		FOREIGN KEY (session_id)
 		REFERENCES journal.sessions (session_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE CASCADE,
 
 	CONSTRAINT session_on_map_plaques_plaque_foreign_key
 		FOREIGN KEY (plaque_id)
 		REFERENCES surrounding.plaques (plaque_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT
 )
 TABLESPACE vp_journal;
@@ -192,7 +192,7 @@ CREATE TABLE journal.revised_sessions
 	CONSTRAINT revised_sessions_session_foreign_key
 		FOREIGN KEY (session_id)
 		REFERENCES journal.sessions (session_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE CASCADE
 )
 TABLESPACE vp_journal;
@@ -227,7 +227,7 @@ CREATE TABLE journal.modified_plaques
 	CONSTRAINT modified_plaques_plaque_foreign_key
 		FOREIGN KEY (plaque_id)
 		REFERENCES surrounding.plaques (plaque_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE CASCADE
 )
 TABLESPACE vp_journal;
@@ -258,7 +258,7 @@ CREATE TABLE journal.moved_plaques
 	CONSTRAINT moved_plaques_plaque_foreign_key
 		FOREIGN KEY (plaque_id)
 		REFERENCES surrounding.plaques (plaque_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE CASCADE
 )
 TABLESPACE vp_journal;

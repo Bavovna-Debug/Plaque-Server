@@ -16,7 +16,7 @@ CREATE TABLE journal.apns_tokens
 	CONSTRAINT apns_tokens_device_foreign_key
 		FOREIGN KEY (device_id)
 		REFERENCES auth.devices (device_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT,
 
 	CONSTRAINT apns_tokens_token_check
@@ -58,7 +58,7 @@ CREATE TABLE journal.notifications
 	CONSTRAINT notifications_device_foreign_key
 		FOREIGN KEY (device_id)
 		REFERENCES auth.devices (device_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE SET NULL
 )
 TABLESPACE vp_journal;

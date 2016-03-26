@@ -11,7 +11,7 @@ CREATE TABLE journal.sessions_online
 	CONSTRAINT sessions_online_session_foreign_key
 		FOREIGN KEY (session_id)
 		REFERENCES journal.sessions (session_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE CASCADE
 )
 TABLESPACE vp_journal;

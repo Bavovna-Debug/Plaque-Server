@@ -20,7 +20,7 @@ CREATE TABLE auth.profiles
 	CONSTRAINT profiles_token_foreign_key
 		FOREIGN KEY (profile_token)
 		REFERENCES operator.tokens (token)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE RESTRICT,
 
 	CONSTRAINT profiles_profile_name_check

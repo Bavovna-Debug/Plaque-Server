@@ -21,7 +21,7 @@ CREATE TABLE journal.device_displacements
 	CONSTRAINT sessions_device_foreign_key
 		FOREIGN KEY (device_id)
 		REFERENCES auth.devices (device_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE CASCADE
 )
 TABLESPACE vp_journal;
@@ -114,7 +114,7 @@ CREATE TABLE journal.displaced_devices
 	CONSTRAINT displaced_devices_device_foreign_key
 		FOREIGN KEY (device_id)
 		REFERENCES auth.devices (device_id)
-		ON UPDATE NO ACTION
+		ON UPDATE CASCADE
 		ON DELETE CASCADE
 )
 TABLESPACE vp_journal;
