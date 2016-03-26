@@ -10,6 +10,7 @@
 #include "plaques_edit.h"
 #include "plaques_query.h"
 #include "report.h"
+#include "reports.h"
 #include "tasks.h"
 
 static void
@@ -103,6 +104,10 @@ paquetThread(void *arg)
 
 		case PaquetCreateProfile:
 			rc = createProfile(paquet);
+			break;
+
+		case PaquetReportMessage:
+			rc = reportMessage(paquet);
 			break;
 
 		default:
