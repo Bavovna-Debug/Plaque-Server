@@ -115,6 +115,13 @@ typedef struct paquetNotificationsToken {
 } paquetNotificationsToken;
 #pragma pack(pop)
 
+#pragma pack(push, 1)
+typedef struct paquetReport {
+	uint32  		messageLength;
+	char			message[];
+} paquetReport;
+#pragma pack(pop)
+
 void *
 paquetThread(void *arg);
 
