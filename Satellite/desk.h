@@ -1,5 +1,5 @@
-#ifndef _DESK_
-#define _DESK_
+#ifndef __DESK__
+#define __DESK__
 
 #include "broadcaster_api.h"
 #include "buffers.h"

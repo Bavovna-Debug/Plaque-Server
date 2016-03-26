@@ -1,5 +1,5 @@
-#ifndef _PLAQUES_
-#define _PLAQUES_
+#ifndef __PLAQUES__
+#define __PLAQUES__
 
 #include "paquet.h"
 

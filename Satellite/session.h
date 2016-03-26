@@ -1,5 +1,5 @@
-#ifndef _SESSION_
-#define _SESSION_
+#ifndef __SESSION__
+#define __SESSION__
 
 #include <c.h>
 

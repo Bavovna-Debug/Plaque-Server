@@ -4,8 +4,8 @@
 //  Copyright (c) 2015 Meine Werke. All rights reserved.
 //
 
-#ifndef _API_
-#define _API_
+#ifndef __API__
+#define __API__
 
 #define DialogueSignature						0xC2D6D5D1D6E4D900
 

@@ -1,5 +1,5 @@
-#ifndef _PROFILES_
-#define _PROFILES_
+#ifndef __PROFILES__
+#define __PROFILES__
 
 #include "paquet.h"
 

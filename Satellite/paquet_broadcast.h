@@ -1,5 +1,5 @@
-#ifndef _PAQUET_BROADCAST_
-#define _PAQUET_BROADCAST_
+#ifndef __PAQUET_BROADCAST__
+#define __PAQUET_BROADCAST__
 
 #include "paquet.h"
 

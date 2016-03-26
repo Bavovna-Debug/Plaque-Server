@@ -1,5 +1,5 @@
-#ifndef _DBH_
-#define _DBH_
+#ifndef __DBH__
+#define __DBH__
 
 #include <c.h>
 #include <libpq-fe.h>

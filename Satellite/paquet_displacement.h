@@ -1,5 +1,5 @@
-#ifndef _PAQUET_DISPLACEMENT_
-#define _PAQUET_DISPLACEMENT_
+#ifndef __PAQUET_DISPLACEMENT__
+#define __PAQUET_DISPLACEMENT__
 
 #include "paquet.h"
 

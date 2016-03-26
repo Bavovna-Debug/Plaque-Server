@@ -1,5 +1,5 @@
-#ifndef _PLAQUES_QUERY_
-#define _PLAQUES_QUERY_
+#ifndef __PLAQUES_QUERY__
+#define __PLAQUES_QUERY__
 
 #include "paquet.h"
 

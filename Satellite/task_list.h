@@ -1,5 +1,5 @@
-#ifndef _TASK_LIST_
-#define _TASK_LIST_
+#ifndef __TASK_LIST__
+#define __TASK_LIST__
 
 #include "buffers.h"
 #include "desk.h"

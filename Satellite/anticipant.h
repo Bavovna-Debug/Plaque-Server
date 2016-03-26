@@ -1,5 +1,5 @@
-#ifndef _ANTICIPANT_
-#define _ANTICIPANT_
+#ifndef __ANTICIPANT__
+#define __ANTICIPANT__
 
 #include "api.h"
 #include "db.h"

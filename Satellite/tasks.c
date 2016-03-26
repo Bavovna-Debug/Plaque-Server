@@ -140,8 +140,8 @@ removePaquetFromTask(struct task *task, struct paquet *paquet)
 void *
 taskThread(void *arg)
 {
-	struct task *task = (struct task *)arg;
-	int rc;
+	struct task	*task = (struct task *)arg;
+	int			rc;
 
 	rc = taskInit(task);
 	if (rc != 0)

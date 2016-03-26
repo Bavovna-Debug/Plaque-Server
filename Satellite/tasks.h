@@ -1,5 +1,5 @@
-#ifndef _TASKS_
-#define _TASKS_
+#ifndef __TASKS__
+#define __TASKS__
 
 #include <poll.h>
 #include <pthread.h>

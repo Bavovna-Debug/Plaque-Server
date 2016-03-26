@@ -1,5 +1,5 @@
-#ifndef _BROADCASTER_
-#define _BROADCASTER_
+#ifndef __BROADCASTER__
+#define __BROADCASTER__
 
 void *
 broadcasterThread(void *arg);

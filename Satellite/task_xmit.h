@@ -1,5 +1,5 @@
-#ifndef _TASK_KERNEL_
-#define _TASK_KERNEL_
+#ifndef __TASK_KERNEL__
+#define __TASK_KERNEL__
 
 int
 receiveFixed(

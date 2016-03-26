@@ -1,5 +1,5 @@
-#ifndef _PAQUET_
-#define _PAQUET_
+#ifndef __PAQUET__
+#define __PAQUET__
 
 #include <c.h>
 
