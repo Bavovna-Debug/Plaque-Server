@@ -48,6 +48,8 @@
 #define PaquetValidateProfileName               0x00040001
 #define PaquetCreateProfile                     0x00040002
 
+#define PaquetReportMessage                     0x0000FEFE
+
 #define PaquetRejectBusy						0xFBFB0000
 #define PaquetRejectError						0xFEFE0000
 

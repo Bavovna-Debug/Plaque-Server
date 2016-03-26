@@ -2,6 +2,30 @@
 /*                                                                            */
 /******************************************************************************/
 
+CREATE TABLE debug.reports
+(
+	report_stamp		TIMESTAMP WITHOUT TIME ZONE	NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	report_id			BIGSERIAL					NOT NULL,
+	device_id			BIGINT						NOT NULL,
+	message     		TEXT						NOT NULL,
+
+	CONSTRAINT reports_primary_key
+		PRIMARY KEY (report_id)
+		USING INDEX TABLESPACE vp_debug,
+
+	CONSTRAINT reports_device_foreign_key
+		FOREIGN KEY (device_id)
+		REFERENCES auth.devices (device_id)
+		ON UPDATE CASCADE
+		ON DELETE RESTRICT,
+
+	CONSTRAINT reports_message_check
+		CHECK (LENGTH(message) > 0)
+		NOT DEFERRABLE INITIALLY IMMEDIATE
+)
+TABLESPACE vp_debug;
+
+/*
 CREATE TABLE debug.succeeded_bonjours
 (
 	bonjour_stamp		TIMESTAMP WITHOUT TIME ZONE	NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -46,11 +70,12 @@ CREATE TABLE debug.intruders
 		USING INDEX TABLESPACE plaque_debug
 )
 TABLESPACE plaque_debug;
+*/
 
 /******************************************************************************/
 /*                                                                            */
 /******************************************************************************/
-
+/*
 CREATE TYPE debug.str1_t AS
 (
 	s		CHARACTER VARYING(50),
@@ -65,11 +90,11 @@ CREATE OR REPLACE FUNCTION debug.str1 (
 	IN parm_range		REAL
 )
 RETURNS SETOF debug.str1_t AS
-/*RETURNS TABLE (
-	ret_name	CHARACTER VARYING(50),
-	ret_lat		DOUBLE PRECISION,
-	ret_alt		REAL
-) AS*/
+-- RETURNS TABLE (
+--	ret_name	CHARACTER VARYING(50),
+--	ret_lat		DOUBLE PRECISION,
+--	ret_alt		REAL
+-- ) AS
 $PLSQL$
 
 DECLARE
@@ -92,11 +117,13 @@ LANGUAGE plpgsql
 VOLATILE
 CALLED ON NULL INPUT
 EXTERNAL SECURITY DEFINER;
+*/
 
 /******************************************************************************/
 /*                                                                            */
 /******************************************************************************/
 
+/*
 CREATE OR REPLACE FUNCTION debug.intruder (
 	IN parm_ip_address		INET,
 	IN parm_port_number		INTEGER,
@@ -122,11 +149,13 @@ LANGUAGE plpgsql
 VOLATILE
 CALLED ON NULL INPUT
 EXTERNAL SECURITY DEFINER;
+*/
 
 /******************************************************************************/
 /*                                                                            */
 /******************************************************************************/
 
+/*
 CREATE OR REPLACE FUNCTION debug.create_random_plaques (IN parm_number_of_plaques BIGINT)
 RETURNS VOID AS
 $PLSQL$
@@ -167,11 +196,13 @@ LANGUAGE plpgsql
 VOLATILE
 RETURNS NULL ON NULL INPUT
 EXTERNAL SECURITY DEFINER;
+*/
 
 /******************************************************************************/
 /*                                                                            */
 /******************************************************************************/
 
+/*
 CREATE OR REPLACE FUNCTION debug.create_random_beacons (IN parm_number_of_beacons BIGINT)
 RETURNS VOID AS
 $PLSQL$
@@ -208,3 +239,4 @@ LANGUAGE plpgsql
 VOLATILE
 RETURNS NULL ON NULL INPUT
 EXTERNAL SECURITY DEFINER;
+*/
