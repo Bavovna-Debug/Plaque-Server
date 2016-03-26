@@ -191,10 +191,10 @@ paquetChangePlaqueLocation(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	const char	*paramValues[6];
-    Oid			paramTypes[6];
-    int			paramLengths[6];
-	int			paramFormats[6];
+	const char	*paramValues[4];
+    Oid			paramTypes[4];
+    int			paramLengths[4];
+	int			paramFormats[4];
 
 	struct buffer *inputBuffer = paquet->inputBuffer;
 	struct buffer *outputBuffer = paquet->inputBuffer;
@@ -216,44 +216,34 @@ paquetChangePlaqueLocation(struct paquet *paquet)
 		return -1;
 	}
 
-	paramValues   [0] = (char *)&task->deviceId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(uint64);
+	paramValues   [0] = (char *)&payload.plaqueToken;
+	paramTypes    [0] = UUIDOID;
+	paramLengths  [0] = TokenBinarySize;
 	paramFormats  [0] = 1;
 
-	paramValues   [1] = (char *)&task->profileId;
-	paramTypes    [1] = INT8OID;
-	paramLengths  [1] = sizeof(uint64);
+	paramValues   [1] = (char *)&payload.latitude;
+	paramTypes    [1] = FLOAT8OID;
+	paramLengths  [1] = sizeof(double);
 	paramFormats  [1] = 1;
 
-	paramValues   [2] = (char *)&payload.plaqueToken;
-	paramTypes    [2] = UUIDOID;
-	paramLengths  [2] = TokenBinarySize;
+	paramValues   [2] = (char *)&payload.longitude;
+	paramTypes    [2] = FLOAT8OID;
+	paramLengths  [2] = sizeof(double);
 	paramFormats  [2] = 1;
 
-	paramValues   [3] = (char *)&payload.latitude;
-	paramTypes    [3] = FLOAT8OID;
-	paramLengths  [3] = sizeof(double);
+	paramValues   [3] = (char *)&payload.altitude;
+	paramTypes    [3] = FLOAT4OID;
+	paramLengths  [3] = sizeof(float);
 	paramFormats  [3] = 1;
-
-	paramValues   [4] = (char *)&payload.longitude;
-	paramTypes    [4] = FLOAT8OID;
-	paramLengths  [4] = sizeof(double);
-	paramFormats  [4] = 1;
-
-	paramValues   [5] = (char *)&payload.altitude;
-	paramTypes    [5] = FLOAT4OID;
-	paramLengths  [5] = sizeof(float);
-	paramFormats  [5] = 1;
 
 	dbh->result = PQexecParams(dbh->conn, "\
 UPDATE surrounding.plaques \
-SET latitude = $4, \
-	longitude = $5, \
-	altitude = $6 \
-WHERE plaque_token = $3 \
+SET latitude = $2, \
+	longitude = $3, \
+	altitude = $4 \
+WHERE plaque_token = $1 \
 RETURNING plaque_token",
-		6, paramTypes, paramValues, paramLengths, paramFormats, 1);
+		4, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
 	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
@@ -293,10 +283,10 @@ paquetChangePlaqueOrientation(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	const char	*paramValues[5];
-    Oid			paramTypes[5];
-    int			paramLengths[5];
-	int			paramFormats[5];
+	const char	*paramValues[3];
+    Oid			paramTypes[3];
+    int			paramLengths[3];
+	int			paramFormats[3];
 
 	struct buffer *inputBuffer = paquet->inputBuffer;
 	struct buffer *outputBuffer = paquet->inputBuffer;
@@ -318,52 +308,42 @@ paquetChangePlaqueOrientation(struct paquet *paquet)
 		return -1;
 	}
 
-	paramValues   [0] = (char *)&task->deviceId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(uint64);
+	paramValues   [0] = (char *)&payload.plaqueToken;
+	paramTypes    [0] = UUIDOID;
+	paramLengths  [0] = TokenBinarySize;
 	paramFormats  [0] = 1;
 
-	paramValues   [1] = (char *)&task->profileId;
-	paramTypes    [1] = INT8OID;
-	paramLengths  [1] = sizeof(uint64);
-	paramFormats  [1] = 1;
-
-	paramValues   [2] = (char *)&payload.plaqueToken;
-	paramTypes    [2] = UUIDOID;
-	paramLengths  [2] = TokenBinarySize;
-	paramFormats  [2] = 1;
-
 	if (payload.directed == DeviceBooleanFalse) {
-		paramValues   [3] = NULL;
-		paramTypes    [3] = FLOAT4OID;
-		paramLengths  [3] = 0;
-		paramFormats  [3] = 1;
+		paramValues   [1] = NULL;
+		paramTypes    [1] = FLOAT4OID;
+		paramLengths  [1] = 0;
+		paramFormats  [1] = 1;
 	} else {
-		paramValues   [3] = (char *)&payload.direction;
-		paramTypes    [3] = FLOAT4OID;
-		paramLengths  [3] = sizeof(payload.direction);
-		paramFormats  [3] = 1;
+		paramValues   [1] = (char *)&payload.direction;
+		paramTypes    [1] = FLOAT4OID;
+		paramLengths  [1] = sizeof(payload.direction);
+		paramFormats  [1] = 1;
 	}
 
 	if (payload.tilted == DeviceBooleanFalse) {
-		paramValues   [4] = NULL;
-		paramTypes    [4] = FLOAT4OID;
-		paramLengths  [4] = 0;
-		paramFormats  [4] = 1;
+		paramValues   [2] = NULL;
+		paramTypes    [2] = FLOAT4OID;
+		paramLengths  [2] = 0;
+		paramFormats  [2] = 1;
 	} else {
-		paramValues   [4] = (char *)&payload.tilt;
-		paramTypes    [4] = FLOAT4OID;
-		paramLengths  [4] = sizeof(payload.tilt);
-		paramFormats  [4] = 1;
+		paramValues   [2] = (char *)&payload.tilt;
+		paramTypes    [2] = FLOAT4OID;
+		paramLengths  [2] = sizeof(payload.tilt);
+		paramFormats  [2] = 1;
 	}
 
 	dbh->result = PQexecParams(dbh->conn, "\
 UPDATE surrounding.plaques \
-SET direction = $4, \
-	tilt = $5 \
-WHERE plaque_token = $3 \
+SET direction = $2, \
+	tilt = $3 \
+WHERE plaque_token = $1 \
 RETURNING plaque_token",
-		5, paramTypes, paramValues, paramLengths, paramFormats, 1);
+		3, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
 	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
@@ -403,10 +383,10 @@ paquetChangePlaqueSize(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	const char	*paramValues[5];
-    Oid			paramTypes[5];
-    int			paramLengths[5];
-	int			paramFormats[5];
+	const char	*paramValues[3];
+    Oid			paramTypes[3];
+    int			paramLengths[3];
+	int			paramFormats[3];
 
 	struct buffer *inputBuffer = paquet->inputBuffer;
 	struct buffer *outputBuffer = paquet->inputBuffer;
@@ -428,38 +408,28 @@ paquetChangePlaqueSize(struct paquet *paquet)
 		return -1;
 	}
 
-	paramValues   [0] = (char *)&task->deviceId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(uint64);
+	paramValues   [0] = (char *)&payload.plaqueToken;
+	paramTypes    [0] = UUIDOID;
+	paramLengths  [0] = TokenBinarySize;
 	paramFormats  [0] = 1;
 
-	paramValues   [1] = (char *)&task->profileId;
-	paramTypes    [1] = INT8OID;
-	paramLengths  [1] = sizeof(uint64);
+	paramValues   [1] = (char *)&payload.width;
+	paramTypes    [1] = FLOAT4OID;
+	paramLengths  [1] = sizeof(payload.width);
 	paramFormats  [1] = 1;
 
-	paramValues   [2] = (char *)&payload.plaqueToken;
-	paramTypes    [2] = UUIDOID;
-	paramLengths  [2] = TokenBinarySize;
+	paramValues   [2] = (char *)&payload.height;
+	paramTypes    [2] = FLOAT4OID;
+	paramLengths  [2] = sizeof(payload.height);
 	paramFormats  [2] = 1;
-
-	paramValues   [3] = (char *)&payload.width;
-	paramTypes    [3] = FLOAT4OID;
-	paramLengths  [3] = sizeof(payload.width);
-	paramFormats  [3] = 1;
-
-	paramValues   [4] = (char *)&payload.height;
-	paramTypes    [4] = FLOAT4OID;
-	paramLengths  [4] = sizeof(payload.height);
-	paramFormats  [4] = 1;
 
 	dbh->result = PQexecParams(dbh->conn, "\
 UPDATE surrounding.plaques \
-SET width = $4, \
-	height = $5 \
-WHERE plaque_token = $3 \
+SET width = $2, \
+	height = $3 \
+WHERE plaque_token = $1 \
 RETURNING plaque_token",
-		5, paramTypes, paramValues, paramLengths, paramFormats, 1);
+		3, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
 	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
@@ -499,10 +469,10 @@ paquetChangePlaqueColors(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	const char	*paramValues[5];
-    Oid			paramTypes[5];
-    int			paramLengths[5];
-	int			paramFormats[5];
+	const char	*paramValues[3];
+    Oid			paramTypes[3];
+    int			paramLengths[3];
+	int			paramFormats[3];
 
 	struct buffer *inputBuffer = paquet->inputBuffer;
 	struct buffer *outputBuffer = paquet->inputBuffer;
@@ -524,38 +494,28 @@ paquetChangePlaqueColors(struct paquet *paquet)
 		return -1;
 	}
 
-	paramValues   [0] = (char *)&task->deviceId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(uint64);
+	paramValues   [0] = (char *)&payload.plaqueToken;
+	paramTypes    [0] = UUIDOID;
+	paramLengths  [0] = TokenBinarySize;
 	paramFormats  [0] = 1;
 
-	paramValues   [1] = (char *)&task->profileId;
-	paramTypes    [1] = INT8OID;
-	paramLengths  [1] = sizeof(uint64);
+	paramValues   [1] = (char *)&payload.backgroundColor;
+	paramTypes    [1] = INT4OID;
+	paramLengths  [1] = sizeof(payload.backgroundColor);
 	paramFormats  [1] = 1;
 
-	paramValues   [2] = (char *)&payload.plaqueToken;
-	paramTypes    [2] = UUIDOID;
-	paramLengths  [2] = TokenBinarySize;
+	paramValues   [2] = (char *)&payload.foregroundColor;
+	paramTypes    [2] = INT4OID;
+	paramLengths  [2] = sizeof(payload.foregroundColor);
 	paramFormats  [2] = 1;
-
-	paramValues   [3] = (char *)&payload.backgroundColor;
-	paramTypes    [3] = INT4OID;
-	paramLengths  [3] = sizeof(payload.backgroundColor);
-	paramFormats  [3] = 1;
-
-	paramValues   [4] = (char *)&payload.foregroundColor;
-	paramTypes    [4] = INT4OID;
-	paramLengths  [4] = sizeof(payload.foregroundColor);
-	paramFormats  [4] = 1;
 
 	dbh->result = PQexecParams(dbh->conn, "\
 UPDATE surrounding.plaques \
-SET background_color = $4, \
-	foreground_color = $5 \
-WHERE plaque_token = $3 \
+SET background_color = $2, \
+	foreground_color = $3 \
+WHERE plaque_token = $1 \
 RETURNING plaque_token",
-		5, paramTypes, paramValues, paramLengths, paramFormats, 1);
+		3, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
 	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
@@ -595,10 +555,10 @@ paquetChangePlaqueFont(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	const char	*paramValues[4];
-    Oid			paramTypes[4];
-    int			paramLengths[4];
-	int			paramFormats[4];
+	const char	*paramValues[2];
+    Oid			paramTypes[2];
+    int			paramLengths[2];
+	int			paramFormats[2];
 
 	struct buffer *inputBuffer = paquet->inputBuffer;
 	struct buffer *outputBuffer = paquet->inputBuffer;
@@ -620,32 +580,22 @@ paquetChangePlaqueFont(struct paquet *paquet)
 		return -1;
 	}
 
-	paramValues   [0] = (char *)&task->deviceId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(uint64);
+	paramValues   [0] = (char *)&payload.plaqueToken;
+	paramTypes    [0] = UUIDOID;
+	paramLengths  [0] = TokenBinarySize;
 	paramFormats  [0] = 1;
 
-	paramValues   [1] = (char *)&task->profileId;
-	paramTypes    [1] = INT8OID;
-	paramLengths  [1] = sizeof(uint64);
+	paramValues   [1] = (char *)&payload.fontSize;
+	paramTypes    [1] = FLOAT4OID;
+	paramLengths  [1] = sizeof(payload.fontSize);
 	paramFormats  [1] = 1;
-
-	paramValues   [2] = (char *)&payload.plaqueToken;
-	paramTypes    [2] = UUIDOID;
-	paramLengths  [2] = TokenBinarySize;
-	paramFormats  [2] = 1;
-
-	paramValues   [3] = (char *)&payload.fontSize;
-	paramTypes    [3] = FLOAT4OID;
-	paramLengths  [3] = sizeof(payload.fontSize);
-	paramFormats  [3] = 1;
 
 	dbh->result = PQexecParams(dbh->conn, "\
 UPDATE surrounding.plaques \
-SET font_size = $4 \
-WHERE plaque_token = $3 \
+SET font_size = $2 \
+WHERE plaque_token = $1 \
 RETURNING plaque_token",
-		4, paramTypes, paramValues, paramLengths, paramFormats, 1);
+		2, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
 	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
@@ -685,10 +635,10 @@ paquetChangePlaqueInscription(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	const char	*paramValues[4];
-    Oid			paramTypes[4];
-    int			paramLengths[4];
-	int			paramFormats[4];
+	const char	*paramValues[2];
+    Oid			paramTypes[2];
+    int			paramLengths[2];
+	int			paramFormats[2];
 
 	struct buffer *inputBuffer = paquet->inputBuffer;
 	struct buffer *outputBuffer = paquet->inputBuffer;
@@ -727,32 +677,22 @@ paquetChangePlaqueInscription(struct paquet *paquet)
 		return -1;
 	}
 
-	paramValues   [0] = (char *)&task->deviceId;
-	paramTypes    [0] = INT8OID;
-	paramLengths  [0] = sizeof(uint64);
+	paramValues   [0] = (char *)&payload.plaqueToken;
+	paramTypes    [0] = UUIDOID;
+	paramLengths  [0] = TokenBinarySize;
 	paramFormats  [0] = 1;
 
-	paramValues   [1] = (char *)&task->profileId;
-	paramTypes    [1] = INT8OID;
-	paramLengths  [1] = sizeof(uint64);
-	paramFormats  [1] = 1;
-
-	paramValues   [2] = (char *)&payload.plaqueToken;
-	paramTypes    [2] = UUIDOID;
-	paramLengths  [2] = TokenBinarySize;
-	paramFormats  [2] = 1;
-
-	paramValues   [3] = (char *)inscription;
-	paramTypes    [3] = TEXTOID;
-	paramLengths  [3] = payload.inscriptionLength;
-	paramFormats  [3] = 0;
+	paramValues   [1] = (char *)inscription;
+	paramTypes    [1] = TEXTOID;
+	paramLengths  [1] = payload.inscriptionLength;
+	paramFormats  [1] = 0;
 
 	dbh->result = PQexecParams(dbh->conn, "\
 UPDATE surrounding.plaques \
-SET inscription = $4 \
-WHERE plaque_token = $3 \
+SET inscription = $2 \
+WHERE plaque_token = $1 \
 RETURNING plaque_token",
-		4, paramTypes, paramValues, paramLengths, paramFormats, 1);
+		2, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
 	if (!dbhTuplesOK(dbh, dbh->result)) {
 		pokeDB(dbh);
