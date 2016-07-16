@@ -23,6 +23,7 @@ listenerThread(void *arg)
 	struct sockaddr_in  serverAddress;
 	struct sockaddr_in  clientAddress;
 	socklen_t           clientAddressLength;
+	const int           socketValue = 1;
 	int                 rc;
 
     pthread_cleanup_push(&listenerCleanup, desk);
@@ -38,6 +39,27 @@ listenerThread(void *arg)
     	}
 
         desk->listener.listenSockFD = listenSockFD;
+
+        // Notify the stack that the socket address needs to be reused.
+        // Important for the case when the socket needed to be reopened.
+        // If it does not work, then close the socket and retry.
+        //
+        rc = setsockopt(listenSockFD,
+            SOL_SOCKET,
+            SO_REUSEADDR,
+            &socketValue,
+            sizeof(socketValue));
+        if (rc == -1)
+        {
+	        reportError("Cannot set socket options, wait for %d microseconds: errno=%d",
+        	    SLEEP_ON_SET_SOCKET_OPTIONS, errno);
+
+            close(listenSockFD);
+
+            usleep(SLEEP_ON_SET_SOCKET_OPTIONS);
+
+	        continue;
+        }
 
 	    bzero((char *)&serverAddress, sizeof(serverAddress));
 
