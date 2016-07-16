@@ -31,10 +31,14 @@ listenerThread(void *arg)
     while (1)
     {
 	    listenSockFD = socket(AF_INET, SOCK_STREAM, 0);
-	    if (listenSockFD < 0) {
-	    	reportError("Cannot open a socket, wait for %d microseconds: errno=%d",
-	    	    SLEEP_ON_CANNOT_OPEN_SOCKET, errno);
-	    	usleep(SLEEP_ON_CANNOT_OPEN_SOCKET);
+	    if (listenSockFD < 0)
+	    {
+	    	reportError("Cannot open a socket, wait for %d milliseconds: errno=%d",
+	    	    SLEEP_ON_CANNOT_OPEN_SOCKET,
+	    	    errno);
+
+	    	usleep(SLEEP_ON_CANNOT_OPEN_SOCKET * 1000);
+
 	    	continue;
     	}
 
@@ -51,12 +55,13 @@ listenerThread(void *arg)
             sizeof(socketValue));
         if (rc == -1)
         {
-	        reportError("Cannot set socket options, wait for %d microseconds: errno=%d",
-        	    SLEEP_ON_SET_SOCKET_OPTIONS, errno);
+	        reportError("Cannot set socket options, wait for %d milliseconds: errno=%d",
+        	    SLEEP_ON_SET_SOCKET_OPTIONS,
+        	    errno);
 
             close(listenSockFD);
 
-            usleep(SLEEP_ON_SET_SOCKET_OPTIONS);
+            usleep(SLEEP_ON_SET_SOCKET_OPTIONS * 1000);
 
 	        continue;
         }
@@ -80,17 +85,21 @@ listenerThread(void *arg)
 	                //
 	                // Connection refused: wait and try again.
 	                //
-	    	        reportError("Cannot bind to socket, wait for %d microseconds",
+	    	        reportError("Cannot bind to socket, wait for %d milliseconds",
     	                SLEEP_ON_CANNOT_BIND_SOCKET);
-            	    usleep(SLEEP_ON_CANNOT_BIND_SOCKET);
+
+            	    usleep(SLEEP_ON_CANNOT_BIND_SOCKET * 1000);
 	            } else {
 	                //
 	                // Error: close socket, wait, and go to the beginning of socket creation.
 	                //
     		        close(listenSockFD);
-	    	        reportError("Cannot bind to socket, wait for %d microseconds: errno=%d",
+
+	    	        reportError("Cannot bind to socket, wait for %d milliseconds: errno=%d",
     	                SLEEP_ON_CANNOT_BIND_SOCKET, errno);
-            	    usleep(SLEEP_ON_CANNOT_BIND_SOCKET);
+
+            	    usleep(SLEEP_ON_CANNOT_BIND_SOCKET * 1000);
+
         	    	continue;
     	        }
 	        }
@@ -103,10 +112,13 @@ listenerThread(void *arg)
 		    clientSockFD = accept(listenSockFD,
 				(struct sockaddr *)&clientAddress,
 				&clientAddressLength);
-		    if (clientSockFD < 0) {
-			    reportError("Cannot accept new socket, wait for %d microseconds: errno=%d",
+		    if (clientSockFD < 0)
+		    {
+			    reportError("Cannot accept new socket, wait for %d milliseconds: errno=%d",
 	    	        SLEEP_ON_CANNOT_ACCEPT, errno);
-	        	usleep(SLEEP_ON_CANNOT_ACCEPT);
+
+	        	usleep(SLEEP_ON_CANNOT_ACCEPT * 1000);
+
     	    	break;
 		    }
 
