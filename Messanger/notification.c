@@ -21,8 +21,8 @@
 #include <utils/snapmgr.h>
 #include <tcop/utility.h>
 
-#include "buffers.h"
 #include "desk.h"
+#include "mmps.h"
 #include "notification.h"
 #include "pgbgw.h"
 #include "report.h"
@@ -60,9 +60,9 @@ WHERE in_messanger IS TRUE"
    	PGBGW_COMMIT;
 
 	if (numberOfNotifications == 0) {
-		reportLog("No notifications were reset");
+		reportInfo("No notifications were reset");
     } else {
-		reportLog("%d notifications were reset", numberOfNotifications);
+		reportInfo("%d notifications were reset", numberOfNotifications);
     }
 
 	return numberOfNotifications;
@@ -107,7 +107,7 @@ WHERE in_messanger IS FALSE \
     numberOfNotifications = DatumGetInt64(SPI_getbinval(tuple, tupdesc, 1, &isNull));
 
     if (numberOfNotifications > 0)
-        reportLog("There are %lu outstanding notifications", numberOfNotifications);
+        reportInfo("There are %lu outstanding notifications", numberOfNotifications);
 
    	PGBGW_COMMIT;
 
@@ -122,7 +122,7 @@ fetchListOfOutstandingNotifications(struct desk *desk)
 	HeapTuple           tuple;
 	bool                isNull;
 	int                 notificationNumber;
-	struct buffer       *buffer;
+	struct MMPS_Buffer       *buffer;
 	struct notification *notification;
 	int                 rc;
 
@@ -152,7 +152,7 @@ ORDER BY notification_id"
 
 	    for (notificationNumber = 0; notificationNumber < SPI_processed; notificationNumber++)
 	    {
-	        buffer = peekBuffer(desk->pools.notifications, BUFFER_NOTIFICATION);
+	        buffer = MMPS_PeekBuffer(desk->pools.notifications, BUFFER_NOTIFICATION);
 	        if (buffer == NULL)
 	            break;
 
@@ -162,13 +162,14 @@ ORDER BY notification_id"
 
             notification->notificationId = DatumGetInt64(SPI_getbinval(tuple, tupdesc, 1, &isNull));
 
-            desk->outstandingNotifications.buffers = appendBuffer(desk->outstandingNotifications.buffers, buffer);
+            desk->outstandingNotifications.buffers =
+                MMPS_AppendBuffer(desk->outstandingNotifications.buffers, buffer);
         }
 
         pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 	}
 
-    reportLog("Fetched a list of %u outstanding notifications", SPI_processed);
+    reportInfo("Fetched a list of %u outstanding notifications", SPI_processed);
 
    	PGBGW_COMMIT;
 
@@ -182,7 +183,7 @@ fetchNotificationsToMessanger(struct desk *desk)
     TupleDesc           tupdesc;
 	HeapTuple           tuple;
 	bool                isNull;
-	struct buffer       *buffer;
+	struct MMPS_Buffer       *buffer;
 	struct notification *notification;
 	char                *deviceToken;
 	int                 rc;
@@ -234,8 +235,16 @@ WHERE notification_id = %lu",
        	tuple = SPI_tuptable->vals[0];
 
         notification->deviceId = DatumGetInt64(SPI_getbinval(tuple, tupdesc, 1, &isNull));
-        strncpy(notification->messageKey, DatumGetCString(SPI_getvalue(tuple, tupdesc, 2)), MESSAGE_KEY_SIZE);
-        strncpy(notification->messageArguments, DatumGetCString(SPI_getvalue(tuple, tupdesc, 3)), MESSAGE_ARGUMENTS_SIZE);
+
+        strncpy(
+            notification->messageKey,
+            DatumGetCString(SPI_getvalue(tuple, tupdesc, 2)),
+            MESSAGE_KEY_SIZE);
+
+        strncpy(
+            notification->messageArguments,
+            DatumGetCString(SPI_getvalue(tuple, tupdesc, 3)),
+            MESSAGE_ARGUMENTS_SIZE);
 
     	initStringInfo(&infoData);
 	    appendStringInfo(
@@ -269,7 +278,7 @@ WHERE device_id = %lu",
         deviceToken = DatumGetCString(SPI_getvalue(tuple, tupdesc, 1));
         deviceTokenCharToBin(deviceToken, notification->deviceToken);
 
-        reportLog("Notification %lu for %lu (%s, %s)",
+        reportInfo("Notification %lu for %lu (%s, %s)",
             notification->notificationId,
             notification->deviceId,
             notification->messageKey,
@@ -294,7 +303,7 @@ WHERE notification_id = %lu",
 		    return -1;
         }
 
-        buffer = nextBuffer(buffer);
+        buffer = MMPS_NextBuffer(buffer);
 	}
 
    	PGBGW_COMMIT;
@@ -311,7 +320,9 @@ moveOutstandingToInTheAir(struct desk *desk)
     pthread_mutex_lock(&desk->inTheAirNotifications.mutex);
 
     desk->inTheAirNotifications.buffers =
-        appendBuffer(desk->inTheAirNotifications.buffers, desk->outstandingNotifications.buffers);
+        MMPS_AppendBuffer(
+            desk->inTheAirNotifications.buffers,
+            desk->outstandingNotifications.buffers);
 
     desk->outstandingNotifications.buffers = NULL;
 
@@ -325,7 +336,7 @@ int
 flagSentNotification(struct desk *desk)
 {
 	StringInfoData      infoData;
-	struct buffer       *buffer;
+	struct MMPS_Buffer       *buffer;
 	struct notification *notification;
 	int                 rc;
 
@@ -366,14 +377,16 @@ WHERE notification_id = %lu",
     		return -1;
     	}
 
-        buffer = nextBuffer(buffer);
+        buffer = MMPS_NextBuffer(buffer);
     }
 
    	PGBGW_COMMIT;
 
     pthread_mutex_lock(&desk->processedNotifications.mutex);
     desk->processedNotifications.buffers =
-        appendBuffer(desk->processedNotifications.buffers, desk->sentNotifications.buffers);
+        MMPS_AppendBuffer(
+            desk->processedNotifications.buffers,
+            desk->sentNotifications.buffers);
     pthread_mutex_unlock(&desk->processedNotifications.mutex);
 
     desk->sentNotifications.buffers = NULL;
@@ -387,7 +400,7 @@ int
 releaseProcessedNotificationsFromMessanger(struct desk *desk)
 {
 	StringInfoData      infoData;
-	struct buffer       *buffer;
+	struct MMPS_Buffer       *buffer;
 	struct notification *notification;
 	int                 rc;
 
@@ -427,12 +440,12 @@ WHERE notification_id = %lu",
     		return -1;
     	}
 
-        buffer = nextBuffer(buffer);
+        buffer = MMPS_NextBuffer(buffer);
     }
 
    	PGBGW_COMMIT;
 
-    pokeBuffer(desk->processedNotifications.buffers);
+    MMPS_PokeBuffer(desk->processedNotifications.buffers);
     desk->processedNotifications.buffers = NULL;
 
     pthread_mutex_unlock(&desk->processedNotifications.mutex);

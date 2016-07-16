@@ -2,8 +2,8 @@
 #include <string.h>
 
 #include "api.h"
-#include "buffers.h"
 #include "db.h"
+#include "mmps.h"
 #include "paquet.h"
 #include "paquet_broadcast.h"
 #include "paquet_displacement.h"
@@ -134,15 +134,15 @@ paquetCleanup(void *arg)
 
 	if (paquet->inputBuffer == paquet->outputBuffer) {
 		if (paquet->inputBuffer != NULL)
-			pokeBuffer(paquet->inputBuffer);
+			MMPS_PokeBuffer(paquet->inputBuffer);
 	} else {
 		if (paquet->inputBuffer != NULL)
-			pokeBuffer(paquet->inputBuffer);
+			MMPS_PokeBuffer(paquet->inputBuffer);
 		if (paquet->outputBuffer != NULL)
-			pokeBuffer(paquet->outputBuffer);
+			MMPS_PokeBuffer(paquet->outputBuffer);
 	}
 
-    pokeBuffer(paquet->containerBuffer);
+    MMPS_PokeBuffer(paquet->containerBuffer);
 }
 
 void
@@ -167,7 +167,7 @@ minimumPayloadSize(struct paquet *paquet, int minimumSize)
 {
 	if (paquet->payloadSize < minimumSize) {
 #ifdef DEBUG
-		reportLog("Wrong payload size %d, expected minimum %lu",
+		reportInfo("Wrong payload size %d, expected minimum %lu",
 			paquet->payloadSize,
 			minimumSize);
 #endif
@@ -182,7 +182,7 @@ expectedPayloadSize(struct paquet *paquet, int expectedSize)
 {
 	if (paquet->payloadSize != expectedSize) {
 #ifdef DEBUG
-		reportLog("Wrong payload size %d, expected %lu",
+		reportInfo("Wrong payload size %d, expected %lu",
 			paquet->payloadSize,
 			expectedSize);
 #endif
@@ -226,7 +226,7 @@ rejectPaquetAsBusy(struct paquet *paquet)
 	if (paquet->outputBuffer == NULL)
 		paquet->outputBuffer = paquet->inputBuffer;
 
-	resetBufferData(paquet->outputBuffer, 1);
+	MMPS_ResetBufferData(paquet->outputBuffer, 1);
 
 	struct paquetPilot *pilot = (struct paquetPilot *)paquet->outputBuffer;
 	pilot->commandSubcode = PaquetRejectBusy;
@@ -239,7 +239,7 @@ rejectPaquetAsError(struct paquet *paquet)
 	if (paquet->outputBuffer == NULL)
 		paquet->outputBuffer = paquet->inputBuffer;
 
-	resetBufferData(paquet->outputBuffer, 1);
+	MMPS_ResetBufferData(paquet->outputBuffer, 1);
 
 	struct paquetPilot *pilot = (struct paquetPilot *)paquet->outputBuffer;
 	pilot->commandSubcode = PaquetRejectError;

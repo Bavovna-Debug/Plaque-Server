@@ -67,7 +67,7 @@ receiveFixed(
 	if (pollRC == 0) {
         pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-		reportLog("Wait for receive timed out");
+		reportInfo("Wait for receive timed out");
 		setTaskStatus(task, TaskStatusPollForReceiveTimeout);
 		return -1;
 	} else if (pollRC != 1) {
@@ -134,7 +134,7 @@ sendFixed(
 	if (pollRC == 0) {
         pthread_mutex_unlock(&task->xmit.sendMutex);
 
-		reportLog("Wait for send timed out");
+		reportInfo("Wait for send timed out");
 		setTaskStatus(task, TaskStatusPollForSendTimeout);
 		return -1;
 	} else if (pollRC != 1) {
@@ -173,7 +173,7 @@ sendFixed(
 }
 
 int
-receivePaquet(struct paquet *paquet, struct buffer *receiveBuffer)
+receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 {
 	struct task			*task = paquet->task;
 	struct pollfd		*pollFD = &paquet->pollFD;
@@ -201,7 +201,7 @@ receivePaquet(struct paquet *paquet, struct buffer *receiveBuffer)
 	if (pollRC == 0) {
         pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-		reportLog("Wait for receive timed out");
+		reportInfo("Wait for receive timed out");
 		setTaskStatus(task, TaskStatusPollForReceiveTimeout);
 		return -1;
 	} else if (pollRC != 1) {
@@ -214,7 +214,7 @@ receivePaquet(struct paquet *paquet, struct buffer *receiveBuffer)
 
 	struct paquetPilot *pilot = NULL;
 
-	struct buffer *buffer = receiveBuffer;
+	struct MMPS_Buffer *buffer = receiveBuffer;
 
 	// In case there is data already in receive buffer left from previous read...
 	//
@@ -275,8 +275,8 @@ receivePaquet(struct paquet *paquet, struct buffer *receiveBuffer)
 		receivedTotal += receivedPerBuffer;
 
 		if (receivedTotal < toReceiveTotal) {
-		    struct pool *pool = task->desk->pools.dynamic;
-			struct buffer *nextBuffer = peekBufferOfSize(pool, toReceiveTotal - receivedTotal, BUFFER_XMIT);
+		    struct MMPS_Pool *pool = task->desk->pools.dynamic;
+			struct MMPS_Buffer *nextBuffer = MMPS_PeekBufferOfSize(pool, toReceiveTotal - receivedTotal, BUFFER_XMIT);
 			if (nextBuffer == NULL) {
                 pthread_mutex_unlock(&task->xmit.receiveMutex);
 
@@ -334,7 +334,7 @@ sendPaquet(struct paquet *paquet)
 	if (pollRC == 0) {
         pthread_mutex_unlock(&task->xmit.sendMutex);
 
-		reportLog("Wait for send timed out");
+		reportInfo("Wait for send timed out");
 		setTaskStatus(task, TaskStatusPollForSendTimeout);
 		return -1;
 	} else if (pollRC != 1) {
@@ -345,7 +345,7 @@ sendPaquet(struct paquet *paquet)
 		return -1;
 	}
 
-	struct buffer *buffer = paquet->outputBuffer;
+	struct MMPS_Buffer *buffer = paquet->outputBuffer;
 	if (buffer == NULL) {
         pthread_mutex_unlock(&task->xmit.sendMutex);
 
@@ -358,7 +358,7 @@ sendPaquet(struct paquet *paquet)
 	pilot->signature = htobe64(PaquetSignature);
 	pilot->paquetId = htobe32(paquet->paquetId);
 	pilot->commandCode = htobe32(paquet->commandCode);
-	pilot->payloadSize = htobe32(totalDataSize(buffer) - sizeof(struct paquetPilot));
+	pilot->payloadSize = htobe32(MMPS_TotalDataSize(buffer) - sizeof(struct paquetPilot));
 
 	do {
 		toSendPerBuffer = buffer->dataSize;

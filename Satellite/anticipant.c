@@ -3,8 +3,8 @@
 
 #include "api.h"
 #include "anticipant.h"
-#include "buffers.h"
 #include "db.h"
+#include "mmps.h"
 #include "report.h"
 #include "tasks.h"
 
@@ -123,19 +123,19 @@ validateProfileName(struct paquet *paquet)
 	//if (deviceIdByToken(dbh, bonjourDeviceToken(task->request)) == 0)
 		//return -1;
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!expectedPayloadSize(paquet, sizeof(struct bonjourProfileNameValidation))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
 	struct bonjourProfileNameValidation validation;
 
-	inputBuffer = getData(inputBuffer, (char *)&validation, sizeof(validation));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *)&validation, sizeof(validation));
 
 	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
@@ -173,13 +173,13 @@ validateProfileName(struct paquet *paquet)
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
 	uint32 status = (*PQgetvalue(dbh->result, 0, 0) == 1)
 		? PaquetProfileNameAvailable
 		: PaquetProfileNameAlreadyInUse;
 
-	outputBuffer = putUInt32(outputBuffer, &status);
+	outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
 	pokeDB(dbh);
 
@@ -196,15 +196,15 @@ createProfile(struct paquet *paquet)
 	//if (deviceIdByToken(dbh, bonjourDeviceToken(task->request)) == 0)
 		//return -1;
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!expectedPayloadSize(paquet, sizeof(struct bonjourCreateProfile))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
 	struct bonjourCreateProfile *profile = (struct bonjourCreateProfile *)inputBuffer->cursor;
 
@@ -224,10 +224,10 @@ INSERT INTO auth.profiles (profile_name) VALUES (TRIM($1)) RETURNING profile_id"
 	if (sqlState(dbh->result, CHECK_VIOLATION)) {
 		pokeDB(dbh);
 
-		resetBufferData(outputBuffer, 1);
+		MMPS_ResetBufferData(outputBuffer, 1);
 
 		uint32 status = BonjourCreateProfileNameConstraint;
-		outputBuffer = putUInt32(outputBuffer, &status);
+		outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
 		paquet->outputBuffer = paquet->inputBuffer;
 
@@ -237,10 +237,10 @@ INSERT INTO auth.profiles (profile_name) VALUES (TRIM($1)) RETURNING profile_id"
 	if (sqlState(dbh->result, UNIQUE_VIOLATION)) {
 		pokeDB(dbh);
 
-		resetBufferData(outputBuffer, 1);
+		MMPS_ResetBufferData(outputBuffer, 1);
 
 		uint32 status = BonjourCreateProfileNameAlreadyInUse;
-		outputBuffer = putUInt32(outputBuffer, &status);
+		outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
 		paquet->outputBuffer = paquet->inputBuffer;
 
@@ -307,10 +307,10 @@ RETURNING profile_token");
 	if (sqlState(dbh->result, CHECK_VIOLATION)) {
 		pokeDB(dbh);
 
-		resetBufferData(outputBuffer, 1);
+		MMPS_ResetBufferData(outputBuffer, 1);
 
 		uint32 status = BonjourCreateProfileEmailConstraint;
-		outputBuffer = putUInt32(outputBuffer, &status);
+		outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
 		paquet->outputBuffer = paquet->inputBuffer;
 
@@ -320,10 +320,10 @@ RETURNING profile_token");
 	if (sqlState(dbh->result, UNIQUE_VIOLATION)) {
 		pokeDB(dbh);
 
-		resetBufferData(outputBuffer, 1);
+		MMPS_ResetBufferData(outputBuffer, 1);
 
 		uint32 status = BonjourCreateProfileEmailAlreadyInUse;
-		outputBuffer = putUInt32(outputBuffer, &status);
+		outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
 		paquet->outputBuffer = paquet->inputBuffer;
 
@@ -362,13 +362,13 @@ RETURNING profile_token");
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
 	uint32 status = BonjourCreateSucceeded;
 
-	outputBuffer = putUInt32(outputBuffer, &status);
+	outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
-	outputBuffer = putData(outputBuffer, profileToken, TokenBinarySize);
+	outputBuffer = MMPS_PutData(outputBuffer, profileToken, TokenBinarySize);
 
 	pokeDB(dbh);
 
@@ -382,19 +382,19 @@ notificationsToken(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!expectedPayloadSize(paquet, sizeof(struct paquetNotificationsToken))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
 	struct paquetNotificationsToken payload;
 
-	inputBuffer = getData(inputBuffer, (char *)&payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
 /*
 	char notificationsToken[NotificationsTokenStringSize];
@@ -445,7 +445,7 @@ SELECT journal.set_apns_token($1, $2)");
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
 	uint32 status;
 
@@ -456,7 +456,7 @@ SELECT journal.set_apns_token($1, $2)");
 		status = PaquetNotificationsTokenDeclined;
 	}
 
-	outputBuffer = putUInt32(outputBuffer, &status);
+	outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
 	pokeDB(dbh);
 

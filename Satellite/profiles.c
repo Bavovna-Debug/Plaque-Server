@@ -3,8 +3,8 @@
 
 #include "api.h"
 #include "db.h"
-#include "buffers.h"
 #include "desk.h"
+#include "mmps.h"
 #include "paquet.h"
 #include "report.h"
 #include "tasks.h"
@@ -14,32 +14,32 @@ getProfiles(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = NULL;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = NULL;
 
 	uint32 numberOfProfiles;
 
 	if (paquet->payloadSize < sizeof(numberOfProfiles)) {
 #ifdef DEBUG
-		reportLog("Wrong payload size %d", paquet->payloadSize);
+		reportInfo("Wrong payload size %d", paquet->payloadSize);
 #endif
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
-	inputBuffer = getUInt32(inputBuffer, &numberOfProfiles);
+	inputBuffer = MMPS_GetInt32(inputBuffer, &numberOfProfiles);
 
 	if (paquet->payloadSize != sizeof(numberOfProfiles) + numberOfProfiles * TokenBinarySize) {
 #ifdef DEBUG
-		reportLog("Wrong payload size %d for %d profiles", paquet->payloadSize, numberOfProfiles);
+		reportInfo("Wrong payload size %d for %d profiles", paquet->payloadSize, numberOfProfiles);
 #endif
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, KB, BUFFER_PROFILES);
+	outputBuffer = MMPS_PeekBufferOfSize(task->desk->pools.dynamic, KB, BUFFER_PROFILES);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
@@ -47,7 +47,7 @@ getProfiles(struct paquet *paquet)
 
 	paquet->outputBuffer = outputBuffer;
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
 	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
@@ -60,7 +60,7 @@ getProfiles(struct paquet *paquet)
 	{
 		char profileToken[TokenBinarySize];
 
-		inputBuffer = getData(inputBuffer, profileToken, TokenBinarySize);
+		inputBuffer = MMPS_GetData(inputBuffer, profileToken, TokenBinarySize);
 
         dbhPushUUID(dbh, (char *)&profileToken);
 
@@ -104,17 +104,17 @@ WHERE profile_token = $1");
 
 		if ((profileRevision == NULL) || (profileName == NULL) || (userName == NULL)) {
 #ifdef DEBUG
-			reportLog("No results");
+			reportInfo("No results");
 #endif
 			pokeDB(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
-		outputBuffer = putData(outputBuffer, profileToken, TokenBinarySize);
-		outputBuffer = putData(outputBuffer, profileRevision, sizeof(uint32));
-		outputBuffer = putString(outputBuffer, profileName, profileNameSize);
-		outputBuffer = putString(outputBuffer, userName, userNameSize);
+		outputBuffer = MMPS_PutData(outputBuffer, profileToken, TokenBinarySize);
+		outputBuffer = MMPS_PutData(outputBuffer, profileRevision, sizeof(uint32));
+		outputBuffer = MMPS_PutString(outputBuffer, profileName, profileNameSize);
+		outputBuffer = MMPS_PutString(outputBuffer, userName, userNameSize);
 	}
 
 	pokeDB(dbh);

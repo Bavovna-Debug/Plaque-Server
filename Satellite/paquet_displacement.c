@@ -2,7 +2,7 @@
 #include <string.h>
 
 #include "db.h"
-#include "buffers.h"
+#include "mmps.h"
 #include "paquet.h"
 #include "paquet_displacement.h"
 #include "report.h"
@@ -19,15 +19,15 @@ paquetDisplacementOnRadar(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!expectedPayloadSize(paquet, sizeof(struct paquetDisplacement))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
 	struct paquetDisplacement *displacement = (struct paquetDisplacement *)inputBuffer->cursor;
 
@@ -56,10 +56,10 @@ WHERE device_id = $1");
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
     uint32 result = PaquetCreatePlaqueSucceeded;
-    outputBuffer = putUInt32(outputBuffer, &result);
+    outputBuffer = MMPS_PutInt32(outputBuffer, &result);
 
 	pokeDB(dbh);
 
@@ -73,15 +73,15 @@ paquetDisplacementInSight(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!expectedPayloadSize(paquet, sizeof(struct paquetDisplacement))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
 	struct paquetDisplacement *displacement = (struct paquetDisplacement *)inputBuffer->cursor;
 
@@ -110,10 +110,10 @@ WHERE device_id = $1");
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
     uint32 result = PaquetCreatePlaqueSucceeded;
-    outputBuffer = putUInt32(outputBuffer, &result);
+    outputBuffer = MMPS_PutInt32(outputBuffer, &result);
 
 	pokeDB(dbh);
 
@@ -127,15 +127,15 @@ paquetDisplacementOnMap(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!expectedPayloadSize(paquet, sizeof(struct paquetDisplacement))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
 	struct paquetDisplacement *displacement = (struct paquetDisplacement *)inputBuffer->cursor;
 
@@ -164,10 +164,10 @@ WHERE device_id = $1");
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
     uint32 result = PaquetCreatePlaqueSucceeded;
-    outputBuffer = putUInt32(outputBuffer, &result);
+    outputBuffer = MMPS_PutInt32(outputBuffer, &result);
 
 	pokeDB(dbh);
 

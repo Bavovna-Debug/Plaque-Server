@@ -3,8 +3,8 @@
 #include <string.h>
 #include <pthread.h>
 
-#include "buffers.h"
 #include "desk.h"
+#include "mmps.h"
 #include "paquet.h"
 #include "report.h"
 #include "tasks.h"
@@ -25,19 +25,19 @@ taskCleanup(void *arg);
 
 struct task *
 startTask(
-	struct desk		*desk,
-	int				sockFD,
-	char			*clientIP)
+	struct desk			*desk,
+	int					sockFD,
+	char				*clientIP)
 {
-	struct buffer	*taskBuffer;
-	struct task		*task;
-	int rc;
+	struct MMPS_Buffer	*taskBuffer;
+	struct task			*task;
+	int 				rc;
 
 #ifdef TASKS
-	reportLog("Starting new task");
+	reportInfo("Starting new task");
 #endif
 
-	taskBuffer = peekBuffer(desk->pools.task, BUFFER_TASK);
+	taskBuffer = MMPS_PeekBuffer(desk->pools.task, BUFFER_TASK);
 	if (taskBuffer == NULL) {
         reportError("Out of memory");
         return NULL;
@@ -57,18 +57,18 @@ startTask(
 	strncpy(task->clientIP, clientIP, sizeof(task->clientIP));
 
 #ifdef TASKS
-	reportLog("... creating a thread");
+	reportInfo("... creating a thread");
 #endif
 
     rc = pthread_create(&task->thread, NULL, &taskThread, task);
     if (rc != 0) {
-    	pokeBuffer(taskBuffer);
+    	MMPS_PokeBuffer(taskBuffer);
         reportError("Cannot create task: errno=%d", errno);
         return NULL;
     }
 
 #ifdef TASKS
-	reportLog("... created thread for task 0x%08X to serve %s", task, task->clientIP);
+	reportInfo("... created thread for task 0x%08X to serve %s", task, task->clientIP);
 #endif
 
 	return task;
@@ -125,7 +125,8 @@ removePaquetFromTask(struct task *task, struct paquet *paquet)
 		paquetUnderCursor = task->paquet.chainAnchor;
 
 		do {
-			if (paquetUnderCursor->nextInChain == paquet) {
+			if (paquetUnderCursor->nextInChain == paquet)
+			{
 				paquetUnderCursor->nextInChain = paquetUnderCursor->nextInChain->nextInChain;
 				break;
 			}
@@ -152,7 +153,7 @@ taskThread(void *arg)
 	rc = receiveFixed(task, (char *)&task->dialogue.demande, sizeof(task->dialogue.demande));
 	if (rc != 0) {
 #ifdef TASK_THREAD
-       	reportLog("No dialoge demande");
+       	reportInfo("No dialoge demande");
 #endif
 		setTaskStatus(task, TaskStatusMissingDialogueDemande);
 	} else {
@@ -161,7 +162,7 @@ taskThread(void *arg)
 		{
 			case DialogueTypeAnticipant:
 #ifdef TASK_THREAD
-		       	reportLog("Start anticipant dialogue");
+		       	reportInfo("Start anticipant dialogue");
 #endif
 				dialogueAnticipant(task);
 				break;
@@ -169,7 +170,7 @@ taskThread(void *arg)
 			case DialogueTypeRegular:
 				authentifyDialogue(task);
 #ifdef TASK_THREAD
-		       	reportLog("Start regular dialogue");
+		       	reportInfo("Start regular dialogue");
 #endif
 				dialogueRegular(task);
 				break;
@@ -179,11 +180,11 @@ taskThread(void *arg)
 #ifdef TASK_THREAD
 	long taskStatus = getTaskStatus(task);
 	if (taskStatus == TaskStatusGood) {
-       	reportLog("Task complete");
+       	reportInfo("Task complete");
 	} else {
 	    int commonStatus = taskStatus & 0xFFFFFFFF;
 	    int communicationStatus = taskStatus >> 32;
-       	reportLog("Task cancelled with status 0x%08X:%08X",
+       	reportInfo("Task cancelled with status 0x%08X:%08X",
        	    communicationStatus, commonStatus);
     }
 #endif
@@ -275,10 +276,18 @@ void
 taskCleanup(void *arg)
 {
 	struct task 	*task = (struct task *)arg;
+	struct paquet	*paquetToCancel;
 	int 			rc;
 
-	while (task->paquet.chainAnchor != NULL)
-		paquetCancel(task->paquet.chainAnchor);
+	do {
+		pthread_spin_lock(&task->paquet.chainLock);
+
+		paquetToCancel = task->paquet.chainAnchor;
+		if (paquetToCancel != NULL)
+			paquetCancel(paquetToCancel);
+
+		pthread_spin_unlock(&task->paquet.chainLock);
+	} while (paquetToCancel != NULL);
 
 	close(task->xmit.sockFD);
 
@@ -320,5 +329,5 @@ taskCleanup(void *arg)
 
     taskListPushTask(task->desk, task->taskId, NULL);
 
-    pokeBuffer(task->containerBuffer);
+    MMPS_PokeBuffer(task->containerBuffer);
 }

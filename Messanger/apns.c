@@ -12,8 +12,8 @@
 #include <openssl/err.h>
 
 #include "apns.h"
-#include "buffers.h"
 #include "desk.h"
+#include "mmps.h"
 #include "notification.h"
 #include "report.h"
 
@@ -173,7 +173,7 @@ apnsThread(void *arg)
 
             // Wait for condition for some time.
             //
-            reportLog("APNS thread waiting %d seconds for pending notifications",
+            reportInfo("APNS thread waiting %d seconds for pending notifications",
                 APNS_DISCONNECT_IF_IDLE);
 
             rc = pthread_mutex_lock(&desk->apns.readyToGoMutex);
@@ -204,11 +204,11 @@ apnsThread(void *arg)
                 // Condition wait has timed out.
                 // Disconnect from APNS and start waiting for condition without timer.
                 //
-                reportLog("No pending notifications");
+                reportInfo("No pending notifications");
 
                 disconnectFromAPNS(&connection);
 
-                reportLog("APNS thread waiting for pending notifications");
+                reportInfo("APNS thread waiting for pending notifications");
 
                 rc = pthread_mutex_lock(&desk->apns.readyToGoMutex);
                 if (rc != 0) {
@@ -290,7 +290,7 @@ apnsKnockKnock(struct desk *desk)
 {
     int rc;
 
-    reportLog("Messenger knock... knock...");
+    reportInfo("Messenger knock... knock...");
 
     rc = pthread_mutex_lock(&desk->apns.readyToGoMutex);
     if (rc != 0) {
@@ -327,7 +327,7 @@ hexDump(char *message, int size)
 	    	sprintf(destination, "%02X ", source);
 	    }
 
-    reportLog("DUMP: %s", (char *)&decoded);
+    reportInfo("DUMP: %s", (char *)&decoded);
 }
 
 static int
@@ -367,7 +367,7 @@ prepareMessage(struct notification *notification, struct apnsMessage *message)
     sprintf((char *)&message->payload, "{\"aps\":{\"alert\":{\"loc-key\":\"%s\",\"loc-args\":[%s]},\"sound\":\"default\"}}",
         notification->messageKey,
         notification->messageArguments);
-reportLog("%s", message->payload);
+reportInfo("%s", message->payload);
 
     payloadLength = strlen(message->payload);
 
@@ -471,7 +471,7 @@ connectToAPNS(struct connection *connection)
         return RC_CANNOT_CONNECT;
     }
 
-    reportLog("Connected to APNS");
+    reportInfo("Connected to APNS");
 
     return RC_OK;
 }
@@ -501,34 +501,34 @@ disconnectFromAPNS(struct connection *connection)
         connection->ctx = NULL;
     }
 
-    reportLog("Disconnected from APNS");
+    reportInfo("Disconnected from APNS");
 }
 
 
 static int
 apnsSendOneByOne(struct desk *desk, struct connection *connection)
 {
-	struct buffer       *notificationBuffer;
+	struct MMPS_Buffer       *notificationBuffer;
     struct notification *notification;
-	struct buffer       *messageBuffer;
+	struct MMPS_Buffer       *messageBuffer;
     struct apnsMessage  *message;
     int                 messageSize;
     int                 bytesSent;
 
-    messageBuffer = peekBuffer(desk->pools.apns, BUFFER_XMIT);
+    messageBuffer = MMPS_PeekBuffer(desk->pools.apns, BUFFER_XMIT);
     if (messageBuffer == NULL) {
-        reportLog("APNS thread cannot get a buffer");
+        reportInfo("APNS thread cannot get a buffer");
         return RC_RESOURCES_BUSY;
     }
 
     message = (struct apnsMessage *)messageBuffer->data;
 
     if (pthread_mutex_trylock(&desk->inTheAirNotifications.mutex) != 0) {
-        reportLog("APNS thread cannot begin transmit because queue is locked");
+        reportInfo("APNS thread cannot begin transmit because queue is locked");
         return RC_RESOURCES_BUSY;
     }
 
-    reportLog("APNS thread has begun transmit");
+    reportInfo("APNS thread has begun transmit");
 
     while ((notificationBuffer = desk->inTheAirNotifications.buffers) != NULL)
     {
@@ -537,7 +537,7 @@ apnsSendOneByOne(struct desk *desk, struct connection *connection)
         messageSize = prepareMessage(notification, message);
         bytesSent = SSL_write(connection->ssl, message, messageSize);
         if (bytesSent != messageSize) {
-            reportLog("Cannot send message: sent %d of %d bytes.",
+            reportInfo("Cannot send message: sent %d of %d bytes.",
                 bytesSent, messageSize);
 
             pthread_mutex_unlock(&desk->inTheAirNotifications.mutex);
@@ -545,22 +545,22 @@ apnsSendOneByOne(struct desk *desk, struct connection *connection)
             return RC_XMIT_ERROR;
         }
 
-        reportLog("APNS thread has sent %d bytes", bytesSent);
+        reportInfo("APNS thread has sent %d bytes", bytesSent);
 
-        desk->inTheAirNotifications.buffers = nextBuffer(notificationBuffer);
+        desk->inTheAirNotifications.buffers = MMPS_NextBuffer(notificationBuffer);
 
         notificationBuffer->next = NULL;
 
         pthread_mutex_lock(&desk->sentNotifications.mutex);
-        desk->sentNotifications.buffers = appendBuffer(desk->sentNotifications.buffers, notificationBuffer);
+        desk->sentNotifications.buffers = MMPS_AppendBuffer(desk->sentNotifications.buffers, notificationBuffer);
         pthread_mutex_unlock(&desk->sentNotifications.mutex);
     }
 
     pthread_mutex_unlock(&desk->inTheAirNotifications.mutex);
 
-    pokeBuffer(messageBuffer);
+    MMPS_PokeBuffer(messageBuffer);
 
-    reportLog("APNS thread has complete transmit");
+    reportInfo("APNS thread has complete transmit");
 
     return RC_OK;
 }
@@ -568,9 +568,9 @@ apnsSendOneByOne(struct desk *desk, struct connection *connection)
 static int
 apnsSendAsFrame(struct desk *desk, struct connection *connection)
 {
-    struct buffer                       *notificationBuffer;
+    struct MMPS_Buffer                       *notificationBuffer;
     struct notification                 *notification;
-    struct buffer                       *messageBuffer;
+    struct MMPS_Buffer                       *messageBuffer;
     struct apnsFrame                    *frame;
     struct apnsFrameItem                *frameItem;
     struct apnsFrameNotification        *frameNotification;
@@ -582,18 +582,18 @@ apnsSendAsFrame(struct desk *desk, struct connection *connection)
     int                                 bytesSent;
     int                                 bytesRead;
 
-    messageBuffer = peekBuffer(desk->pools.apns, BUFFER_XMIT);
+    messageBuffer = MMPS_PeekBuffer(desk->pools.apns, BUFFER_XMIT);
     if (messageBuffer == NULL) {
-        reportLog("APNS thread cannot get a buffer");
+        reportInfo("APNS thread cannot get a buffer");
         return RC_RESOURCES_BUSY;
     }
 
     if (pthread_mutex_trylock(&desk->inTheAirNotifications.mutex) != 0) {
-        reportLog("APNS thread cannot begin transmit because queue is locked");
+        reportInfo("APNS thread cannot begin transmit because queue is locked");
         return RC_RESOURCES_BUSY;
     }
 
-    reportLog("APNS thread has begun transmit");
+    reportInfo("APNS thread has begun transmit");
 
     frame = (struct apnsFrame *)messageBuffer->data;
 
@@ -632,12 +632,12 @@ apnsSendAsFrame(struct desk *desk, struct connection *connection)
 
         frameLength += sizeof(struct apnsFrameItem) + itemDataLength;
 
-        desk->inTheAirNotifications.buffers = nextBuffer(notificationBuffer);
+        desk->inTheAirNotifications.buffers = MMPS_NextBuffer(notificationBuffer);
 
         notificationBuffer->next = NULL;
 
         pthread_mutex_lock(&desk->sentNotifications.mutex);
-        desk->sentNotifications.buffers = appendBuffer(desk->sentNotifications.buffers, notificationBuffer);
+        desk->sentNotifications.buffers = MMPS_AppendBuffer(desk->sentNotifications.buffers, notificationBuffer);
         pthread_mutex_unlock(&desk->sentNotifications.mutex);
 
 /* FIXME
@@ -659,7 +659,7 @@ apnsSendAsFrame(struct desk *desk, struct connection *connection)
         return RC_XMIT_ERROR;
     }
 #ifdef APNS_XMIT
-    reportLog("Sent %d bytes", bytesSent);
+    reportInfo("Sent %d bytes", bytesSent);
 #endif
 
     // Look for response
@@ -668,12 +668,12 @@ apnsSendAsFrame(struct desk *desk, struct connection *connection)
     do {
         bytesRead = SSL_read(connection->ssl, response, sizeof(struct apnsResponse));
 #ifdef APNS_XMIT
-        reportLog("Read %d bytes", bytesRead);
+        reportInfo("Read %d bytes", bytesRead);
 #endif
         if (bytesRead == 0) {
             break;
         } else if ((bytesRead % sizeof(struct apnsResponse)) == 0) {
-            reportLog("Response %d %d 0x%08X",
+            reportInfo("Response %d %d 0x%08X",
                 response->commandCode, response->status, response->notificationId);
         } else {
             reportError("Error has occurred by read from socket: read %d bytes, errno=%d",
@@ -682,9 +682,9 @@ apnsSendAsFrame(struct desk *desk, struct connection *connection)
         }
     } while (bytesRead > 0);
 
-    pokeBuffer(messageBuffer);
+    MMPS_PokeBuffer(messageBuffer);
 
-    reportLog("APNS thread has complete transmit");
+    reportInfo("APNS thread has complete transmit");
 
     return RC_OK;
 }

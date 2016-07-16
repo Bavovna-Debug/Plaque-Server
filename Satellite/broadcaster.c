@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 #include "broadcaster_api.h"
 #include "broadcaster.h"
@@ -107,7 +109,7 @@ broadcasterDialog(struct desk *desk, int sockFD)
 
         task = taskListTaskById(desk, satelliteTaskId);
         if (task == NULL) {
-            reportLog("Task %u is already closed", satelliteTaskId);
+            reportInfo("Task %u is already closed", satelliteTaskId);
         } else {
             //
             // Changing broadcast values has to be done inside of the broadcast lock.
@@ -122,7 +124,7 @@ broadcasterDialog(struct desk *desk, int sockFD)
             task->broadcast.currentRevision.inSight = be32toh(session->inSightRevision);
             task->broadcast.currentRevision.onMap = be32toh(session->onMapRevision);
 
-            reportLog("Received revised session: receiptId=%lu sessionId=%lu, revisions=%u/%u/%u, taskId=%u",
+            reportInfo("Received revised session: receiptId=%lu sessionId=%lu, revisions=%u/%u/%u, taskId=%u",
                 be64toh(session->receiptId),
                 be64toh(session->sessionId),
                 task->broadcast.currentRevision.onRadar,
@@ -185,7 +187,7 @@ receiveSession(int sockFD, struct session *session)
 	}
 
 	if (pollRC == 0) {
-		reportLog("Wait for receive timed out");
+		reportInfo("Wait for receive timed out");
 		return -1;
 	} else if (pollRC != 1) {
 		reportError("Poll error on receive");
@@ -232,7 +234,7 @@ confirmSession(int sockFD, struct session *session)
 	}
 
 	if (pollRC == 0) {
-		reportLog("Wait for send timed out");
+		reportInfo("Wait for send timed out");
 		return -1;
 	} else if (pollRC != 1) {
 		reportError("Poll error on send");
@@ -257,7 +259,7 @@ confirmSession(int sockFD, struct session *session)
 		sentTotal += sentPerStep;
 	} while (sentTotal < bytesToSend);
 
-    reportLog("Revised session confirmed");
+    reportInfo("Revised session confirmed");
 
 	return 0;
 }

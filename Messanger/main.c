@@ -13,8 +13,8 @@
 #include <fmgr.h>
 
 #include "apns.h"
-#include "buffers.h"
 #include "desk.h"
+#include "mmps.h"
 #include "notification.h"
 #include "report.h"
 
@@ -94,7 +94,7 @@ messangerMain(Datum *arg)
 	if (desk == NULL)
         proc_exit(-1);
 
-    reportLog("Messanger ready");
+    reportInfo("Messanger ready");
 
     if (startAPNS(desk) != 0)
         proc_exit(-1);
@@ -190,13 +190,13 @@ initDesk(void)
         return NULL;
     }
 
-	desk->pools.notifications = initBufferPool(1);
+	desk->pools.notifications = MMPS_InitPool(1);
 	if (desk->pools.notifications == NULL) {
 		reportError("Cannot create buffer pool");
         return NULL;
     }
 
-	rc = initBufferBank(desk->pools.notifications, 0,
+	rc = MMPS_InitBank(desk->pools.notifications, 0,
 		sizeof(struct notification),
 		0,
 		POOL_NOTIFICATIONS_NUMBER_OF_BUFFERS);
@@ -205,13 +205,13 @@ initDesk(void)
         return NULL;
     }
 
-	desk->pools.apns = initBufferPool(1);
+	desk->pools.apns = MMPS_InitPool(1);
 	if (desk->pools.apns == NULL) {
 		reportError("Cannot create buffer pool");
         return NULL;
     }
 
-	rc = initBufferBank(desk->pools.apns, 0,
+	rc = MMPS_InitBank(desk->pools.apns, 0,
 		POOL_APNS_SIZE_OF_BUFFER,
 		0,
 		POOL_APNS_NUMBER_OF_BUFFERS);

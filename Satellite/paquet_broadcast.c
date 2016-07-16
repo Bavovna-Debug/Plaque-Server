@@ -3,7 +3,7 @@
 
 #include "api.h"
 #include "db.h"
-#include "buffers.h"
+#include "mmps.h"
 #include "paquet.h"
 #include "paquet_broadcast.h"
 #include "report.h"
@@ -37,7 +37,7 @@ paquetBroadcast(struct paquet *paquet)
 		return -1;
 	}
 
-	resetCursor(paquet->inputBuffer, 1);
+	MMPS_ResetCursor(paquet->inputBuffer, 1);
 
 	struct paquetBroadcast *broadcast = (struct paquetBroadcast *)paquet->inputBuffer->cursor;
 
@@ -51,13 +51,13 @@ paquetBroadcast(struct paquet *paquet)
 		return -1;
     }
 
-    reportLog("'On radar' revisions: 'last known' %u 'current' %u",
+    reportInfo("'On radar' revisions: 'last known' %u 'current' %u",
         lastKnownRevision->onRadar,
         currentRevision->onRadar);
-    reportLog("'In sight' revisions: 'last known' %u 'current' %u",
+    reportInfo("'In sight' revisions: 'last known' %u 'current' %u",
         lastKnownRevision->inSight,
         currentRevision->inSight);
-    reportLog("'On map' revisions: 'last known' %u 'current' %u",
+    reportInfo("'On map' revisions: 'last known' %u 'current' %u",
         lastKnownRevision->onMap,
         currentRevision->onMap);
 
@@ -75,7 +75,7 @@ paquetBroadcast(struct paquet *paquet)
 	if (task->broadcast.broadcastPaquet != NULL) {
 		//paquetCancel(task->broadcast.broadcastPaquet);
 	    pthread_mutex_unlock(&task->broadcast.editMutex);
-		reportLog("Broadcast request received while another broadcast request is still in process");
+		reportInfo("Broadcast request received while another broadcast request is still in process");
 	    return -1;
 	}
 
@@ -88,12 +88,12 @@ paquetBroadcast(struct paquet *paquet)
     missingRevision.onMap = currentRevision->onMap - lastKnownRevision->onMap;
 
     if ((missingRevision.onRadar > 0) || (missingRevision.inSight > 0) || (missingRevision.onMap > 0)) {
-        reportLog("Do not wait for boradcast because there are already %u / %u / %u missing revisions",
+        reportInfo("Do not wait for boradcast because there are already %u / %u / %u missing revisions",
             missingRevision.onRadar,
             missingRevision.inSight,
             missingRevision.onMap);
     } else {
-        reportLog("Waiting for broadcast with known revisions %u / %u / %u",
+        reportInfo("Waiting for broadcast with known revisions %u / %u / %u",
             lastKnownRevision->onRadar,
             lastKnownRevision->inSight,
             lastKnownRevision->onMap);
@@ -117,28 +117,28 @@ paquetBroadcast(struct paquet *paquet)
             return -1;
         }
 
-        reportLog("Received broadcast");
+        reportInfo("Received broadcast");
     }
 
 	pthread_mutex_lock(&task->broadcast.editMutex);
 
     if (currentRevision->onRadar > lastKnownRevision->onRadar) {
-        reportLog("Fetch 'on radar' for broadcast from revision %u to %u",
+        reportInfo("Fetch 'on radar' for broadcast from revision %u to %u",
             lastKnownRevision->onRadar,
             currentRevision->onRadar);
         rc = paquetBroadcastPlaquesOnRadar(paquet);
     } else if (currentRevision->inSight > lastKnownRevision->inSight) {
-        reportLog("Fetch 'in sight' for broadcast from revision %u to %u",
+        reportInfo("Fetch 'in sight' for broadcast from revision %u to %u",
             lastKnownRevision->inSight,
             currentRevision->inSight);
         rc = paquetBroadcastPlaquesInSight(paquet);
     } else if (currentRevision->onMap > lastKnownRevision->onMap) {
-        reportLog("Fetch 'on map' for broadcast from revision %u to %u",
+        reportInfo("Fetch 'on map' for broadcast from revision %u to %u",
             lastKnownRevision->onMap,
             currentRevision->onMap);
         rc = paquetBroadcastPlaquesOnMap(paquet);
     } else {
-        reportLog("Nothing to fetch for broadcast");
+        reportInfo("Nothing to fetch for broadcast");
         rc = -1;
     }
 
@@ -154,13 +154,13 @@ paquetBroadcastPlaquesOnRadar(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
+    struct MMPS_Buffer *outputBuffer = MMPS_PeekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
     paquet->outputBuffer = outputBuffer;
 
@@ -218,21 +218,21 @@ WHERE session_id = $1 \
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
     uint32 broadcastDestination = BroadcastDestinationOnRadar;
-	outputBuffer = putUInt32(outputBuffer, &broadcastDestination);
+	outputBuffer = MMPS_PutInt32(outputBuffer, &broadcastDestination);
 
-	outputBuffer = putUInt32(outputBuffer, &currentRevision);
+	outputBuffer = MMPS_PutInt32(outputBuffer, &currentRevision);
 
 	uint32 numberOfPlaques = PQntuples(dbh->result);
 
-	reportLog("Found %u plaques for 'on radar' current revision %u last known revision %u",
+	reportInfo("Found %u plaques for 'on radar' current revision %u last known revision %u",
 	    numberOfPlaques,
 	    currentRevision,
 	    task->broadcast.lastKnownRevision.onRadar);
 
-	outputBuffer = putUInt32(outputBuffer, &numberOfPlaques);
+	outputBuffer = MMPS_PutInt32(outputBuffer, &numberOfPlaques);
 
 	int rowNumber;
 	for (rowNumber = 0; rowNumber < numberOfPlaques; rowNumber++)
@@ -247,9 +247,9 @@ WHERE session_id = $1 \
 			return -1;
 		}
 
-		outputBuffer = putData(outputBuffer, plaqueToken, TokenBinarySize);
-		outputBuffer = putData(outputBuffer, plaqueRevision, sizeof(uint32));
-		outputBuffer = putData(outputBuffer, &disappeared, sizeof(disappeared));
+		outputBuffer = MMPS_PutData(outputBuffer, plaqueToken, TokenBinarySize);
+		outputBuffer = MMPS_PutData(outputBuffer, plaqueRevision, sizeof(uint32));
+		outputBuffer = MMPS_PutData(outputBuffer, &disappeared, sizeof(disappeared));
 	}
 
 	pokeDB(dbh);
@@ -262,13 +262,13 @@ paquetBroadcastPlaquesInSight(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
+    struct MMPS_Buffer *outputBuffer = MMPS_PeekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
     paquet->outputBuffer = outputBuffer;
 
@@ -326,21 +326,21 @@ WHERE session_id = $1 \
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
     uint32 broadcastDestination = BroadcastDestinationInSight;
-	outputBuffer = putUInt32(outputBuffer, &broadcastDestination);
+	outputBuffer = MMPS_PutInt32(outputBuffer, &broadcastDestination);
 
-	outputBuffer = putUInt32(outputBuffer, &currentRevision);
+	outputBuffer = MMPS_PutInt32(outputBuffer, &currentRevision);
 
 	uint32 numberOfPlaques = PQntuples(dbh->result);
 
-	reportLog("Found %u plaques for 'in sight' current revision %u last known revision %u",
+	reportInfo("Found %u plaques for 'in sight' current revision %u last known revision %u",
 	    numberOfPlaques,
 	    currentRevision,
 	    task->broadcast.lastKnownRevision.inSight);
 
-	outputBuffer = putUInt32(outputBuffer, &numberOfPlaques);
+	outputBuffer = MMPS_PutInt32(outputBuffer, &numberOfPlaques);
 
 	int rowNumber;
 	for (rowNumber = 0; rowNumber < numberOfPlaques; rowNumber++)
@@ -355,9 +355,9 @@ WHERE session_id = $1 \
 			return -1;
 		}
 
-		outputBuffer = putData(outputBuffer, plaqueToken, TokenBinarySize);
-		outputBuffer = putData(outputBuffer, plaqueRevision, sizeof(uint32));
-		outputBuffer = putData(outputBuffer, &disappeared, sizeof(disappeared));
+		outputBuffer = MMPS_PutData(outputBuffer, plaqueToken, TokenBinarySize);
+		outputBuffer = MMPS_PutData(outputBuffer, plaqueRevision, sizeof(uint32));
+		outputBuffer = MMPS_PutData(outputBuffer, &disappeared, sizeof(disappeared));
 	}
 
 	pokeDB(dbh);
@@ -370,13 +370,13 @@ paquetBroadcastPlaquesOnMap(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-    struct buffer *outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
+    struct MMPS_Buffer *outputBuffer = MMPS_PeekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
     paquet->outputBuffer = outputBuffer;
 
@@ -435,18 +435,18 @@ WHERE session_id = $1 \
 	}
 
     uint32 broadcastDestination = BroadcastDestinationOnMap;
-	outputBuffer = putUInt32(outputBuffer, &broadcastDestination);
+	outputBuffer = MMPS_PutInt32(outputBuffer, &broadcastDestination);
 
-	outputBuffer = putUInt32(outputBuffer, &currentRevision);
+	outputBuffer = MMPS_PutInt32(outputBuffer, &currentRevision);
 
 	uint32 numberOfPlaques = PQntuples(dbh->result);
 
-	reportLog("Found %u plaques for 'on map' current revision %u last known revision %u",
+	reportInfo("Found %u plaques for 'on map' current revision %u last known revision %u",
 	    numberOfPlaques,
 	    currentRevision,
 	    task->broadcast.lastKnownRevision.onMap);
 
-	outputBuffer = putUInt32(outputBuffer, &numberOfPlaques);
+	outputBuffer = MMPS_PutInt32(outputBuffer, &numberOfPlaques);
 
 	int rowNumber;
 	for (rowNumber = 0; rowNumber < numberOfPlaques; rowNumber++)
@@ -461,9 +461,9 @@ WHERE session_id = $1 \
 			return -1;
 		}
 
-		outputBuffer = putData(outputBuffer, plaqueToken, TokenBinarySize);
-		outputBuffer = putData(outputBuffer, plaqueRevision, sizeof(uint32));
-		outputBuffer = putData(outputBuffer, &disappeared, sizeof(disappeared));
+		outputBuffer = MMPS_PutData(outputBuffer, plaqueToken, TokenBinarySize);
+		outputBuffer = MMPS_PutData(outputBuffer, plaqueRevision, sizeof(uint32));
+		outputBuffer = MMPS_PutData(outputBuffer, &disappeared, sizeof(disappeared));
 	}
 
 	pokeDB(dbh);

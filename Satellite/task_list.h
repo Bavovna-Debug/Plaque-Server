@@ -1,8 +1,8 @@
 #ifndef __TASK_LIST__
 #define __TASK_LIST__
 
-#include "buffers.h"
 #include "desk.h"
+#include "mmps.h"
 #include "tasks.h"
 
 #define MAX_TASK_LIST_PAGE_SIZE		MB

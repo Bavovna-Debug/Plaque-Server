@@ -9,10 +9,10 @@
 
 #include "broadcaster_api.h"
 #include "broadcaster.h"
-#include "buffers.h"
 #include "db.h"
 #include "desk.h"
 #include "listener.h"
+#include "mmps.h"
 #include "paquet.h"
 #include "report.h"
 #include "session.h"
@@ -47,17 +47,17 @@ statisticsThread(void *arg)
 
 	while (1)
 	{
-		reportLog("STATISTICS  DBH: %-4d%-4d%-4d  TASK: %-4d  PAQUET: %-4d  256: %-4d  512: %-4d  1K: %-4d  4K: %-4d  1M: %-4d",
+		reportDebug("STATISTICS  DBH: %-4d%-4d%-4d  TASK: %-4d  PAQUET: %-4d  256: %-4d  512: %-4d  1K: %-4d  4K: %-4d  1M: %-4d",
 			dbhInUse(desk->dbh.guardian),
 			dbhInUse(desk->dbh.auth),
 			dbhInUse(desk->dbh.plaque),
-			buffersInUse(desk->pools.task, 0),
-			buffersInUse(desk->pools.paquet, 0),
-			buffersInUse(desk->pools.dynamic, 0),
-			buffersInUse(desk->pools.dynamic, 1),
-			buffersInUse(desk->pools.dynamic, 2),
-			buffersInUse(desk->pools.dynamic, 3),
-			buffersInUse(desk->pools.dynamic, 4));
+			MMPS_NumberOfBuffersInUse(desk->pools.task, 0),
+			MMPS_NumberOfBuffersInUse(desk->pools.paquet, 0),
+			MMPS_NumberOfBuffersInUse(desk->pools.dynamic, 0),
+			MMPS_NumberOfBuffersInUse(desk->pools.dynamic, 1),
+			MMPS_NumberOfBuffersInUse(desk->pools.dynamic, 2),
+			MMPS_NumberOfBuffersInUse(desk->pools.dynamic, 3),
+			MMPS_NumberOfBuffersInUse(desk->pools.dynamic, 4));
 		sleep(1);
 	}
 	pthread_exit(NULL);
@@ -167,11 +167,11 @@ initDesk(void)
         return NULL;
     }
 
-	desk->pools.task = initBufferPool(1);
-	desk->pools.paquet = initBufferPool(1);
-	desk->pools.dynamic = initBufferPool(5);
+	desk->pools.task = MMPS_InitPool(1);
+	desk->pools.paquet = MMPS_InitPool(1);
+	desk->pools.dynamic = MMPS_InitPool(5);
 
-	rc = initBufferBank(desk->pools.task, 0,
+	rc = MMPS_InitBank(desk->pools.task, 0,
 		sizeof(struct task),
 		0,
 		NUMBER_OF_BUFFERS_TASK);
@@ -180,7 +180,7 @@ initDesk(void)
         return NULL;
     }
 
-	rc = initBufferBank(desk->pools.paquet, 0,
+	rc = MMPS_InitBank(desk->pools.paquet, 0,
 		sizeof(struct paquet),
 		0,
 		NUMBER_OF_BUFFERS_PAQUET);
@@ -189,8 +189,8 @@ initDesk(void)
         return NULL;
     }
 
-	rc = initBufferBank(desk->pools.dynamic, 0,
-		KB,
+	rc = MMPS_InitBank(desk->pools.dynamic, 0,
+		256,
 		sizeof(struct paquetPilot),
 		NUMBER_OF_BUFFERS_256);
 	if (rc != 0) {
@@ -198,8 +198,8 @@ initDesk(void)
         return NULL;
     }
 
-	rc = initBufferBank(desk->pools.dynamic, 1,
-		KB,
+	rc = MMPS_InitBank(desk->pools.dynamic, 1,
+		512,
 		sizeof(struct paquetPilot),
 		NUMBER_OF_BUFFERS_512);
 	if (rc != 0) {
@@ -207,7 +207,7 @@ initDesk(void)
         return NULL;
     }
 
-	rc = initBufferBank(desk->pools.dynamic, 2,
+	rc = MMPS_InitBank(desk->pools.dynamic, 2,
 		KB,
 		sizeof(struct paquetPilot),
 		NUMBER_OF_BUFFERS_1K);
@@ -216,7 +216,7 @@ initDesk(void)
         return NULL;
     }
 
-	rc = initBufferBank(desk->pools.dynamic, 3,
+	rc = MMPS_InitBank(desk->pools.dynamic, 3,
 		4 * KB,
 		sizeof(struct paquetPilot),
 		NUMBER_OF_BUFFERS_4K);
@@ -225,7 +225,7 @@ initDesk(void)
         return NULL;
     }
 
-	rc = initBufferBank(desk->pools.dynamic, 4,
+	rc = MMPS_InitBank(desk->pools.dynamic, 4,
 		MB,
 		sizeof(struct paquetPilot),
 		NUMBER_OF_BUFFERS_1M);

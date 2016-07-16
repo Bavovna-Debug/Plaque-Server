@@ -5,8 +5,8 @@
 #include <pthread.h>
 
 #include "api.h"
-#include "buffers.h"
 #include "desk.h"
+#include "mmps.h"
 #include "report.h"
 
 #define TaskStatusGood							0x0000000000000000
@@ -82,7 +82,7 @@ struct revisions {
 } revisions_t;
 
 typedef struct task {
-	struct buffer		*containerBuffer;
+	struct MMPS_Buffer	*containerBuffer;
 	struct desk     	*desk;
 	pthread_t			thread;
 	int					taskId;
@@ -122,7 +122,7 @@ typedef struct task {
 } task_t;
 
 typedef struct paquet {
-	struct buffer		*containerBuffer;
+	struct MMPS_Buffer	*containerBuffer;
 	struct task			*task;
 	struct paquet		*nextInChain;
 	pthread_t			thread;
@@ -130,8 +130,8 @@ typedef struct paquet {
 	int					paquetId;
 	int					commandCode;
 	uint32				payloadSize;
-	struct buffer		*inputBuffer;
-	struct buffer		*outputBuffer;
+	struct MMPS_Buffer	*inputBuffer;
+	struct MMPS_Buffer	*outputBuffer;
 } paquet_t;
 
 struct task *
@@ -141,7 +141,7 @@ startTask(
 	char			*clientIP);
 
 #define setTaskStatus(task, statusMask) \
-do { reportLog("Task (%s) set status 0x%016lX", __FUNCTION__, statusMask); __setTaskStatus(task, statusMask); } while (0)
+do { reportDebug("Task (%s) set status 0x%016lX", __FUNCTION__, statusMask); __setTaskStatus(task, statusMask); } while (0)
 
 inline void
 __setTaskStatus(struct task *task, long statusMask);

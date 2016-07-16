@@ -29,17 +29,17 @@
 typedef struct dbChain {
 	char				chainName[DB_CHAIN_NAME_LENGTH];
 	pthread_spinlock_t	lock;
-	int					numberOfConnections;
-	int					peekCursor;
-	int					pokeCursor;
+	unsigned int		numberOfConnections;
+	unsigned int		peekCursor;
+	unsigned int		pokeCursor;
 	char				conninfo[255];
 	void				*block;
-	int					ids[];
+	unsigned int		ids[];
 } dbChain_t;
 
 typedef struct dbh {
 	struct dbChain		*chain;
-	int					dbhId;
+	unsigned int		dbhId;
 	PGconn				*conn;
 	PGresult			*result;
 	struct arguments {
@@ -53,7 +53,7 @@ typedef struct dbh {
 
 
 struct dbChain *
-initDBChain(const char *chainName, int numberOfConnections, char *conninfo);
+initDBChain(const char *chainName, unsigned int numberOfConnections, char *conninfo);
 
 void
 releaseDBChain(struct dbChain *chain);

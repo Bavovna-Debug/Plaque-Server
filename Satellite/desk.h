@@ -2,11 +2,11 @@
 #define __DESK__
 
 #include "broadcaster_api.h"
-#include "buffers.h"
+#include "mmps.h"
 #include "db.h"
 #include "tasks.h"
 
-#define SANDBOX
+#define undef
 
 #ifdef SANDBOX
 
@@ -49,29 +49,29 @@
 
 typedef struct desk {
     struct {
-        struct pool     *task;
-        struct pool     *paquet;
-        struct pool     *dynamic;
+        struct MMPS_Pool    *task;
+        struct MMPS_Pool    *paquet;
+        struct MMPS_Pool    *dynamic;
     } pools;
 
     struct {
-        struct dbChain  *guardian;
-        struct dbChain  *auth;
-        struct dbChain  *plaque;
+        struct dbChain      *guardian;
+        struct dbChain      *auth;
+        struct dbChain      *plaque;
     } dbh;
 
     struct {
-        void            **list;
+        void                **list;
     } tasks;
 
     struct {
-        uint16_t        portNumber;
-        struct session  session;
+        uint16_t            portNumber;
+        struct session      session;
     } broadcaster;
 
     struct {
-        uint16_t        portNumber;
-        int             listenSockFD;
+        uint16_t            portNumber;
+        int                 listenSockFD;
     } listener;
 } desk_t;
 

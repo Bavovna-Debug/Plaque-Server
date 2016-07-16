@@ -10,7 +10,7 @@
 #define PEEK_DBH_RETRIES				5
 #define PEEK_DBH_RETRY_SLEEP			1500000
 
-#define NOTHING							-1
+const unsigned int NODBH = 0xFFFF0000;
 
 void
 connectToPostgres(struct dbh *dbh)
@@ -41,9 +41,9 @@ disconnectFromPostgres(struct dbh *dbh)
 }
 
 struct dbChain *
-initDBChain(const char *chainName, int numberOfConnections, char *conninfo)
+initDBChain(const char *chainName, unsigned int numberOfConnections, char *conninfo)
 {
-	struct dbChain *chain = malloc(sizeof(struct dbChain) + numberOfConnections * sizeof(int));
+	struct dbChain *chain = malloc(sizeof(struct dbChain) + numberOfConnections * sizeof(unsigned int));
 	if (chain == NULL) {
         reportError("Out of memory");
         return NULL;
@@ -64,7 +64,7 @@ initDBChain(const char *chainName, int numberOfConnections, char *conninfo)
 	chain->pokeCursor = 0;
 	strncpy(chain->conninfo, conninfo, sizeof(chain->conninfo));
 
-	int dbhId;
+	unsigned int dbhId;
 	for (dbhId = 0; dbhId < chain->numberOfConnections; dbhId++)
 	{
 		struct dbh *dbh = chain->block + dbhId * sizeof(struct dbh);
@@ -91,7 +91,7 @@ initDBChain(const char *chainName, int numberOfConnections, char *conninfo)
 void
 releaseDBChain(struct dbChain *chain)
 {
-	int dbhId;
+	unsigned int dbhId;
 
 	for (dbhId = 0; dbhId < chain->numberOfConnections; dbhId++)
 	{
@@ -111,23 +111,23 @@ struct dbh *
 peekDB(struct dbChain *chain)
 {
 #ifdef DB_PEEK_POKE
-	reportLog("Peek DB from chain %s", chain->chainName);
+	reportInfo("Peek DB from chain %s", chain->chainName);
 #endif
 
 	struct dbh* dbh;
 
-	int try;
+	unsigned int try;
 	for (try = 0; try < PEEK_DBH_RETRIES; try++)
 	{
 		pthread_spin_lock(&chain->lock);
 
-		int dbhId = chain->ids[chain->peekCursor];
-		if (dbhId == NOTHING) {
+		unsigned int dbhId = chain->ids[chain->peekCursor];
+		if (dbhId == NODBH) {
 			dbh = NULL;
 		} else {
 			dbh = chain->block + dbhId * sizeof(struct dbh);
 
-			chain->ids[chain->peekCursor] = NOTHING;
+			chain->ids[chain->peekCursor] = NODBH;
 
 			chain->peekCursor++;
 			if (chain->peekCursor == chain->numberOfConnections)
@@ -200,7 +200,7 @@ peekDB(struct dbChain *chain)
 	}
 
 	if (dbh == NULL)
-		reportLog("No database handler available");
+		reportInfo("No database handler available");
 
 	return dbh;
 }
@@ -209,7 +209,7 @@ void
 pokeDB(struct dbh *dbh)
 {
 #ifdef DB_PEEK_POKE
-	reportLog("Poke DB %d to chain %s (last status %d)",
+	reportInfo("Poke DB %u to chain %s (last status %d)",
 		dbh->dbhId,
 		dbh->chain->chainName,
 		(dbh->result == NULL) ? -1 : PQresultStatus(dbh->result));

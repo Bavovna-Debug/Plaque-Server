@@ -5,8 +5,8 @@
 
 #include "anticipant.h"
 #include "api.h"
-#include "buffers.h"
 #include "desk.h"
+#include "mmps.h"
 #include "paquet.h"
 #include "plaques_edit.h"
 #include "plaques_query.h"
@@ -16,12 +16,6 @@
 #include "tasks.h"
 #include "task_kernel.h"
 #include "task_xmit.h"
-
-#ifdef ANTICIPANT_ALL
-#define ANTICIPANT_DIALOGUE
-#define ANTICIPANT_DIALOGUE_REGULAR
-#define ANTICIPANT_DIALOGUE_AUTH
-#endif
 
 int
 authentifyDialogue(struct task *task)
@@ -43,7 +37,7 @@ authentifyDialogue(struct task *task)
 
 	deviceId = deviceIdByToken(dbh, (char *)&task->dialogue.demande.deviceToken);
 	if (deviceId == 0) {
-		reportLog("Cannot authenticate device by token");
+		reportInfo("Cannot authenticate device by token");
 
 		setTaskStatus(task, TaskStatusDeviceAuthenticationFailed);
 
@@ -64,7 +58,7 @@ authentifyDialogue(struct task *task)
 		if (i < TokenBinarySize) {
 			profileId = profileIdByToken(dbh, (char *)&task->dialogue.demande.profileToken);
 			if (profileId == 0) {
-				reportLog("Cannot authenticate profile by token");
+				reportInfo("Cannot authenticate profile by token");
 
 				setTaskStatus(task, TaskStatusProfileAuthenticationFailed);
 
@@ -79,12 +73,12 @@ authentifyDialogue(struct task *task)
 		(char *)&task->dialogue.demande.sessionToken,
 		(char *)&task->dialogue.verdict.sessionToken);
 	if (rc < 0) {
-		reportLog("Cannot get session");
+		reportInfo("Cannot get session");
 		setTaskStatus(task, TaskStatusCannotGetSession);
 	}
 
 #ifdef ANTICIPANT_DIALOGUE_AUTH
-	reportLog("Dialogue authentified: deviceId=%lu profileId=%lu sessionId=%lu",
+	reportInfo("Dialogue authentified: deviceId=%lu profileId=%lu sessionId=%lu",
 		be64toh(deviceId),
 		be64toh(profileId),
 		be64toh(sessionId));
@@ -129,7 +123,7 @@ dialogueAnticipant(struct task *task)
 	int rc;
 
 #ifdef ANTICIPANT_DIALOGUE
-        reportLog("Anticipant begin");
+        reportInfo("Anticipant begin");
 #endif
 
 	struct dialogueAnticipant anticipant;
@@ -149,7 +143,7 @@ dialogueAnticipant(struct task *task)
 		return;
 
 #ifdef ANTICIPANT_DIALOGUE
-        reportLog("Anticipant end");
+        reportInfo("Anticipant end");
 #endif
 }
 
@@ -158,7 +152,7 @@ dialogueRegular(struct task *task)
 {
 	int rc;
 
-	struct buffer *receiveBuffer = NULL;
+	struct MMPS_Buffer *receiveBuffer = NULL;
 
 	rc = setSessionOnline(task);
 	if (rc < 0) {
@@ -171,13 +165,13 @@ dialogueRegular(struct task *task)
     struct paquet *paquet = NULL;
 	do {
 #ifdef ANTICIPANT_DIALOGUE_REGULAR
-        reportLog("Dialoque loop");
+        reportInfo("Dialoque loop");
 #endif
-    	struct buffer *paquetBuffer;
+    	struct MMPS_Buffer *paquetBuffer;
 
 		// Get a buffer for new paquet.
 		//
-    	paquetBuffer = peekBuffer(task->desk->pools.paquet, BUFFER_DIALOGUE_PAQUET);
+    	paquetBuffer = MMPS_PeekBuffer(task->desk->pools.paquet, BUFFER_DIALOGUE_PAQUET);
     	if (paquetBuffer == NULL) {
             reportError("Out of memory");
 			setTaskStatus(task, TaskStatusOutOfMemory);
@@ -197,7 +191,9 @@ dialogueRegular(struct task *task)
 		// If there is no rest data from previous receive then allocate a new buffer and start receive.
 		//
 		if (receiveBuffer == NULL) {
-			receiveBuffer = peekBufferOfSize(task->desk->pools.dynamic, KB, BUFFER_DIALOGUE_FIRST);
+			receiveBuffer = MMPS_PeekBufferOfSize(task->desk->pools.dynamic,
+			    KB,
+			    BUFFER_DIALOGUE_FIRST);
 
 			if (receiveBuffer == NULL) {
 				setTaskStatus(task, TaskStatusOutOfMemory);
@@ -220,7 +216,7 @@ dialogueRegular(struct task *task)
 
 				// Receive is needed if rest of data contains only a part of paquet.
 				//
-				if (totalDataSize(receiveBuffer) < sizeof(paquetPilot) + payloadSize) {
+				if (MMPS_TotalDataSize(receiveBuffer) < sizeof(paquetPilot) + payloadSize) {
 					receiveNeeded = 1;
 				} else {
 					//
@@ -239,11 +235,11 @@ dialogueRegular(struct task *task)
 				break;
 		}
 
-		int totalReceivedData = totalDataSize(receiveBuffer);
+		int totalReceivedData = MMPS_TotalDataSize(receiveBuffer);
 
 #ifdef ANTICIPANT_DIALOGUE_REGULAR
 		struct paquetPilot *pilot = (struct paquetPilot *)receiveBuffer->data;
-		reportLog("Received paquet  %u with command 0x%08X with %d bytes (payload %d bytes)",
+		reportInfo("Received paquet  %u with command 0x%08X with %d bytes (payload %d bytes)",
 			paquet->paquetId,
 			paquet->commandCode,
 			totalReceivedData,
@@ -256,10 +252,10 @@ dialogueRegular(struct task *task)
 			// then quit with error.
 			//
 #ifdef ANTICIPANT_DIALOGUE_REGULAR
-			reportLog("Received data incomplete");
+			reportInfo("Received data incomplete");
 #endif
 			setTaskStatus(task, TaskStatusReceivedDataIncomplete);
-			pokeBuffer(receiveBuffer);
+			MMPS_PokeBuffer(receiveBuffer);
 			receiveBuffer = NULL;
         	break;
 		} else if (totalReceivedData == paquet->payloadSize) {
@@ -282,7 +278,7 @@ dialogueRegular(struct task *task)
 
 			// Then truncate the buffer.
 			//
-			struct buffer *sliceDataBuffer = receiveBuffer;
+			struct MMPS_Buffer *sliceDataBuffer = receiveBuffer;
 			int paquetDataRest = sizeof(paquetPilot) + paquet->payloadSize;
 			while (sliceDataBuffer->next != NULL)
 			{
@@ -292,7 +288,9 @@ dialogueRegular(struct task *task)
 
 			// Allocate new receive buffer to be used on next loop.
 			//
-			receiveBuffer = peekBufferOfSize(task->desk->pools.dynamic, KB, BUFFER_DIALOGUE_FOLLOWING);
+			receiveBuffer = MMPS_PeekBufferOfSize(task->desk->pools.dynamic,
+			    KB,
+			    BUFFER_DIALOGUE_FOLLOWING);
 			if (receiveBuffer == NULL) {
 				setTaskStatus(task, TaskStatusOutOfMemory);
 				break;
@@ -323,8 +321,8 @@ dialogueRegular(struct task *task)
 			setTaskStatus(task, TaskStatusCannotCreatePaquetThread);
 /*
 			if (receiveBuffer != NULL)
-				pokeBuffer(receiveBuffer);
-			pokeBuffer(paquet->inputBuffer);
+				MMPS_PokeBuffer(receiveBuffer);
+			MMPS_PokeBuffer(paquet->inputBuffer);
 */
         	break;
         }
@@ -334,15 +332,15 @@ dialogueRegular(struct task *task)
     //
     if (paquet != NULL) {
         if (paquet->inputBuffer != NULL)
-            pokeBuffer(paquet->inputBuffer);
+            MMPS_PokeBuffer(paquet->inputBuffer);
 
-        pokeBuffer(paquet->containerBuffer);
+        MMPS_PokeBuffer(paquet->containerBuffer);
     }
 
     // Release ressources of temporary receive buffer in case something went wrong.
     //
 	if (receiveBuffer != NULL)
-		pokeBuffer(receiveBuffer);
+		MMPS_PokeBuffer(receiveBuffer);
 
 	rc = setSessionOffline(task);
 	if (rc < 0) {

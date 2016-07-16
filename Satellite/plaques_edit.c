@@ -4,7 +4,7 @@
 
 #include "api.h"
 #include "db.h"
-#include "buffers.h"
+#include "mmps.h"
 #include "paquet.h"
 #include "plaques_edit.h"
 #include "report.h"
@@ -20,19 +20,19 @@ paquetPostNewPlaque(struct paquet *paquet)
     int			paramLengths[13];
 	int			paramFormats[13];
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!minimumPayloadSize(paquet, sizeof(struct paquetPostPlaque))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
 	struct paquetPostPlaque plaque;
 
-	inputBuffer = getData(inputBuffer, (char *)&plaque, sizeof(plaque));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *)&plaque, sizeof(plaque));
 
 	int expectedSize = sizeof(plaque) + be32toh(plaque.inscriptionLength);
 	if (!expectedPayloadSize(paquet, expectedSize)) {
@@ -48,7 +48,7 @@ paquetPostNewPlaque(struct paquet *paquet)
 		return -1;
 	}
 
-	inputBuffer = getData(inputBuffer, inscription, plaque.inscriptionLength);
+	inputBuffer = MMPS_GetData(inputBuffer, inscription, plaque.inscriptionLength);
 
 	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
@@ -169,15 +169,15 @@ RETURNING plaque_token",
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
 	uint32 bonjourStatus = PaquetCreatePlaqueSucceeded;
 
-	outputBuffer = putUInt32(outputBuffer, &bonjourStatus);
+	outputBuffer = MMPS_PutInt32(outputBuffer, &bonjourStatus);
 
 	char *plaqueToken = PQgetvalue(dbh->result, 0, 0);
 
-	outputBuffer = putData(outputBuffer, plaqueToken, TokenBinarySize);
+	outputBuffer = MMPS_PutData(outputBuffer, plaqueToken, TokenBinarySize);
 
 	pokeDB(dbh);
 
@@ -196,19 +196,19 @@ paquetChangePlaqueLocation(struct paquet *paquet)
     int			paramLengths[4];
 	int			paramFormats[4];
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!expectedPayloadSize(paquet, sizeof(struct paquetPlaqueLocation))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
 	struct paquetPlaqueLocation payload;
 
-	inputBuffer = getData(inputBuffer, (char *)&payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
 	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
@@ -269,7 +269,7 @@ RETURNING plaque_token",
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
 	pokeDB(dbh);
 
@@ -288,19 +288,19 @@ paquetChangePlaqueOrientation(struct paquet *paquet)
     int			paramLengths[3];
 	int			paramFormats[3];
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!expectedPayloadSize(paquet, sizeof(struct paquetPlaqueOrientation))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
 	struct paquetPlaqueOrientation payload;
 
-	inputBuffer = getData(inputBuffer, (char *)&payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
 	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
@@ -369,7 +369,7 @@ RETURNING plaque_token",
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
 	pokeDB(dbh);
 
@@ -388,19 +388,19 @@ paquetChangePlaqueSize(struct paquet *paquet)
     int			paramLengths[3];
 	int			paramFormats[3];
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!expectedPayloadSize(paquet, sizeof(struct paquetPlaqueSize))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
 	struct paquetPlaqueSize payload;
 
-	inputBuffer = getData(inputBuffer, (char *)&payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
 	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
@@ -455,7 +455,7 @@ RETURNING plaque_token",
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
 	pokeDB(dbh);
 
@@ -474,19 +474,19 @@ paquetChangePlaqueColors(struct paquet *paquet)
     int			paramLengths[3];
 	int			paramFormats[3];
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!expectedPayloadSize(paquet, sizeof(struct paquetPlaqueColors))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
 	struct paquetPlaqueColors payload;
 
-	inputBuffer = getData(inputBuffer, (char *)&payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
 	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
@@ -541,7 +541,7 @@ RETURNING plaque_token",
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
 	pokeDB(dbh);
 
@@ -560,19 +560,19 @@ paquetChangePlaqueFont(struct paquet *paquet)
     int			paramLengths[2];
 	int			paramFormats[2];
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!expectedPayloadSize(paquet, sizeof(struct paquetPlaqueFont))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
 	struct paquetPlaqueFont payload;
 
-	inputBuffer = getData(inputBuffer, (char *)&payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
 	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
@@ -621,7 +621,7 @@ RETURNING plaque_token",
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
 	pokeDB(dbh);
 
@@ -640,19 +640,19 @@ paquetChangePlaqueInscription(struct paquet *paquet)
     int			paramLengths[2];
 	int			paramFormats[2];
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!minimumPayloadSize(paquet, sizeof(struct paquetPlaqueInscription))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
 	struct paquetPlaqueInscription payload;
 
-	inputBuffer = getData(inputBuffer, (char *)&payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
 	int expectedSize = sizeof(payload) + be32toh(payload.inscriptionLength);
 	if (!expectedPayloadSize(paquet, expectedSize)) {
@@ -668,7 +668,7 @@ paquetChangePlaqueInscription(struct paquet *paquet)
 		return -1;
 	}
 
-	inputBuffer = getData(inputBuffer, inscription, payload.inscriptionLength);
+	inputBuffer = MMPS_GetData(inputBuffer, inscription, payload.inscriptionLength);
 
 	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
@@ -722,7 +722,7 @@ RETURNING plaque_token",
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
 	pokeDB(dbh);
 

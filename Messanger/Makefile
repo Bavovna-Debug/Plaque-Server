@@ -6,21 +6,21 @@ DEFINES := -D PGBGW -D BUFFERS_INIT_BANK -D BUFFERS_PEEK_POKE -D APNS_XMIT
 
 include $(PGXS)
 
-vp_messanger.so: main.o apns.o buffers.o notification.o
+vp_messanger.so: main.o apns.o mmps.o notification.o
 	$(CC) -shared -pthread -lpq -lssl -lcrypto -L/usr/pgsql-9.4/lib/ -o $@ $^
 	#-Wl,--unresolved-symbols=report-all
 
-main.o: main.c apns.h desk.h notification.h ../lib/buffers.h
+main.o: main.c apns.h desk.h notification.h ../lib/mmps.h
 	$(CC) -c $(CFLAGS) -fPIC $(INCLUDE) $(DEFINES) $< -o $@
 
-apns.o: apns.c apns.h desk.h notification.h ../lib/buffers.h
+apns.o: apns.c apns.h desk.h notification.h ../lib/mmps.h
 	$(CC) -c $(CFLAGS) -fPIC $(INCLUDE) $(DEFINES) $< -o $@
 
-notification.o: notification.c notification.h desk.h ../lib/buffers.h
+notification.o: notification.c notification.h desk.h ../lib/mmps.h
 	$(CC) -c $(CFLAGS) -fPIC $(INCLUDE) $(DEFINES) $< -o $@
 
-buffers.o: ../lib/buffers.c ../lib/buffers.h
-	$(CC) -c $(CFLAGS) -fPIC $(INCLUDE) $(DEFINES) ../lib/buffers.c -o buffers.o
+mmps.o: ../lib/mmps.c ../lib/mmps.h
+	$(CC) -c $(CFLAGS) -fPIC $(INCLUDE) $(DEFINES) ../lib/mmps.c -o mmps.o
 
 install: all
 	cp vp_messanger.so /opt/vp/

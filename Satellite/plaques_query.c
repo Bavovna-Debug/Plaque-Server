@@ -3,8 +3,8 @@
 
 #include "api.h"
 #include "db.h"
-#include "buffers.h"
 #include "desk.h"
+#include "mmps.h"
 #include "paquet.h"
 #include "plaques_query.h"
 #include "report.h"
@@ -15,8 +15,8 @@ paquetDownloadPlaques(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = NULL;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = NULL;
 
 	uint32 numberOfPlaques;
 
@@ -25,9 +25,9 @@ paquetDownloadPlaques(struct paquet *paquet)
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
-	inputBuffer = getUInt32(inputBuffer, &numberOfPlaques);
+	inputBuffer = MMPS_GetInt32(inputBuffer, &numberOfPlaques);
 
 	if (!expectedPayloadSize(paquet, sizeof(numberOfPlaques) + numberOfPlaques * TokenBinarySize)) {
 		reportError("Wrong payload for %d plaques", numberOfPlaques);
@@ -35,7 +35,7 @@ paquetDownloadPlaques(struct paquet *paquet)
 		return -1;
 	}
 
-	outputBuffer = peekBufferOfSize(task->desk->pools.dynamic, KB, BUFFER_PLAQUES);
+	outputBuffer = MMPS_PeekBufferOfSize(task->desk->pools.dynamic, KB, BUFFER_PLAQUES);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
@@ -43,7 +43,7 @@ paquetDownloadPlaques(struct paquet *paquet)
 
 	paquet->outputBuffer = outputBuffer;
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
 	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
@@ -55,7 +55,7 @@ paquetDownloadPlaques(struct paquet *paquet)
 	int i;
 	for (i = 0; i < numberOfPlaques; i++)
 	{
-		inputBuffer = getData(inputBuffer, plaqueToken, TokenBinarySize);
+		inputBuffer = MMPS_GetData(inputBuffer, plaqueToken, TokenBinarySize);
 
         dbhPushUUID(dbh, plaqueToken);
 
@@ -78,7 +78,7 @@ WHERE plaque_token = $1");
 		}
 
 		if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-		    reportLog("Requested plaque not found");
+		    reportInfo("Requested plaque not found");
 			continue;
 //			pokeDB(dbh);
 //			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
@@ -135,25 +135,25 @@ WHERE plaque_token = $1");
 		}
 
         uint32 plaqueStrobe = PaquetPlaqueStrobe;
-		outputBuffer = putUInt32(outputBuffer, &plaqueStrobe);
+		outputBuffer = MMPS_PutInt32(outputBuffer, &plaqueStrobe);
 
-		outputBuffer = putData(outputBuffer, plaqueToken, TokenBinarySize);
-		outputBuffer = putData(outputBuffer, plaqueRevision, sizeof(uint32));
-		outputBuffer = putData(outputBuffer, profileToken, TokenBinarySize);
-		outputBuffer = putData(outputBuffer, dimension, 2 * sizeof(char));
-		outputBuffer = putData(outputBuffer, latitude, sizeof(double));
-		outputBuffer = putData(outputBuffer, longitude, sizeof(double));
-		outputBuffer = putData(outputBuffer, altitude, sizeof(float));
-		outputBuffer = putUInt8(outputBuffer, &directed);
-		outputBuffer = putData(outputBuffer, direction, sizeof(float));
-		outputBuffer = putUInt8(outputBuffer, &tilted);
-		outputBuffer = putData(outputBuffer, tilt, sizeof(float));
-		outputBuffer = putData(outputBuffer, width, sizeof(float));
-		outputBuffer = putData(outputBuffer, height, sizeof(float));
-		outputBuffer = putData(outputBuffer, backgroundColor, sizeof(uint32));
-		outputBuffer = putData(outputBuffer, foregroundColor, sizeof(uint32));
-		outputBuffer = putData(outputBuffer, fontSize, sizeof(float));
-		outputBuffer = putString(outputBuffer, inscription, inscriptionSize);
+		outputBuffer = MMPS_PutData(outputBuffer, plaqueToken, TokenBinarySize);
+		outputBuffer = MMPS_PutData(outputBuffer, plaqueRevision, sizeof(uint32));
+		outputBuffer = MMPS_PutData(outputBuffer, profileToken, TokenBinarySize);
+		outputBuffer = MMPS_PutData(outputBuffer, dimension, 2 * sizeof(char));
+		outputBuffer = MMPS_PutData(outputBuffer, latitude, sizeof(double));
+		outputBuffer = MMPS_PutData(outputBuffer, longitude, sizeof(double));
+		outputBuffer = MMPS_PutData(outputBuffer, altitude, sizeof(float));
+		outputBuffer = MMPS_PutInt8(outputBuffer, &directed);
+		outputBuffer = MMPS_PutData(outputBuffer, direction, sizeof(float));
+		outputBuffer = MMPS_PutInt8(outputBuffer, &tilted);
+		outputBuffer = MMPS_PutData(outputBuffer, tilt, sizeof(float));
+		outputBuffer = MMPS_PutData(outputBuffer, width, sizeof(float));
+		outputBuffer = MMPS_PutData(outputBuffer, height, sizeof(float));
+		outputBuffer = MMPS_PutData(outputBuffer, backgroundColor, sizeof(uint32));
+		outputBuffer = MMPS_PutData(outputBuffer, foregroundColor, sizeof(uint32));
+		outputBuffer = MMPS_PutData(outputBuffer, fontSize, sizeof(float));
+		outputBuffer = MMPS_PutString(outputBuffer, inscription, inscriptionSize);
 	}
 
 	pokeDB(dbh);

@@ -1,5 +1,7 @@
-#ifndef __TASK_KERNEL__
-#define __TASK_KERNEL__
+#ifndef __TASK_XMIT__
+#define __TASK_XMIT__
+
+#include "mmps.h"
 
 int
 receiveFixed(
@@ -14,7 +16,7 @@ sendFixed(
 	ssize_t bytesToSend);
 
 int
-receivePaquet(struct paquet *paquet, struct buffer *receiveBuffer);
+receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer);
 
 int
 sendPaquet(struct paquet *paquet);

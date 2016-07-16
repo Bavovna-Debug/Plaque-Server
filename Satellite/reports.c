@@ -2,7 +2,7 @@
 #include <string.h>
 
 #include "db.h"
-#include "buffers.h"
+#include "mmps.h"
 #include "paquet.h"
 #include "report.h"
 #include "reports.h"
@@ -18,19 +18,19 @@ reportMessage(struct paquet *paquet)
     int			paramLengths[2];
 	int			paramFormats[2];
 
-	struct buffer *inputBuffer = paquet->inputBuffer;
-	struct buffer *outputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
+	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!minimumPayloadSize(paquet, sizeof(struct paquetReport))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
-	resetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer, 1);
 
 	struct paquetReport payload;
 
-	inputBuffer = getData(inputBuffer, (char *)&payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
 	int expectedSize = sizeof(payload) + be32toh(payload.messageLength);
 	if (!expectedPayloadSize(paquet, expectedSize)) {
@@ -41,14 +41,14 @@ reportMessage(struct paquet *paquet)
 	char *message = (char *)malloc(payload.messageLength);
 	if (message == NULL) {
 		reportError("Cannot allocate %ud bytes for report message",
-				payload.messageLength);
+			payload.messageLength);
 		setTaskStatus(task, TaskStatusOutOfMemory);
 		return -1;
 	}
 
-	inputBuffer = getData(inputBuffer, message, payload.messageLength);
+	inputBuffer = MMPS_GetData(inputBuffer, message, payload.messageLength);
 
-	struct dbh *dbh = peekDB(task->desk->dbh.guardian);
+	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
 	if (dbh == NULL) {
 		free(message);
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
@@ -77,7 +77,7 @@ VALUES ($1, $2)",
 		return -1;
 	}
 
-	resetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer, 1);
 
 	pokeDB(dbh);
 
