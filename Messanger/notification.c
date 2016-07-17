@@ -50,7 +50,7 @@ WHERE in_messanger IS TRUE"
     SetCurrentStatementStartTimestamp();
     rc = SPI_exec(infoData.data, 0);
 	if (rc != SPI_OK_UPDATE) {
-		reportError("Cannot execute statement, rc=%d", rc);
+		ReportError("Cannot execute statement, rc=%d", rc);
    	    PGBGW_ROLLBACK;
 		return -1;
     }
@@ -60,9 +60,9 @@ WHERE in_messanger IS TRUE"
    	PGBGW_COMMIT;
 
 	if (numberOfNotifications == 0) {
-		reportInfo("No notifications were reset");
+		ReportInfo("No notifications were reset");
     } else {
-		reportInfo("%d notifications were reset", numberOfNotifications);
+		ReportInfo("%d notifications were reset", numberOfNotifications);
     }
 
 	return numberOfNotifications;
@@ -91,13 +91,13 @@ WHERE in_messanger IS FALSE \
 
     rc = SPI_exec(infoData.data, 1);
 	if (rc != SPI_OK_SELECT) {
-		reportError("Cannot execute statement, rc=%d", rc);
+		ReportError("Cannot execute statement, rc=%d", rc);
    	    PGBGW_ROLLBACK;
 		return -1;
     }
 
 	if (SPI_processed != 1) {
-	    reportError("Unexpected number of tuples");
+	    ReportError("Unexpected number of tuples");
    	    PGBGW_ROLLBACK;
 		return -1;
     }
@@ -107,7 +107,7 @@ WHERE in_messanger IS FALSE \
     numberOfNotifications = DatumGetInt64(SPI_getbinval(tuple, tupdesc, 1, &isNull));
 
     if (numberOfNotifications > 0)
-        reportInfo("There are %lu outstanding notifications", numberOfNotifications);
+        ReportInfo("There are %lu outstanding notifications", numberOfNotifications);
 
    	PGBGW_COMMIT;
 
@@ -140,7 +140,7 @@ ORDER BY notification_id"
 
     rc = SPI_exec(infoData.data, MAX_NOTIFICATIONS);
 	if (rc != SPI_OK_SELECT) {
-		reportError("Cannot execute statement, rc=%d", rc);
+		ReportError("Cannot execute statement, rc=%d", rc);
    	    PGBGW_ROLLBACK;
 		return -1;
     }
@@ -169,7 +169,7 @@ ORDER BY notification_id"
         pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 	}
 
-    reportInfo("Fetched a list of %u outstanding notifications", SPI_processed);
+    ReportInfo("Fetched a list of %u outstanding notifications", SPI_processed);
 
    	PGBGW_COMMIT;
 
@@ -218,7 +218,7 @@ WHERE notification_id = %lu",
 	    if (rc != SPI_OK_SELECT) {
             pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 
-		    reportError("Cannot execute statement, rc=%d", rc);
+		    ReportError("Cannot execute statement, rc=%d", rc);
    	        PGBGW_ROLLBACK;
 		    return -1;
         }
@@ -226,7 +226,7 @@ WHERE notification_id = %lu",
     	if (SPI_processed != 1) {
             pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 
-		    reportError("Unexpected number of tuples");
+		    ReportError("Unexpected number of tuples");
    	        PGBGW_ROLLBACK;
 	    	return -1;
         }
@@ -259,7 +259,7 @@ WHERE device_id = %lu",
 	    if (rc != SPI_OK_SELECT) {
             pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 
-		    reportError("Cannot execute statement, rc=%d", rc);
+		    ReportError("Cannot execute statement, rc=%d", rc);
    	        PGBGW_ROLLBACK;
 		    return -1;
         }
@@ -267,7 +267,7 @@ WHERE device_id = %lu",
     	if (SPI_processed != 1) {
             pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 
-		    reportError("Unexpected number of tuples");
+		    ReportError("Unexpected number of tuples");
    	        PGBGW_ROLLBACK;
 	    	return -1;
         }
@@ -278,7 +278,7 @@ WHERE device_id = %lu",
         deviceToken = DatumGetCString(SPI_getvalue(tuple, tupdesc, 1));
         deviceTokenCharToBin(deviceToken, notification->deviceToken);
 
-        reportInfo("Notification %lu for %lu (%s, %s)",
+        ReportInfo("Notification %lu for %lu (%s, %s)",
             notification->notificationId,
             notification->deviceId,
             notification->messageKey,
@@ -298,7 +298,7 @@ WHERE notification_id = %lu",
 	    if (rc != SPI_OK_UPDATE) {
             pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
 
-		    reportError("Cannot execute statement, rc=%d", rc);
+		    ReportError("Cannot execute statement, rc=%d", rc);
    	        PGBGW_ROLLBACK;
 		    return -1;
         }
@@ -372,7 +372,7 @@ WHERE notification_id = %lu",
 	    if (rc != SPI_OK_UPDATE) {
             pthread_mutex_unlock(&desk->sentNotifications.mutex);
 
-		    reportError("Cannot execute statement, rc=%d", rc);
+		    ReportError("Cannot execute statement, rc=%d", rc);
        	    PGBGW_ROLLBACK;
     		return -1;
     	}
@@ -435,7 +435,7 @@ WHERE notification_id = %lu",
 	    if (rc != SPI_OK_UPDATE) {
             pthread_mutex_unlock(&desk->processedNotifications.mutex);
 
-		    reportError("Cannot execute statement, rc=%d", rc);
+		    ReportError("Cannot execute statement, rc=%d", rc);
        	    PGBGW_ROLLBACK;
     		return -1;
     	}

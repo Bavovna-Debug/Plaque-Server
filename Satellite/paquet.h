@@ -138,13 +138,13 @@ void *
 PaquetThread(void *arg);
 
 void
-PaquetCancel(struct paquet *paquet);
+PaquetCancel(struct Paquet *paquet);
 
 int
-MinimumPayloadSize(struct paquet *paquet, int minimumSize);
+MinimumPayloadSize(struct Paquet *paquet, int minimumSize);
 
 int
-ExpectedPayloadSize(struct paquet *paquet, int expectedSize);
+ExpectedPayloadSize(struct Paquet *paquet, int expectedSize);
 
 uint64
 DeviceIdByToken(struct dbh *dbh, char *deviceToken);

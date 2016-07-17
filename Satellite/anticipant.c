@@ -20,7 +20,7 @@ extern struct Chalkboard *chalkboard;
  * @task:
  */
 int
-VerifyGuest(struct task *task)
+VerifyGuest(struct Task *task)
 {
 #define QUERY_VERIFY_GUEST "\
 SELECT pool.verify_ip($1)"
@@ -28,8 +28,8 @@ SELECT pool.verify_ip($1)"
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.guardian);
 	if (dbh == NULL)
 	{
-		reportError("No database handler available");
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		ReportError("No database handler available");
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -40,21 +40,21 @@ SELECT pool.verify_ip($1)"
 	if (!DB_TuplesOK(dbh, dbh->result))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -74,7 +74,7 @@ SELECT pool.verify_ip($1)"
  */
 int
 RegisterDevice(
-	struct task 				*task,
+	struct Task 				*task,
 	struct DialogueAnticipant 	*anticipant,
 	char 						*deviceToken)
 {
@@ -87,7 +87,7 @@ SELECT auth.register_device($1, $2, $3, $4, $5)"
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL)
 	{
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -114,28 +114,28 @@ SELECT auth.register_device($1, $2, $3, $4, $5)"
 	if (!DB_TuplesOK(dbh, dbh->result))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -154,12 +154,12 @@ SELECT auth.register_device($1, $2, $3, $4, $5)"
  * @paquet:
  */
 int
-ValidateProfileName(struct paquet *paquet)
+ValidateProfileName(struct Paquet *paquet)
 {
 #define QUERY_VALIDATE_PROFILE_NAME "\
 SELECT auth.is_profile_name_free($1)"
 
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	//if (deviceIdByToken(dbh, bonjourDeviceToken(task->request)) == 0)
 		//return -1;
@@ -169,7 +169,7 @@ SELECT auth.is_profile_name_free($1)"
 
 	if (!ExpectedPayloadSize(paquet, sizeof(struct BonjourProfileNameValidation)))
 	{
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -182,7 +182,7 @@ SELECT auth.is_profile_name_free($1)"
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL)
 	{
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -195,27 +195,27 @@ SELECT auth.is_profile_name_free($1)"
 	if (!DB_TuplesOK(dbh, dbh->result))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, BOOLOID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -240,7 +240,7 @@ SELECT auth.is_profile_name_free($1)"
  * @paquet:
  */
 int
-CreateProfile(struct paquet *paquet)
+CreateProfile(struct Paquet *paquet)
 {
 #define QUERY_CREATE_PROFILE "\
 INSERT INTO auth.profiles (profile_name) \
@@ -254,7 +254,7 @@ SET user_name = TRIM($2), \
 WHERE profile_id = $1 \
 RETURNING profile_token"
 
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	//if (deviceIdByToken(dbh, bonjourDeviceToken(task->request)) == 0)
 		//return -1;
@@ -264,7 +264,7 @@ RETURNING profile_token"
 
 	if (!ExpectedPayloadSize(paquet, sizeof(struct BonjourCreateProfile)))
 	{
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -276,7 +276,7 @@ RETURNING profile_token"
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL)
 	{
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -317,28 +317,28 @@ RETURNING profile_token"
 	if (!DB_TuplesOK(dbh, dbh->result))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, INT8OID))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -400,36 +400,36 @@ RETURNING profile_token"
 	if (!DB_TuplesOK(dbh, dbh->result))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	char *profileToken = PQgetvalue(dbh->result, 0, 0);
 	if (profileToken == NULL) {
-		reportError("No results");
+		ReportError("No results");
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -454,19 +454,19 @@ RETURNING profile_token"
  * @paquet:
  */
 int
-NotificationsToken(struct paquet *paquet)
+NotificationsToken(struct Paquet *paquet)
 {
 #define QUERY_SET_APNS_TOKEN "\
 SELECT journal.set_apns_token($1, $2)"
 
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetNotificationsToken)))
 	{
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -490,7 +490,7 @@ SELECT journal.set_apns_token($1, $2)"
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL)
 	{
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -504,28 +504,28 @@ SELECT journal.set_apns_token($1, $2)"
 	if (!DB_TuplesOK(dbh, dbh->result))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, BOOLOID))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 

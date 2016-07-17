@@ -17,10 +17,10 @@
 #include "task_xmit.h"
 
 static void
-RejectPaquetAsBusy(struct paquet *paquet);
+RejectPaquetAsBusy(struct Paquet *paquet);
 
 static void
-RejectPaquetAsError(struct paquet *paquet);
+RejectPaquetAsError(struct Paquet *paquet);
 
 void
 PaquetCleanup(void *arg);
@@ -28,13 +28,13 @@ PaquetCleanup(void *arg);
 void *
 PaquetThread(void *arg)
 {
-	struct paquet *paquet = (struct paquet *)arg;
-	struct task *task = paquet->task;
+	struct Paquet *paquet = (struct Paquet *)arg;
+	struct Task *task = paquet->task;
 	int rc;
 
     pthread_cleanup_push(&PaquetCleanup, paquet);
 
-	appentPaquetToTask(task, paquet);
+	AppentPaquetToTask(task, paquet);
 
 	switch (paquet->commandCode)
 	{
@@ -94,7 +94,7 @@ PaquetThread(void *arg)
 			break;
 
 		case API_PaquetDownloadProfiles:
-			rc = getProfiles(paquet);
+			rc = GetProfiles(paquet);
 			break;
 
 		case API_PaquetNotificationsToken:
@@ -110,18 +110,18 @@ PaquetThread(void *arg)
 			break;
 
 		case API_PaquetReportMessage:
-			rc = reportMessage(paquet);
+			rc = ReportMessage(paquet);
 			break;
 
 		default:
-			reportError("Unknown command: commandCode=0x%08X", paquet->commandCode);
+			ReportError("Unknown command: commandCode=0x%08X", paquet->commandCode);
 			rc = -1;
 	}
 
 	if (rc != 0)
 		RejectPaquetAsError(paquet);
 
-	sendPaquet(paquet);
+	SendPaquet(paquet);
 
     pthread_cleanup_pop(1);
 
@@ -131,9 +131,9 @@ PaquetThread(void *arg)
 void
 PaquetCleanup(void *arg)
 {
-	struct paquet *paquet = (struct paquet *)arg;
+	struct Paquet *paquet = (struct Paquet *)arg;
 
-	removePaquetFromTask(paquet->task, paquet);
+	RemovePaquetFromTask(paquet->task, paquet);
 
 	if (paquet->inputBuffer == paquet->outputBuffer) {
 		if (paquet->inputBuffer != NULL)
@@ -149,28 +149,28 @@ PaquetCleanup(void *arg)
 }
 
 void
-PaquetCancel(struct paquet *paquet)
+PaquetCancel(struct Paquet *paquet)
 {
 	int rc;
 
 	rc = pthread_cancel(paquet->thread);
 	if (rc != 0) {
 		if (rc == ESRCH) {
-	    	reportError("Cannot cancel paquet thread because it is already closed");
+	    	ReportError("Cannot cancel paquet thread because it is already closed");
 	    } else {
-	    	reportError("Cannot cancel paquet thread: rc=%d", rc);
+	    	ReportError("Cannot cancel paquet thread: rc=%d", rc);
 	    }
 	} else {
-	    reportError("Paquet thread cancelled");
+	    ReportError("Paquet thread cancelled");
 	}
 }
 
 int
-MinimumPayloadSize(struct paquet *paquet, int minimumSize)
+MinimumPayloadSize(struct Paquet *paquet, int minimumSize)
 {
 	if (paquet->payloadSize < minimumSize) {
 #ifdef DEBUG
-		reportInfo("Wrong payload size %d, expected minimum %lu",
+		ReportInfo("Wrong payload size %d, expected minimum %lu",
 			paquet->payloadSize,
 			minimumSize);
 #endif
@@ -181,11 +181,11 @@ MinimumPayloadSize(struct paquet *paquet, int minimumSize)
 }
 
 int
-ExpectedPayloadSize(struct paquet *paquet, int expectedSize)
+ExpectedPayloadSize(struct Paquet *paquet, int expectedSize)
 {
 	if (paquet->payloadSize != expectedSize) {
 #ifdef DEBUG
-		reportInfo("Wrong payload size %d, expected %lu",
+		ReportInfo("Wrong payload size %d, expected %lu",
 			paquet->payloadSize,
 			expectedSize);
 #endif
@@ -226,7 +226,7 @@ DeviceIdByToken(struct dbh *dbh, char *deviceToken)
 }
 
 static void
-RejectPaquetAsBusy(struct paquet *paquet)
+RejectPaquetAsBusy(struct Paquet *paquet)
 {
 	if (paquet->outputBuffer == NULL)
 		paquet->outputBuffer = paquet->inputBuffer;
@@ -239,14 +239,14 @@ RejectPaquetAsBusy(struct paquet *paquet)
 }
 
 static void
-RejectPaquetAsError(struct paquet *paquet)
+RejectPaquetAsError(struct Paquet *paquet)
 {
 	if (paquet->outputBuffer == NULL)
 		paquet->outputBuffer = paquet->inputBuffer;
 
 	MMPS_ResetBufferData(paquet->outputBuffer, 1);
 
-	struct PaquetPilot *pilot = (struct PaquetPilot *)paquet->outputBuffer;
+	struct PaquetPilot *pilot = (struct PaquetPilot *) paquet->outputBuffer;
 	pilot->commandSubcode = API_PaquetRejectError;
 	pilot->payloadSize = 0;
 }

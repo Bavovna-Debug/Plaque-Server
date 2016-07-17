@@ -4,6 +4,6 @@
 #include "paquet.h"
 
 int
-HandleDownloadPlaques(struct paquet *paquet);
+HandleDownloadPlaques(struct Paquet *paquet);
 
 #endif

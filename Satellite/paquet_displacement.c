@@ -16,7 +16,7 @@ extern struct Chalkboard *chalkboard;
 
 static void
 JournalUserLocation(
-    struct task *task,
+    struct Task *task,
     struct dbh *dbh,
     struct PaquetDisplacement *displacement);
 
@@ -44,15 +44,15 @@ INSERT INTO journal.movements \
 VALUES ($1, $2, $3, $4, $5, $6)"
 
 int
-HandleDisplacementOnRadar(struct paquet *paquet)
+HandleDisplacementOnRadar(struct Paquet *paquet)
 {
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetDisplacement))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -62,7 +62,7 @@ HandleDisplacementOnRadar(struct paquet *paquet)
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -77,7 +77,7 @@ HandleDisplacementOnRadar(struct paquet *paquet)
 
 	if (!DB_CommandOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -94,15 +94,15 @@ HandleDisplacementOnRadar(struct paquet *paquet)
 }
 
 int
-HandleDisplacementInSight(struct paquet *paquet)
+HandleDisplacementInSight(struct Paquet *paquet)
 {
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetDisplacement))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -112,7 +112,7 @@ HandleDisplacementInSight(struct paquet *paquet)
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -127,7 +127,7 @@ HandleDisplacementInSight(struct paquet *paquet)
 
 	if (!DB_CommandOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -144,15 +144,15 @@ HandleDisplacementInSight(struct paquet *paquet)
 }
 
 int
-HandleDisplacementOnMap(struct paquet *paquet)
+HandleDisplacementOnMap(struct Paquet *paquet)
 {
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetDisplacement))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -162,7 +162,7 @@ HandleDisplacementOnMap(struct paquet *paquet)
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -177,7 +177,7 @@ HandleDisplacementOnMap(struct paquet *paquet)
 
 	if (!DB_CommandOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -195,7 +195,7 @@ HandleDisplacementOnMap(struct paquet *paquet)
 
 static void
 JournalUserLocation(
-    struct task *task,
+    struct Task *task,
     struct dbh *dbh,
     struct PaquetDisplacement *displacement)
 {

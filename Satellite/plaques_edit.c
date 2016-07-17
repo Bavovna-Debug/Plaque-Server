@@ -17,7 +17,7 @@
 extern struct Chalkboard *chalkboard;
 
 int
-HandlePostNewPlaque(struct paquet *paquet)
+HandlePostNewPlaque(struct Paquet *paquet)
 {
 #define QUERY_POST_NEW_PLAQUE "\
 INSERT INTO surrounding.plaques ( \
@@ -27,7 +27,7 @@ INSERT INTO surrounding.plaques ( \
 VALUES ($1, $2, '3D', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) \
 RETURNING plaque_token"
 
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	const char	*paramValues[13];
     Oid			paramTypes[13];
@@ -38,7 +38,7 @@ RETURNING plaque_token"
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!MinimumPayloadSize(paquet, sizeof(struct PaquetPostPlaque))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -50,15 +50,15 @@ RETURNING plaque_token"
 
 	int expectedSize = sizeof(plaque) + be32toh(plaque.inscriptionLength);
 	if (!ExpectedPayloadSize(paquet, expectedSize)) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
 	char *inscription = (char *) malloc(plaque.inscriptionLength);
 	if (inscription == NULL) {
-		reportError("Cannot allocate %ud bytes for inscription",
+		ReportError("Cannot allocate %ud bytes for inscription",
 				plaque.inscriptionLength);
-		setTaskStatus(task, TaskStatusOutOfMemory);
+		SetTaskStatus(task, TaskStatusOutOfMemory);
 		return -1;
 	}
 
@@ -67,7 +67,7 @@ RETURNING plaque_token"
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		free(inscription);
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -157,25 +157,25 @@ RETURNING plaque_token"
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -197,7 +197,7 @@ RETURNING plaque_token"
 }
 
 int
-HandleChangePlaqueLocation(struct paquet *paquet)
+HandleChangePlaqueLocation(struct Paquet *paquet)
 {
 #define QUERY_CHANGE_PLAQUE_LOCATION "\
 UPDATE surrounding.plaques \
@@ -207,7 +207,7 @@ SET latitude = $2, \
 WHERE plaque_token = $1 \
 RETURNING plaque_token"
 
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	const char	*paramValues[4];
     Oid			paramTypes[4];
@@ -218,7 +218,7 @@ RETURNING plaque_token"
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetPlaqueLocation))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -230,7 +230,7 @@ RETURNING plaque_token"
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -259,25 +259,25 @@ RETURNING plaque_token"
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -291,7 +291,7 @@ RETURNING plaque_token"
 }
 
 int
-HandleChangePlaqueOrientation(struct paquet *paquet)
+HandleChangePlaqueOrientation(struct Paquet *paquet)
 {
 #define QUERY_CHANGE_PLAQUE_ORIENTATION "\
 UPDATE surrounding.plaques \
@@ -300,7 +300,7 @@ SET direction = $2, \
 WHERE plaque_token = $1 \
 RETURNING plaque_token"
 
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	const char	*paramValues[3];
     Oid			paramTypes[3];
@@ -311,7 +311,7 @@ RETURNING plaque_token"
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetPlaqueOrientation))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -323,7 +323,7 @@ RETURNING plaque_token"
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -361,25 +361,25 @@ RETURNING plaque_token"
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -393,7 +393,7 @@ RETURNING plaque_token"
 }
 
 int
-HandleChangePlaqueSize(struct paquet *paquet)
+HandleChangePlaqueSize(struct Paquet *paquet)
 {
 #define QUERY_CHANGE_PLAQUE_SIZE "\
 UPDATE surrounding.plaques \
@@ -402,7 +402,7 @@ SET width = $2, \
 WHERE plaque_token = $1 \
 RETURNING plaque_token"
 
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	const char	*paramValues[3];
     Oid			paramTypes[3];
@@ -413,7 +413,7 @@ RETURNING plaque_token"
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetPlaqueSize))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -425,7 +425,7 @@ RETURNING plaque_token"
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -449,25 +449,25 @@ RETURNING plaque_token"
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -481,7 +481,7 @@ RETURNING plaque_token"
 }
 
 int
-HandleChangePlaqueColors(struct paquet *paquet)
+HandleChangePlaqueColors(struct Paquet *paquet)
 {
 #define QUERY_CHANGE_PLAQUE_COLORS "\
 UPDATE surrounding.plaques \
@@ -490,7 +490,7 @@ SET background_color = $2, \
 WHERE plaque_token = $1 \
 RETURNING plaque_token"
 
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	const char	*paramValues[3];
     Oid			paramTypes[3];
@@ -501,7 +501,7 @@ RETURNING plaque_token"
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetPlaqueColors))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -513,7 +513,7 @@ RETURNING plaque_token"
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -537,25 +537,25 @@ RETURNING plaque_token"
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -569,7 +569,7 @@ RETURNING plaque_token"
 }
 
 int
-HandleChangePlaqueFont(struct paquet *paquet)
+HandleChangePlaqueFont(struct Paquet *paquet)
 {
 #define QUERY_CHANGE_PLAQUE_FONT "\
 UPDATE surrounding.plaques \
@@ -577,7 +577,7 @@ SET font_size = $2 \
 WHERE plaque_token = $1 \
 RETURNING plaque_token"
 
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	const char	*paramValues[2];
     Oid			paramTypes[2];
@@ -588,7 +588,7 @@ RETURNING plaque_token"
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetPlaqueFont))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -600,7 +600,7 @@ RETURNING plaque_token"
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -619,25 +619,25 @@ RETURNING plaque_token"
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -651,7 +651,7 @@ RETURNING plaque_token"
 }
 
 int
-HandleChangePlaqueInscription(struct paquet *paquet)
+HandleChangePlaqueInscription(struct Paquet *paquet)
 {
 #define QUERY_CHANGE_PLAQUE_INSCRIPTION "\
 UPDATE surrounding.plaques \
@@ -659,7 +659,7 @@ SET inscription = $2 \
 WHERE plaque_token = $1 \
 RETURNING plaque_token"
 
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	const char	*paramValues[2];
     Oid			paramTypes[2];
@@ -670,7 +670,7 @@ RETURNING plaque_token"
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!MinimumPayloadSize(paquet, sizeof(struct PaquetPlaqueInscription))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -682,15 +682,15 @@ RETURNING plaque_token"
 
 	int expectedSize = sizeof(payload) + be32toh(payload.inscriptionLength);
 	if (!ExpectedPayloadSize(paquet, expectedSize)) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
 	char *inscription = (char *) malloc(payload.inscriptionLength);
 	if (inscription == NULL) {
-		reportError("Cannot allocate %ud bytes for inscription",
+		ReportError("Cannot allocate %ud bytes for inscription",
 				payload.inscriptionLength);
-		setTaskStatus(task, TaskStatusOutOfMemory);
+		SetTaskStatus(task, TaskStatusOutOfMemory);
 		return -1;
 	}
 
@@ -699,7 +699,7 @@ RETURNING plaque_token"
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		free(inscription);
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -719,28 +719,28 @@ RETURNING plaque_token"
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
 		free(inscription);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
 		DB_PokeHandle(dbh);
 		free(inscription);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
 		DB_PokeHandle(dbh);
 		free(inscription);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
 		DB_PokeHandle(dbh);
 		free(inscription);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 

@@ -10,24 +10,24 @@
  * @pilot:
  */
 inline void
-FillPaquetWithPilotData(struct paquet *paquet, struct PaquetPilot *pilot);
+FillPaquetWithPilotData(struct Paquet *paquet, struct PaquetPilot *pilot);
 
 int
-receiveFixed(
-	struct task *task,
+ReceiveFixed(
+	struct Task *task,
 	char *buffer,
 	ssize_t expectedSize);
 
 int
-sendFixed(
-	struct task *task,
+SendFixed(
+	struct Task *task,
 	char *buffer,
 	ssize_t bytesToSend);
 
 int
-receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer);
+ReceivePaquet(struct Paquet *paquet, struct MMPS_Buffer *receiveBuffer);
 
 int
-sendPaquet(struct paquet *paquet);
+SendPaquet(struct Paquet *paquet);
 
 #endif

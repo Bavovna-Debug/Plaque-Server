@@ -51,7 +51,7 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 #pragma pack(push, 1)
-struct dialogueDemande
+struct DialogueDemande
 {
 	uint64  		dialogueSignature;
 	double			deviceTimestamp;
@@ -68,7 +68,7 @@ struct dialogueDemande
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct dialogueVerdict
+struct DialogueVerdict
 {
 	uint64  		dialogueSignature;
 	uint32  		verdictCode;
@@ -76,14 +76,14 @@ struct dialogueVerdict
 };
 #pragma pack(pop)
 
-struct revisions
+struct Revisions
 {
 	uint32				onRadar;
 	uint32				inSight;
 	uint32				onMap;
 };
 
-struct task
+struct Task
 {
 	struct MMPS_Buffer	*containerBuffer;
 	pthread_t			thread;
@@ -97,8 +97,8 @@ struct task
 
 	struct
 	{
-		struct dialogueDemande	demande;
-		struct dialogueVerdict	verdict;
+		struct DialogueDemande	demande;
+		struct DialogueVerdict	verdict;
 	} dialogue;
 
 	struct
@@ -113,25 +113,25 @@ struct task
 		pthread_spinlock_t	chainLock;
 		pthread_spinlock_t	heavyJobLock;
 		pthread_mutex_t		downloadMutex;
-		struct paquet		*chainAnchor;
+		struct Paquet		*chainAnchor;
 	} paquet;
 
 	struct
 	{
-		struct revisions	lastKnownRevision;
-		struct revisions	currentRevision;
-		struct paquet		*broadcastPaquet;
+		struct Revisions	lastKnownRevision;
+		struct Revisions	currentRevision;
+		struct Paquet		*broadcastPaquet;
 		pthread_mutex_t		editMutex;
 		pthread_mutex_t		waitMutex;
 		pthread_cond_t		waitCondition;
 	} broadcast;
 };
 
-struct paquet
+struct Paquet
 {
 	struct MMPS_Buffer	*containerBuffer;
-	struct task			*task;
-	struct paquet		*nextInChain;
+	struct Task			*task;
+	struct Paquet		*nextInChain;
 	pthread_t			thread;
 	struct pollfd		pollFD;
 	int					paquetId;
@@ -141,29 +141,29 @@ struct paquet
 	struct MMPS_Buffer	*outputBuffer;
 };
 
-struct task *
-startTask(
+struct Task *
+StartTask(
 	int				sockFD,
 	char			*clientIP);
 
 inline void
-__setTaskStatus(struct task *task, uint64 statusMask);
+__SetTaskStatus(struct Task *task, uint64 statusMask);
 
-#define setTaskStatus(task, statusMask) \
+#define SetTaskStatus(task, statusMask) \
 do { \
-	reportDebug("Task (%s) set status 0x%016luX", \
+	ReportDebug("Task (%s) set status 0x%016luX", \
 		__FUNCTION__, \
 		statusMask); \
-	__setTaskStatus(task, statusMask); \
+	__SetTaskStatus(task, statusMask); \
 } while (0)
 
 inline uint64
-getTaskStatus(struct task *task);
+GetTaskStatus(struct Task *task);
 
 void
-appentPaquetToTask(struct task *task, struct paquet *paquet);
+AppentPaquetToTask(struct Task *task, struct Paquet *paquet);
 
 void
-removePaquetFromTask(struct task *task, struct paquet *paquet);
+RemovePaquetFromTask(struct Task *task, struct Paquet *paquet);
 
 #endif

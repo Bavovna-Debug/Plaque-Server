@@ -7,8 +7,8 @@
 #include "tasks.h"
 
 int
-getSessionForDevice(
-    struct task *task,
+GetSessionForDevice(
+    struct Task *task,
     struct dbh *dbh,
     uint64 deviceId,
     uint64 *sessionId,
@@ -16,34 +16,34 @@ getSessionForDevice(
     char *givenSessionToken);
 
 int
-setAllSessionsOffline(void);
+SetAllSessionsOffline(void);
 
 int
-setSessionOnline(struct task *task);
+SetSessionOnline(struct Task *task);
 
 int
-setSessionOffline(struct task *task);
+SetSessionOffline(struct Task *task);
 
 int
-getSessionRevisions(
-    struct task         *task,
-    struct revisions    *revisions);
+GetSessionRevisions(
+    struct Task         *task,
+    struct Revisions    *revisions);
 
 int
-getSessionOnRadarRevision(
-    struct task *task,
+GetSessionOnRadarRevision(
+    struct Task *task,
     struct dbh  *dbh,
     uint32      *revision);
 
 int
-getSessionInSightRevision(
-    struct task *task,
+GetSessionInSightRevision(
+    struct Task *task,
     struct dbh  *dbh,
     uint32      *revision);
 
 int
-getSessionOnMapRevision(
-    struct task *task,
+GetSessionOnMapRevision(
+    struct Task *task,
     struct dbh  *dbh,
     uint32      *revision);
 

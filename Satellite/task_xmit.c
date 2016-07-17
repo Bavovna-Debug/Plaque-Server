@@ -45,7 +45,7 @@ extern struct Chalkboard *chalkboard;
  * @pilot:
  */
 inline void
-FillPaquetWithPilotData(struct paquet *paquet, struct PaquetPilot *pilot)
+FillPaquetWithPilotData(struct Paquet *paquet, struct PaquetPilot *pilot)
 {
 	paquet->paquetId = be32toh(pilot->paquetId);
 	paquet->commandCode = be32toh(pilot->commandCode);
@@ -53,8 +53,8 @@ FillPaquetWithPilotData(struct paquet *paquet, struct PaquetPilot *pilot)
 }
 
 int
-receiveFixed(
-	struct task *task,
+ReceiveFixed(
+	struct Task *task,
 	char *buffer,
 	ssize_t expectedSize)
 {
@@ -72,22 +72,22 @@ receiveFixed(
 	if (pollFD.revents & (POLLERR | POLLHUP | POLLNVAL)) {
         pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-		reportError("Poll error on receive: revents=0x%04X", pollFD.revents);
-		setTaskStatus(task, TaskStatusPollForReceiveFailed);
+		ReportError("Poll error on receive: revents=0x%04X", pollFD.revents);
+		SetTaskStatus(task, TaskStatusPollForReceiveFailed);
 		return -1;
 	}
 
 	if (pollRC == 0) {
         pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-		reportInfo("Wait for receive timed out");
-		setTaskStatus(task, TaskStatusPollForReceiveTimeout);
+		ReportInfo("Wait for receive timed out");
+		SetTaskStatus(task, TaskStatusPollForReceiveTimeout);
 		return -1;
 	} else if (pollRC != 1) {
         pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-		reportError("Poll error on receive");
-		setTaskStatus(task, TaskStatusPollForReceiveError);
+		ReportError("Poll error on receive");
+		SetTaskStatus(task, TaskStatusPollForReceiveError);
 		return -1;
 	}
 
@@ -100,14 +100,14 @@ receiveFixed(
 		if (receivedPerStep == 0) {
             pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-			reportError("Nothing read from socket");
-			setTaskStatus(task, TaskStatusNoDataReceived);
+			ReportError("Nothing read from socket");
+			SetTaskStatus(task, TaskStatusNoDataReceived);
 			return -1;
 		} else if (receivedPerStep == -1) {
             pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-			reportError("Error reading from socket for fixed data: errno=%d", errno);
-			setTaskStatus(task, TaskStatusReadFromSocketFailed);
+			ReportError("Error reading from socket for fixed data: errno=%d", errno);
+			SetTaskStatus(task, TaskStatusReadFromSocketFailed);
 			return -1;
 		}
 
@@ -120,8 +120,8 @@ receiveFixed(
 }
 
 int
-sendFixed(
-	struct task *task,
+SendFixed(
+	struct Task *task,
 	char *buffer,
 	ssize_t bytesToSend)
 {
@@ -139,22 +139,22 @@ sendFixed(
 	if (pollFD.revents & (POLLERR | POLLHUP | POLLNVAL)) {
         pthread_mutex_unlock(&task->xmit.sendMutex);
 
-		reportError("Poll error on send: revents=0x%04X", pollFD.revents);
-		setTaskStatus(task, TaskStatusPollForSendFailed);
+		ReportError("Poll error on send: revents=0x%04X", pollFD.revents);
+		SetTaskStatus(task, TaskStatusPollForSendFailed);
 		return -1;
 	}
 
 	if (pollRC == 0) {
         pthread_mutex_unlock(&task->xmit.sendMutex);
 
-		reportInfo("Wait for send timed out");
-		setTaskStatus(task, TaskStatusPollForSendTimeout);
+		ReportInfo("Wait for send timed out");
+		SetTaskStatus(task, TaskStatusPollForSendTimeout);
 		return -1;
 	} else if (pollRC != 1) {
         pthread_mutex_unlock(&task->xmit.sendMutex);
 
-		reportError("Poll error on send");
-		setTaskStatus(task, TaskStatusPollForSendError);
+		ReportError("Poll error on send");
+		SetTaskStatus(task, TaskStatusPollForSendError);
 		return -1;
 	}
 
@@ -166,14 +166,14 @@ sendFixed(
 		if (sentPerStep == 0) {
             pthread_mutex_unlock(&task->xmit.sendMutex);
 
-			reportError("Nothing written to socket");
-			setTaskStatus(task, TaskStatusNoDataSent);
+			ReportError("Nothing written to socket");
+			SetTaskStatus(task, TaskStatusNoDataSent);
 			return -1;
 		} else if (sentPerStep == -1) {
             pthread_mutex_unlock(&task->xmit.sendMutex);
 
-			reportError("Error writing to socket: errno=%d", errno);
-			setTaskStatus(task, TaskStatusWriteToSocketFailed);
+			ReportError("Error writing to socket: errno=%d", errno);
+			SetTaskStatus(task, TaskStatusWriteToSocketFailed);
 			return -1;
 		}
 
@@ -186,9 +186,9 @@ sendFixed(
 }
 
 int
-receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
+ReceivePaquet(struct Paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 {
-	struct task			*task = paquet->task;
+	struct Task			*task = paquet->task;
 	struct pollfd		*pollFD = &paquet->pollFD;
 	int                 sockFD = task->xmit.sockFD;
 	ssize_t				receivedPerStep;
@@ -207,8 +207,8 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 	{
         pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-		reportError("Poll error on receive: revents=0x%04X", pollFD->revents);
-		setTaskStatus(task, TaskStatusPollForReceiveFailed);
+		ReportError("Poll error on receive: revents=0x%04X", pollFD->revents);
+		SetTaskStatus(task, TaskStatusPollForReceiveFailed);
 		return -1;
 	}
 
@@ -216,16 +216,16 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 	{
         pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-		reportInfo("Wait for receive timed out");
-		setTaskStatus(task, TaskStatusPollForReceiveTimeout);
+		ReportInfo("Wait for receive timed out");
+		SetTaskStatus(task, TaskStatusPollForReceiveTimeout);
 		return -1;
 	}
 	else if (pollRC != 1)
 	{
         pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-		reportError("Poll error on receive");
-		setTaskStatus(task, TaskStatusPollForReceiveError);
+		ReportError("Poll error on receive");
+		SetTaskStatus(task, TaskStatusPollForReceiveError);
 		return -1;
 	}
 
@@ -254,16 +254,16 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 			{
                 pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-				reportError("Nothing read from socket");
-				setTaskStatus(task, TaskStatusNoDataReceived);
+				ReportError("Nothing read from socket");
+				SetTaskStatus(task, TaskStatusNoDataReceived);
 				return -1;
 			}
 			else if (receivedPerStep == -1)
 			{
                 pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-				reportError("Error reading from socket for paquet: errno=%d", errno);
-				setTaskStatus(task, TaskStatusReadFromSocketFailed);
+				ReportError("Error reading from socket for paquet: errno=%d", errno);
+				SetTaskStatus(task, TaskStatusReadFromSocketFailed);
 				return -1;
 			}
 
@@ -280,8 +280,8 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 				{
                     pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-					reportError("No valid paquet signature: 0x%016lX", signature);
-					setTaskStatus(task, TaskStatusMissingPaquetSignature);
+					ReportError("No valid paquet signature: 0x%016lX", signature);
+					SetTaskStatus(task, TaskStatusMissingPaquetSignature);
 					return -1;
 				}
 
@@ -304,8 +304,8 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 			{
                 pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-				reportError("Cannot extend buffer");
-				setTaskStatus(task, TaskStatusCannotExtendBufferForInput);
+				ReportError("Cannot extend buffer");
+				SetTaskStatus(task, TaskStatusCannotExtendBufferForInput);
 				return -1;
 			}
 
@@ -322,8 +322,8 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 	{
         pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-		reportError("Missing paquet pilot (received %d bytes only)", (int)receivedTotal);
-		setTaskStatus(task, TaskStatusMissingPaquetPilot);
+		ReportError("Missing paquet pilot (received %d bytes only)", (int)receivedTotal);
+		SetTaskStatus(task, TaskStatusMissingPaquetPilot);
 		return -1;
 	}
 
@@ -333,9 +333,9 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 }
 
 int
-sendPaquet(struct paquet *paquet)
+SendPaquet(struct Paquet *paquet)
 {
-	struct task			*task = paquet->task;
+	struct Task			*task = paquet->task;
 	struct pollfd		*pollFD = &paquet->pollFD;
 	int                 sockFD = task->xmit.sockFD;
 	size_t				toSendPerBuffer;
@@ -351,22 +351,22 @@ sendPaquet(struct paquet *paquet)
 	if (pollFD->revents & (POLLERR | POLLHUP | POLLNVAL)) {
         pthread_mutex_unlock(&task->xmit.sendMutex);
 
-		reportError("Poll error on send: 0x%04X", pollFD->revents);
-		setTaskStatus(task, TaskStatusPollForSendFailed);
+		ReportError("Poll error on send: 0x%04X", pollFD->revents);
+		SetTaskStatus(task, TaskStatusPollForSendFailed);
 		return -1;
 	}
 
 	if (pollRC == 0) {
         pthread_mutex_unlock(&task->xmit.sendMutex);
 
-		reportInfo("Wait for send timed out");
-		setTaskStatus(task, TaskStatusPollForSendTimeout);
+		ReportInfo("Wait for send timed out");
+		SetTaskStatus(task, TaskStatusPollForSendTimeout);
 		return -1;
 	} else if (pollRC != 1) {
         pthread_mutex_unlock(&task->xmit.sendMutex);
 
-		reportError("Poll error on send");
-		setTaskStatus(task, TaskStatusPollForSendError);
+		ReportError("Poll error on send");
+		SetTaskStatus(task, TaskStatusPollForSendError);
 		return -1;
 	}
 
@@ -374,8 +374,8 @@ sendPaquet(struct paquet *paquet)
 	if (buffer == NULL) {
         pthread_mutex_unlock(&task->xmit.sendMutex);
 
-		reportError("No output buffer provided");
-		setTaskStatus(task, TaskStatusNoOutputDataProvided);
+		ReportError("No output buffer provided");
+		SetTaskStatus(task, TaskStatusNoOutputDataProvided);
 		return -1;
 	}
 
@@ -395,14 +395,14 @@ sendPaquet(struct paquet *paquet)
 			if (sentPerStep == 0) {
                 pthread_mutex_unlock(&task->xmit.sendMutex);
 
-				reportError("Nothing written to socket");
-				setTaskStatus(task, TaskStatusNoDataSent);
+				ReportError("Nothing written to socket");
+				SetTaskStatus(task, TaskStatusNoDataSent);
 				return -1;
 			} else if (sentPerStep == -1) {
                 pthread_mutex_unlock(&task->xmit.sendMutex);
 
-				reportError("Error writing to socket: errno=%d", errno);
-				setTaskStatus(task, TaskStatusWriteToSocketFailed);
+				ReportError("Error writing to socket: errno=%d", errno);
+				SetTaskStatus(task, TaskStatusWriteToSocketFailed);
 				return -1;
 			}
 

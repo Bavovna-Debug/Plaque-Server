@@ -94,7 +94,7 @@ messangerMain(Datum *arg)
 	if (desk == NULL)
         proc_exit(-1);
 
-    reportInfo("Messanger ready");
+    ReportInfo("Messanger ready");
 
     if (startAPNS(desk) != 0)
         proc_exit(-1);
@@ -171,7 +171,7 @@ initDesk(void)
 	LWLockRelease(AddinShmemInitLock);
 
 	if (desk == NULL) {
-        reportError("Cannot get shared memory");
+        ReportError("Cannot get shared memory");
         return NULL;
     }
 
@@ -180,19 +180,19 @@ initDesk(void)
 
     rc = pthread_mutex_init(&desk->apns.readyToGoMutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize mutex: rc=%d", rc);
+		ReportError("Cannot initialize mutex: rc=%d", rc);
         return NULL;
     }
 
     rc = pthread_cond_init(&desk->apns.readyToGoCond, NULL);
 	if (rc != 0) {
-		reportError("Cannot initialize condition: rc=%d", rc);
+		ReportError("Cannot initialize condition: rc=%d", rc);
         return NULL;
     }
 
 	desk->pools.notifications = MMPS_InitPool(1);
 	if (desk->pools.notifications == NULL) {
-		reportError("Cannot create buffer pool");
+		ReportError("Cannot create buffer pool");
         return NULL;
     }
 
@@ -201,13 +201,13 @@ initDesk(void)
 		0,
 		POOL_NOTIFICATIONS_NUMBER_OF_BUFFERS);
 	if (rc != 0) {
-		reportError("Cannot create buffer bank: rc=%d", rc);
+		ReportError("Cannot create buffer bank: rc=%d", rc);
         return NULL;
     }
 
 	desk->pools.apns = MMPS_InitPool(1);
 	if (desk->pools.apns == NULL) {
-		reportError("Cannot create buffer pool");
+		ReportError("Cannot create buffer pool");
         return NULL;
     }
 
@@ -216,7 +216,7 @@ initDesk(void)
 		0,
 		POOL_APNS_NUMBER_OF_BUFFERS);
 	if (rc != 0) {
-		reportError("Cannot create buffer bank: rc=%d", rc);
+		ReportError("Cannot create buffer bank: rc=%d", rc);
         return NULL;
     }
 
@@ -227,25 +227,25 @@ initDesk(void)
 
 	rc = pthread_mutex_init(&desk->outstandingNotifications.mutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize mutex: rc=%d", rc);
+		ReportError("Cannot initialize mutex: rc=%d", rc);
         return NULL;
     }
 
 	rc = pthread_mutex_init(&desk->inTheAirNotifications.mutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize mutex: rc=%d", rc);
+		ReportError("Cannot initialize mutex: rc=%d", rc);
         return NULL;
     }
 
 	rc = pthread_mutex_init(&desk->sentNotifications.mutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize mutex: rc=%d", rc);
+		ReportError("Cannot initialize mutex: rc=%d", rc);
         return NULL;
     }
 
 	rc = pthread_mutex_init(&desk->processedNotifications.mutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize mutex: rc=%d", rc);
+		ReportError("Cannot initialize mutex: rc=%d", rc);
         return NULL;
     }
 
@@ -259,27 +259,27 @@ cleanupDesk(struct desk *desk)
 
 	rc = pthread_mutex_destroy(&desk->apns.readyToGoMutex);
 	if (rc != 0)
-		reportError("Cannot destroy mutex: rc=%d", rc);
+		ReportError("Cannot destroy mutex: rc=%d", rc);
 
 	rc = pthread_cond_destroy(&desk->apns.readyToGoCond);
 	if (rc != 0)
-		reportError("Cannot destroy condition: rc=%d", rc);
+		ReportError("Cannot destroy condition: rc=%d", rc);
 
 	rc = pthread_mutex_destroy(&desk->outstandingNotifications.mutex);
 	if (rc != 0)
-		reportError("Cannot destroy mutex: rc=%d", rc);
+		ReportError("Cannot destroy mutex: rc=%d", rc);
 
 	rc = pthread_mutex_destroy(&desk->inTheAirNotifications.mutex);
 	if (rc != 0)
-		reportError("Cannot destroy mutex: rc=%d", rc);
+		ReportError("Cannot destroy mutex: rc=%d", rc);
 
 	rc = pthread_mutex_destroy(&desk->sentNotifications.mutex);
 	if (rc != 0)
-		reportError("Cannot destroy mutex: rc=%d", rc);
+		ReportError("Cannot destroy mutex: rc=%d", rc);
 
 	rc = pthread_mutex_destroy(&desk->processedNotifications.mutex);
 	if (rc != 0)
-		reportError("Cannot destroy mutex: rc=%d", rc);
+		ReportError("Cannot destroy mutex: rc=%d", rc);
 }
 
 static int
@@ -294,7 +294,7 @@ startAPNS(struct desk *desk)
 
     rc = pthread_create(&desk->apns.thread, &desk->apns.attributes, &apnsThread, desk);
     if (rc != 0) {
-        reportError("Cannot create APNS thread: %d", errno);
+        ReportError("Cannot create APNS thread: %d", errno);
         return -1;
     }
 
@@ -308,13 +308,13 @@ stopAPNS(struct desk *desk)
 
     rc = pthread_cancel(desk->apns.thread);
     if ((rc != 0) && (rc != ESRCH)) {
-        reportError("Cannot cancel APNS thread: rc=%d", rc);
+        ReportError("Cannot cancel APNS thread: rc=%d", rc);
         return -1;
     }
 
     rc = pthread_attr_destroy(&desk->apns.attributes);
     if (rc != 0) {
-        reportError("Cannot destroy thread attributes: rc=%d", rc);
+        ReportError("Cannot destroy thread attributes: rc=%d", rc);
         return -1;
     }
 

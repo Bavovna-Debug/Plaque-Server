@@ -28,7 +28,7 @@ ConnectToPostgres(struct dbh *dbh)
 	//
 	if (PQstatus(dbh->conn) != CONNECTION_OK)
 	{
-		reportError("Connection to database failed: %s",
+		ReportError("Connection to database failed: %s",
 				PQerrorMessage(dbh->conn));
 
 		dbh->conn = NULL;
@@ -62,14 +62,14 @@ DB_InitChain(
 		malloc(sizeof(struct DB_Chain) + numberOfConnections * sizeof(unsigned int));
 	if (chain == NULL)
 	{
-        reportError("Out of memory");
+        ReportSoftAlert("Out of memory");
         return NULL;
     }
 
 	chain->block = malloc(numberOfConnections * sizeof(struct dbh));
 	if (chain->block == NULL)
 	{
-		reportError("Out of memory");
+		ReportSoftAlert("Out of memory");
 		return NULL;
 	}
 
@@ -139,7 +139,7 @@ struct dbh *
 DB_PeekHandle(struct DB_Chain *chain)
 {
 #ifdef DB_PEEK_POKE
-	reportInfo("Peek DB from chain %s", chain->chainName);
+	ReportInfo("Peek DB from chain %s", chain->chainName);
 #endif
 
 	struct dbh* dbh;
@@ -216,7 +216,7 @@ DB_PeekHandle(struct DB_Chain *chain)
 					// If still cannot connect to Db, then fail.
 					//
 					DB_PokeHandle(dbh);
-					reportError("Start transaction failed: %s",
+					ReportError("Start transaction failed: %s",
 						PQerrorMessage(dbh->conn));
 					dbh = NULL;
 				}
@@ -229,7 +229,7 @@ DB_PeekHandle(struct DB_Chain *chain)
 	}
 
 	if (dbh == NULL)
-		reportInfo("No database handler available");
+		ReportInfo("No database handler available");
 
 	return dbh;
 }
@@ -243,7 +243,7 @@ void
 DB_PokeHandle(struct dbh *dbh)
 {
 #ifdef DB_PEEK_POKE
-	reportInfo("Poke DB %u to chain %s (last status %d)",
+	ReportInfo("Poke DB %u to chain %s (last status %d)",
 		dbh->dbhId,
 		dbh->chain->chainName,
 		(dbh->result == NULL) ? -1 : PQresultStatus(dbh->result));
@@ -338,7 +338,7 @@ __TuplesOK(
 	if (status == PGRES_TUPLES_OK) {
 		return 1;
 	} else {
-		reportError("DB (%s) Cannot execute query: status=%d (%s)",
+		ReportError("DB (%s) Cannot execute query: status=%d (%s)",
 				__FUNCTION__,
 				status,
 				PQerrorMessage(dbh->conn));
@@ -363,7 +363,7 @@ __CommandOK(
 	if (status == PGRES_COMMAND_OK) {
 		return 1;
 	} else {
-		reportError("DB (%s) Cannot execute command: status=%d (%s)",
+		ReportError("DB (%s) Cannot execute command: status=%d (%s)",
 				__FUNCTION__,
 				status,
 				PQerrorMessage(dbh->conn));
@@ -388,7 +388,7 @@ __CorrectNumberOfColumns(
 	if (numberOfColumns == expectedNumberOfColumns) {
 		return 1;
 	} else {
-		reportError("DB (%s) Returned %d columns, expected %d",
+		ReportError("DB (%s) Returned %d columns, expected %d",
 				__FUNCTION__,
 				numberOfColumns,
 				expectedNumberOfColumns);
@@ -413,7 +413,7 @@ __CorrectNumberOfRows(
 	if (numberOfRows == expectedNumberOfRows) {
 		return 1;
 	} else {
-		reportError("DB (%s) Returned %d rows, expected %d",
+		ReportError("DB (%s) Returned %d rows, expected %d",
 				functionName,
 				numberOfRows,
 				expectedNumberOfRows);
@@ -440,7 +440,7 @@ __CorrectColumnType(
 	if (columnType == expectedColumnType) {
 		return 1;
 	} else {
-		reportError("DB (%s) Data OID for column %d is %d, expected %d",
+		ReportError("DB (%s) Data OID for column %d is %d, expected %d",
 				functionName,
 				columnNumber,
 				columnType,

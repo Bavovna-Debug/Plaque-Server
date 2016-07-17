@@ -4,12 +4,12 @@
 #include "paquet.h"
 
 int
-HandleDisplacementOnRadar(struct paquet *paquet);
+HandleDisplacementOnRadar(struct Paquet *paquet);
 
 int
-HandleDisplacementInSight(struct paquet *paquet);
+HandleDisplacementInSight(struct Paquet *paquet);
 
 int
-HandleDisplacementOnMap(struct paquet *paquet);
+HandleDisplacementOnMap(struct Paquet *paquet);
 
 #endif

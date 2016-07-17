@@ -47,7 +47,7 @@ FROM journal.revised_sessions"
 
     rc = SPI_exec(infoData.data, 1);
 	if (rc != SPI_OK_SELECT) {
-		reportError("Cannot execute statement, rc=%d", rc);
+		ReportError("Cannot execute statement, rc=%d", rc);
 
    	    PGBGW_ROLLBACK;
 
@@ -55,7 +55,7 @@ FROM journal.revised_sessions"
     }
 
 	if (SPI_processed != 1) {
-		reportError("Unexpected result");
+		ReportError("Unexpected result");
 
    	    PGBGW_ROLLBACK;
 
@@ -67,7 +67,7 @@ FROM journal.revised_sessions"
     numberOfSessions = DatumGetInt64(SPI_getbinval(tuple, tupdesc, 1, &isNull));
 
     if (numberOfSessions > 0)
-        reportInfo("There are %lu revised sessions", numberOfSessions);
+        ReportInfo("There are %lu revised sessions", numberOfSessions);
 
     PGBGW_COMMIT;
 
@@ -87,7 +87,7 @@ getListOfRevisedSessions(struct desk *desk)
 	int             rc;
 
     if (pthread_mutex_trylock(&desk->watchdog.mutex) != 0) {
-        reportInfo("Broadcaster is still busy with xmit, wait for %d seconds",
+        ReportInfo("Broadcaster is still busy with xmit, wait for %d seconds",
             SLEEP_WHEN_LISTENER_IS_BUSY);
         sleep(SLEEP_WHEN_LISTENER_IS_BUSY);
         return 0;
@@ -106,7 +106,7 @@ RETURNING session_id"
 	if (rc != SPI_OK_DELETE_RETURNING) {
         pthread_mutex_unlock(&desk->watchdog.mutex);
 
-		reportError("Cannot execute statement, rc=%d", rc);
+		ReportError("Cannot execute statement, rc=%d", rc);
    	    PGBGW_ROLLBACK;
 		return -1;
     }
@@ -127,7 +127,7 @@ RETURNING session_id"
             session->receiptId = desk->watchdog.lastReceiptId;
             session->sessionId = DatumGetInt64(SPI_getbinval(tuple, tupdesc, 1, &isNull));
 
-            reportInfo("Broadcaster has detected revised session %lu", session->sessionId);
+            ReportInfo("Broadcaster has detected revised session %lu", session->sessionId);
         }
 
 	    for (sessionNumber = 0; sessionNumber < numberOfSessions; sessionNumber++)
@@ -151,7 +151,7 @@ RETURNING in_cache_revision, on_radar_revision, in_sight_revision, on_map_revisi
 	        if (rc != SPI_OK_UPDATE_RETURNING) {
                 pthread_mutex_unlock(&desk->watchdog.mutex);
 
-    	    	reportError("Cannot execute statement, rc=%d", rc);
+    	    	ReportError("Cannot execute statement, rc=%d", rc);
    	            PGBGW_ROLLBACK;
     	    	return -1;
             }
@@ -161,7 +161,7 @@ RETURNING in_cache_revision, on_radar_revision, in_sight_revision, on_map_revisi
                 // This session is not online, therefore there is no need
                 // to send it broadcast to listener.
                 //
-                reportInfo("Ignoring revised session because session is offline: sessionId=%lu",
+                ReportInfo("Ignoring revised session because session is offline: sessionId=%lu",
                     session->sessionId);
 
                 session->sessionId = 0;
@@ -178,7 +178,7 @@ RETURNING in_cache_revision, on_radar_revision, in_sight_revision, on_map_revisi
                 session->onMapRevision = DatumGetInt32(SPI_getbinval(tuple, tupdesc, 4, &isNull));
                 session->satelliteTaskId = DatumGetInt32(SPI_getbinval(tuple, tupdesc, 5, &isNull));
 
-                reportInfo("Detected revised session: receiptId=%lu sessionId=%lu, revisions=%u/%u/%u/%u, taskId=%u",
+                ReportInfo("Detected revised session: receiptId=%lu sessionId=%lu, revisions=%u/%u/%u/%u, taskId=%u",
                     session->receiptId,
                     session->sessionId,
                     session->inCacheRevision,
@@ -200,7 +200,7 @@ RETURNING in_cache_revision, on_radar_revision, in_sight_revision, on_map_revisi
                 //
                 pthread_mutex_unlock(&desk->watchdog.mutex);
 
-		        reportError("Unexpected number of tuples");
+		        ReportError("Unexpected number of tuples");
    	            PGBGW_ROLLBACK;
     	    	return -1;
             }

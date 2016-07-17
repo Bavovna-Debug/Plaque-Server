@@ -4,24 +4,24 @@
 #include "paquet.h"
 
 int
-HandlePostNewPlaque(struct paquet *paquet);
+HandlePostNewPlaque(struct Paquet *paquet);
 
 int
-HandleChangePlaqueLocation(struct paquet *paquet);
+HandleChangePlaqueLocation(struct Paquet *paquet);
 
 int
-HandleChangePlaqueOrientation(struct paquet *paquet);
+HandleChangePlaqueOrientation(struct Paquet *paquet);
 
 int
-HandleChangePlaqueSize(struct paquet *paquet);
+HandleChangePlaqueSize(struct Paquet *paquet);
 
 int
-HandleChangePlaqueColors(struct paquet *paquet);
+HandleChangePlaqueColors(struct Paquet *paquet);
 
 int
-HandleChangePlaqueFont(struct paquet *paquet);
+HandleChangePlaqueFont(struct Paquet *paquet);
 
 int
-HandleChangePlaqueInscription(struct paquet *paquet);
+HandleChangePlaqueInscription(struct Paquet *paquet);
 
 #endif

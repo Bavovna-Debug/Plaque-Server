@@ -8,12 +8,12 @@
 #define MAX_NUMBER_OF_TASK			NUMBER_OF_BUFFERS_TASK
 
 int
-initTaskList(void);
+InitTaskList(void);
 
 void
-taskListPushTask(int taskId, struct task *task);
+TaskListPushTask(int taskId, struct Task *task);
 
-struct task *
-taskListTaskById(int taskId);
+struct Task *
+TaskListTaskById(int taskId);
 
 #endif

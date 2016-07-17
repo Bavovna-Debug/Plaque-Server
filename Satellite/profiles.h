@@ -4,9 +4,9 @@
 #include "paquet.h"
 
 int
-getProfiles(struct paquet *paquet);
+GetProfiles(struct Paquet *paquet);
 
 uint64
-profileIdByToken(struct dbh *dbh, char *profileToken);
+ProfileIdByToken(struct dbh *dbh, char *profileToken);
 
 #endif

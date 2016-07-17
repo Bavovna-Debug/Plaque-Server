@@ -49,7 +49,7 @@ BroadcasterThread(void *arg)
     	sockFD = socket(AF_INET, SOCK_STREAM, 0);
 	    if (sockFD < 0)
 	    {
-	    	reportError("Cannot open a socket, wait for %d microseconds: errno=%d",
+	    	ReportError("Cannot open a socket, wait for %d microseconds: errno=%d",
 	    	    BROADCASTER_SLEEP_ON_CANNOT_OPEN_SOCKET, errno);
 	    	usleep(BROADCASTER_SLEEP_ON_CANNOT_OPEN_SOCKET);
     		continue;
@@ -76,7 +76,7 @@ BroadcasterThread(void *arg)
 	                //
 	                // Connection refused: wait and try again.
 	                //
-	    	        reportError("Cannot connect to broadcaster, wait for %d microseconds",
+	    	        ReportError("Cannot connect to broadcaster, wait for %d microseconds",
     	                BROADCASTER_SLEEP_ON_CANNOT_CONNECT);
             	    usleep(BROADCASTER_SLEEP_ON_CANNOT_CONNECT);
 	            } else {
@@ -84,7 +84,7 @@ BroadcasterThread(void *arg)
 	                // Error: close socket, wait, and go to the beginning of socket creation.
 	                //
     		        close(sockFD);
-	    	        reportError("Cannot connect to broadcaster, wait for %d microseconds: errno=%d",
+	    	        ReportError("Cannot connect to broadcaster, wait for %d microseconds: errno=%d",
     	                BROADCASTER_SLEEP_ON_CANNOT_CONNECT, errno);
             	    usleep(BROADCASTER_SLEEP_ON_CANNOT_CONNECT);
         	    	continue;
@@ -105,7 +105,7 @@ BroadcasterDialog(int sockFD)
 {
 	struct session  *session;
     uint64          satelliteTaskId;
-    struct task     *task;
+    struct Task     *task;
     int             rc;
 
     while (1)
@@ -118,16 +118,16 @@ BroadcasterDialog(int sockFD)
 
         satelliteTaskId = be32toh(session->satelliteTaskId);
 
-        task = taskListTaskById(satelliteTaskId);
+        task = TaskListTaskById(satelliteTaskId);
         if (task == NULL) {
-            reportInfo("Task %lu is already closed", satelliteTaskId);
+            ReportInfo("Task %lu is already closed", satelliteTaskId);
         } else {
             //
             // Changing broadcast values has to be done inside of the broadcast lock.
             //
             rc = pthread_mutex_lock(&task->broadcast.editMutex);
             if (rc != 0) {
-                reportError("Error has occurred on mutex lock: rc=%d", rc);
+                ReportError("Error has occurred on mutex lock: rc=%d", rc);
                 break;
             }
 
@@ -135,7 +135,7 @@ BroadcasterDialog(int sockFD)
             task->broadcast.currentRevision.inSight = be32toh(session->inSightRevision);
             task->broadcast.currentRevision.onMap = be32toh(session->onMapRevision);
 
-            reportInfo("Received revised session: receiptId=%lu sessionId=%lu, revisions=%u/%u/%u, taskId=%lu",
+            ReportInfo("Received revised session: receiptId=%lu sessionId=%lu, revisions=%u/%u/%u, taskId=%lu",
                 be64toh(session->receiptId),
                 be64toh(session->sessionId),
                 task->broadcast.currentRevision.onRadar,
@@ -147,7 +147,7 @@ BroadcasterDialog(int sockFD)
                 rc = pthread_mutex_lock(&task->broadcast.waitMutex);
                 if (rc != 0) {
                     pthread_mutex_unlock(&task->broadcast.editMutex);
-                    reportError("Error has occurred on mutex lock: rc=%d", rc);
+                    ReportError("Error has occurred on mutex lock: rc=%d", rc);
                     break;
                 }
 
@@ -155,21 +155,21 @@ BroadcasterDialog(int sockFD)
                 if (rc != 0) {
                     pthread_mutex_unlock(&task->broadcast.waitMutex);
                     pthread_mutex_unlock(&task->broadcast.editMutex);
-                    reportError("Error has occurred on condition signal: rc=%d", rc);
+                    ReportError("Error has occurred on condition signal: rc=%d", rc);
                     break;
                 }
 
                 rc = pthread_mutex_unlock(&task->broadcast.waitMutex);
                 if (rc != 0) {
                     pthread_mutex_unlock(&task->broadcast.editMutex);
-                    reportError("Error has occurred on mutex unlock: rc=%d", rc);
+                    ReportError("Error has occurred on mutex unlock: rc=%d", rc);
                     break;
                 }
             }
 
             rc = pthread_mutex_unlock(&task->broadcast.editMutex);
             if (rc != 0) {
-                reportError("Error has occurred on mutex unlock: rc=%d", rc);
+                ReportError("Error has occurred on mutex unlock: rc=%d", rc);
                 break;
             }
         }
@@ -193,15 +193,15 @@ ReceiveSession(int sockFD, struct session *session)
 
 	int pollRC = poll(&pollFD, 1, TIMEOUT_ON_POLL_FOR_RECEIPT);
 	if (pollFD.revents & (POLLERR | POLLHUP | POLLNVAL)) {
-		reportError("Poll error on receive: revents=0x%04X", pollFD.revents);
+		ReportError("Poll error on receive: revents=0x%04X", pollFD.revents);
 		return -1;
 	}
 
 	if (pollRC == 0) {
-		reportInfo("Wait for receive timed out");
+		ReportInfo("Wait for receive timed out");
 		return -1;
 	} else if (pollRC != 1) {
-		reportError("Poll error on receive");
+		ReportError("Poll error on receive");
 		return -1;
 	}
 
@@ -213,10 +213,10 @@ ReceiveSession(int sockFD, struct session *session)
 			session + receivedTotal,
 			expectedSize - receivedTotal);
 		if (receivedPerStep == 0) {
-			reportError("Nothing read from socket");
+			ReportError("Nothing read from socket");
 			return -1;
 		} else if (receivedPerStep == -1) {
-			reportError("Error reading from broadcaster socket: errno=%d", errno);
+			ReportError("Error reading from broadcaster socket: errno=%d", errno);
 			return -1;
 		}
 
@@ -240,15 +240,15 @@ ConfirmSession(int sockFD, struct session *session)
 
 	pollRC = poll(&pollFD, 1, TIMEOUT_ON_WAIT_FOR_BEGIN_TO_TRANSMIT);
 	if (pollFD.revents & (POLLERR | POLLHUP | POLLNVAL)) {
-		reportError("Poll error on send: revents=0x%04X", pollFD.revents);
+		ReportError("Poll error on send: revents=0x%04X", pollFD.revents);
 		return -1;
 	}
 
 	if (pollRC == 0) {
-		reportInfo("Wait for send timed out");
+		ReportInfo("Wait for send timed out");
 		return -1;
 	} else if (pollRC != 1) {
-		reportError("Poll error on send");
+		ReportError("Poll error on send");
 		return -1;
 	}
 
@@ -260,17 +260,17 @@ ConfirmSession(int sockFD, struct session *session)
 			&session->receiptId + sentTotal,
 			bytesToSend - sentTotal);
 		if (sentPerStep == 0) {
-			reportError("Nothing written to socket");
+			ReportError("Nothing written to socket");
 			return -1;
 		} else if (sentPerStep == -1) {
-			reportError("Error writing to socket: errno=%d", errno);
+			ReportError("Error writing to socket: errno=%d", errno);
 			return -1;
 		}
 
 		sentTotal += sentPerStep;
 	} while (sentTotal < bytesToSend);
 
-    reportInfo("Revised session confirmed");
+    ReportInfo("Revised session confirmed");
 
 	return 0;
 }

@@ -2,12 +2,12 @@
 #define __TASK_KERNEL__
 
 int
-authentifyDialogue(struct task *task);
+AuthentifyDialogue(struct Task *task);
 
 void
-dialogueAnticipant(struct task *task);
+DialogueAnticipant(struct Task *task);
 
 void
-dialogueRegular(struct task *task);
+DialogueRegular(struct Task *task);
 
 #endif

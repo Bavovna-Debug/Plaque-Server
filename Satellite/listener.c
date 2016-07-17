@@ -33,16 +33,18 @@ ListenerThread(void *arg)
 	struct sockaddr_in  clientAddress;
 	socklen_t           clientAddressLength;
 	const int           socketValue = 1;
+	char                *clientIP;
+	struct Task         *task;
 	int                 rc;
 
     pthread_cleanup_push(&ListenerCleanup, NULL);
 
-    while (1)
+    for (;;)
     {
 	    listenSockFD = socket(AF_INET, SOCK_STREAM, 0);
 	    if (listenSockFD < 0)
 	    {
-	    	reportError("Cannot open a socket, wait for %d milliseconds: errno=%d",
+	    	ReportError("Cannot open a socket, wait for %d milliseconds: errno=%d",
 	    	    SLEEP_ON_CANNOT_OPEN_SOCKET,
 	    	    errno);
 
@@ -64,7 +66,7 @@ ListenerThread(void *arg)
             sizeof(socketValue));
         if (rc == -1)
         {
-	        reportError("Cannot set socket options, wait for %d milliseconds: errno=%d",
+	        ReportError("Cannot set socket options, wait for %d milliseconds: errno=%d",
         	    SLEEP_ON_SET_SOCKET_OPTIONS,
         	    errno);
 
@@ -81,9 +83,11 @@ ListenerThread(void *arg)
 	    serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
 	    serverAddress.sin_port = htons(chalkboard->listener.portNumber);
 
-        while (1)
+        for (;;)
         {
-        	rc = bind(listenSockFD, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
+        	rc = bind(listenSockFD,
+        	    (struct sockaddr *) &serverAddress,
+        	    sizeof(serverAddress));
     	    if (rc == 0) {
     	        //
     	        // Successfully bind to socket.
@@ -94,7 +98,7 @@ ListenerThread(void *arg)
 	                //
 	                // Connection refused: wait and try again.
 	                //
-	    	        reportError("Cannot bind to socket, wait for %d milliseconds",
+	    	        ReportError("Cannot bind to socket, wait for %d milliseconds",
     	                SLEEP_ON_CANNOT_BIND_SOCKET);
 
             	    usleep(SLEEP_ON_CANNOT_BIND_SOCKET * 1000);
@@ -104,7 +108,7 @@ ListenerThread(void *arg)
 	                //
     		        close(listenSockFD);
 
-	    	        reportError("Cannot bind to socket, wait for %d milliseconds: errno=%d",
+	    	        ReportError("Cannot bind to socket, wait for %d milliseconds: errno=%d",
     	                SLEEP_ON_CANNOT_BIND_SOCKET, errno);
 
             	    usleep(SLEEP_ON_CANNOT_BIND_SOCKET * 1000);
@@ -116,14 +120,14 @@ ListenerThread(void *arg)
 
 	    listen(listenSockFD, SOMAXCONN);
 	    clientAddressLength = sizeof(clientAddress);
-	    while (1)
+	    for (;;)
 	    {
 		    clientSockFD = accept(listenSockFD,
 				(struct sockaddr *) &clientAddress,
 				&clientAddressLength);
 		    if (clientSockFD < 0)
 		    {
-			    reportError("Cannot accept new socket, wait for %d milliseconds: errno=%d",
+			    ReportError("Cannot accept new socket, wait for %d milliseconds: errno=%d",
 	    	        SLEEP_ON_CANNOT_ACCEPT, errno);
 
 	        	usleep(SLEEP_ON_CANNOT_ACCEPT * 1000);
@@ -131,11 +135,11 @@ ListenerThread(void *arg)
     	    	break;
 		    }
 
-		    char *clientIP = inet_ntoa(clientAddress.sin_addr);
+		    clientIP = inet_ntoa(clientAddress.sin_addr);
 
-		    struct task *task = startTask(clientSockFD, clientIP);
+		    task = StartTask(clientSockFD, clientIP);
             if (task == NULL) {
-                reportError("Cannot start new task");
+                ReportError("Cannot start new task");
 			    close(clientSockFD);
                 continue;
             }
@@ -155,7 +159,7 @@ ListenerThread(void *arg)
 void
 ListenerCleanup(void *arg)
 {
-	int         listenSockFD;
+	int listenSockFD;
 
 	listenSockFD = chalkboard->listener.listenSockFD;
 

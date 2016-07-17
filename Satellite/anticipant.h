@@ -40,7 +40,7 @@ struct BonjourCreateProfile
  * @task:
  */
 int
-VerifyGuest(struct task *task);
+VerifyGuest(struct Task *task);
 
 /**
  * RegisterDevice()
@@ -51,7 +51,7 @@ VerifyGuest(struct task *task);
  */
 int
 RegisterDevice(
-	struct task 				*task,
+	struct Task 				*task,
 	struct DialogueAnticipant 	*anticipant,
 	char 						*deviceToken);
 
@@ -61,7 +61,7 @@ RegisterDevice(
  * @paquet:
  */
 int
-ValidateProfileName(struct paquet *paquet);
+ValidateProfileName(struct Paquet *paquet);
 
 /**
  * CreateProfile()
@@ -69,7 +69,7 @@ ValidateProfileName(struct paquet *paquet);
  * @paquet:
  */
 int
-CreateProfile(struct paquet *paquet);
+CreateProfile(struct Paquet *paquet);
 
 /**
  * NotificationsToken()
@@ -77,6 +77,6 @@ CreateProfile(struct paquet *paquet);
  * @paquet:
  */
 int
-NotificationsToken(struct paquet *paquet);
+NotificationsToken(struct Paquet *paquet);
 
 #endif

@@ -28,7 +28,7 @@ MMPS_InitPool(const unsigned int numberOfBanks)
     pool = malloc(sizeof(struct MMPS_Pool) + numberOfBanks * sizeof(struct MMPS_Bank *));
     if (pool == NULL)
     {
-        reportSoftAlert("Out of memory");
+        ReportSoftAlert("Out of memory");
 
         return NULL;
     }
@@ -99,7 +99,7 @@ MMPS_InitBank(
     unsigned int        bufferIdInBlock;
 
 #ifdef MMPS_INIT_BANK
-    reportDebug("Create bank %u with %u buffers of size %u",
+    ReportDebug("Create bank %u with %u buffers of size %u",
         bankId,
         numberOfBuffers,
         bufferSize);
@@ -146,7 +146,7 @@ MMPS_InitBank(
     }
 
 #ifdef MMPS_INIT_BANK
-    reportDebug("... maxBlockSize=%lu buffersPerBlock=%u numberOfBlocks=%u eachBlockSize=%lu lastBlockSize=%lu",
+    ReportDebug("... maxBlockSize=%lu buffersPerBlock=%u numberOfBlocks=%u eachBlockSize=%lu lastBlockSize=%lu",
         maxBlockSize,
         buffersPerBlock,
         numberOfBlocks,
@@ -163,7 +163,7 @@ MMPS_InitBank(
     bank = malloc(bankAllocSize);
     if (bank == NULL)
     {
-        reportSoftAlert("Out of memory");
+        ReportSoftAlert("Out of memory");
 
         return MMPS_OUT_OF_MEMORY;
     }
@@ -202,7 +202,7 @@ MMPS_InitBank(
     );
 
 #ifdef MMPS_INIT_BANK
-    reportDebug("... bank=0x%08lX (%lu bytes) bank->blocks=0x%08lX",
+    ReportDebug("... bank=0x%08lX (%lu bytes) bank->blocks=0x%08lX",
         (unsigned long) bank,
         bankAllocSize,
         (unsigned long) bank->blocks);
@@ -235,13 +235,13 @@ MMPS_InitBank(
             block = malloc(blockSize);
             if (block == NULL)
             {
-                reportSoftAlert("Out of memory");
+                ReportSoftAlert("Out of memory");
 
                 return MMPS_OUT_OF_MEMORY;
             }
 
 #ifdef MMPS_INIT_BANK_DEEP
-            reportDebug("  > allocated block=0x%08lX",
+            ReportDebug("  > allocated block=0x%08lX",
                 (unsigned long) block);
 #endif
 
@@ -263,13 +263,13 @@ MMPS_InitBank(
         buffer->data = malloc(bufferSize);
         if (buffer->data == NULL)
         {
-            reportSoftAlert("Out of memory");
+            ReportSoftAlert("Out of memory");
 
             return MMPS_OUT_OF_MEMORY;
         }
 
 #ifdef MMPS_INIT_BANK_DEEP
-        reportDebug("    > buffer=0x%08lX buffer->data=0x%08lX",
+        ReportDebug("    > buffer=0x%08lX buffer->data=0x%08lX",
             (unsigned long) buffer,
             (unsigned long) buffer->data);
 #endif
@@ -296,13 +296,13 @@ MMPS_InitBank(
     pool->banks[bankId] = bank;
 
 #ifdef MMPS_INIT_BANK
-    reportDebug("Created bank %u with %u buffers of size %u, with total bank size %lld MB",
+    ReportDebug("Created bank %u with %u buffers of size %u, with total bank size %lld MB",
         bankId,
         bank->numberOfBuffers,
         bufferSize,
         totalBlockSize >> 20);
 
-    reportDebug("There are %u block(s) of size %lu KB each and %lu KB last",
+    ReportDebug("There are %u block(s) of size %lu KB each and %lu KB last",
         bank->numberOfBlocks,
         bank->eachBlockSize >> 10,
         bank->lastBlockSize >> 10);
@@ -375,7 +375,7 @@ MMPS_DMAMapBuffer(
 
     if (buffer->dmaAddress != NULL)
     {
-        reportWarning("Buffer already mapped to DMA");
+        ReportWarning("Buffer already mapped to DMA");
 
         return MMPS_ALREADY_DMA_MAPPED;
     }
@@ -388,7 +388,7 @@ MMPS_DMAMapBuffer(
         0);
     if (dmaAddress == MAP_FAILED)
     {
-        reportError("Cannot map buffer to DMA: errno=%d",
+        ReportError("Cannot map buffer to DMA: errno=%d",
             errno);
 
         return MMPS_CANNOT_MAP_TO_DMA;
@@ -416,7 +416,7 @@ MMPS_DMAUnmapBuffer(struct MMPS_Buffer *buffer)
 
     if (buffer->dmaAddress == NULL)
     {
-        reportWarning("Trying to unmap buffer from DMA that was not mapped");
+        ReportWarning("Trying to unmap buffer from DMA that was not mapped");
 
         return MMPS_NOT_DMA_MAPPED;
     }
@@ -424,7 +424,7 @@ MMPS_DMAUnmapBuffer(struct MMPS_Buffer *buffer)
     rc = munmap(buffer->dmaAddress, buffer->bufferSize);
     if (rc != 0)
     {
-        reportError("Cannot unmap buffer from DMA: errno=%d", errno);
+        ReportError("Cannot unmap buffer from DMA: errno=%d", errno);
 
         return MMPS_CANNOT_UNMAP_FROM_DMA;
     }
@@ -469,7 +469,7 @@ MMPS_BufferById(
         ((unsigned long) block + (unsigned long) (bufferIdInBlock * sizeof(struct MMPS_Buffer)));
 
 #ifdef MMPS_PEEK_POKE
-    reportDebug("... bufferId=%u bufferIdInBlock=%u block=0x%08lX buffer=0x%08lX data=0x%08lX",
+    ReportDebug("... bufferId=%u bufferIdInBlock=%u block=0x%08lX buffer=0x%08lX data=0x%08lX",
         bufferId,
         bufferIdInBlock,
         (unsigned long) block,
@@ -524,7 +524,7 @@ MMPS_PeekBufferOfSize(
     unsigned int        bankId;
 
 #ifdef MMPS_PEEK_POKE
-    reportDebug("Peek buffer of size %u for 0x%08X",
+    ReportDebug("Peek buffer of size %u for 0x%08X",
         preferredSize,
         ownerId);
 #endif
@@ -572,7 +572,7 @@ MMPS_PeekBufferOfSize(
 
     if (buffer == NULL)
     {
-        reportWarning("No free buffer available (requested preferred size %u for 0x%08X)",
+        ReportWarning("No free buffer available (requested preferred size %u for 0x%08X)",
             preferredSize,
             ownerId);
     }
@@ -603,7 +603,7 @@ MMPS_PeekBufferFromBank(
     unsigned int        bufferId;
 
 #ifdef MMPS_PEEK_POKE
-    reportDebug("Peek buffer from bank %u for 0x%08X",
+    ReportDebug("Peek buffer from bank %u for 0x%08X",
         bankId,
         ownerId);
 #endif
@@ -619,7 +619,7 @@ MMPS_PeekBufferFromBank(
     bufferId = bank->ids[bank->cursor.peek];
 
 #ifdef MMPS_PEEK_POKE
-    reportDebug("... bank->peekCursor=%u bank->pokeCursor=%u bufferId=%u",
+    ReportDebug("... bank->peekCursor=%u bank->pokeCursor=%u bufferId=%u",
         bank->cursor.peek,
         bank->cursor.poke,
         bufferId);
@@ -643,7 +643,7 @@ MMPS_PeekBufferFromBank(
             pthread_spin_unlock(&bank->lock);
 #endif
 
-            reportError("Got buffer that already belongs to 0x%08X",
+            ReportError("Got buffer that already belongs to 0x%08X",
                 ownerId);
 
             return NULL;
@@ -667,7 +667,7 @@ MMPS_PeekBufferFromBank(
 
     if (buffer == NULL)
     {
-        reportWarning("No free buffer available (requested bank %u for 0x%08X)",
+        ReportWarning("No free buffer available (requested bank %u for 0x%08X)",
             bankId,
             ownerId);
     }
@@ -697,10 +697,10 @@ MMPS_PokeBuffer(struct MMPS_Buffer *buffer)
 
 #ifdef MMPS_PEEK_POKE
 #ifdef MMPS_USE_OWNER_ID
-        reportDebug("Poke buffer %u to bank %u for 0x%08X",
+        ReportDebug("Poke buffer %u to bank %u for 0x%08X",
             thisBuffer->bufferId, bank->bankId, thisBuffer->ownerId);
 #else
-        reportDebug("Poke buffer %u to bank %u",
+        ReportDebug("Poke buffer %u to bank %u",
             thisBuffer->bufferId, bank->bankId);
 #endif
 #endif
@@ -708,7 +708,7 @@ MMPS_PokeBuffer(struct MMPS_Buffer *buffer)
 #ifdef MMPS_USE_OWNER_ID
         if (thisBuffer->ownerId == MMPS_NO_OWNER)
         {
-            reportError("Trying to poke buffer %u to bank %u that was not peeked",
+            ReportError("Trying to poke buffer %u to bank %u that was not peeked",
                 thisBuffer->bufferId,
                 thisBuffer->bank->bankId);
 
@@ -720,7 +720,7 @@ MMPS_PokeBuffer(struct MMPS_Buffer *buffer)
 
         if ((nextBuffer != NULL) && (nextBuffer->prev != thisBuffer))
         {
-            reportError("Detected broken buffer chain for buffers %u and %u",
+            ReportError("Detected broken buffer chain for buffers %u and %u",
                 thisBuffer->bufferId,
                 nextBuffer->bufferId);
 
@@ -758,7 +758,7 @@ MMPS_PokeBuffer(struct MMPS_Buffer *buffer)
 #ifdef MMPS_PEEK_POKE
         if (thisBuffer != NULL)
         {
-            reportDebug("... next buffer %u",
+            ReportDebug("... next buffer %u",
                 thisBuffer->bufferId);
         }
 #endif

@@ -24,9 +24,9 @@ JOIN auth.profiles USING (profile_id) \
 WHERE plaque_token = $1"
 
 int
-HandleDownloadPlaques(struct paquet *paquet)
+HandleDownloadPlaques(struct Paquet *paquet)
 {
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = NULL;
@@ -34,7 +34,7 @@ HandleDownloadPlaques(struct paquet *paquet)
 	uint32 numberOfPlaques;
 
 	if (!MinimumPayloadSize(paquet, sizeof(numberOfPlaques))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -44,14 +44,14 @@ HandleDownloadPlaques(struct paquet *paquet)
 
 	if (!ExpectedPayloadSize(paquet, sizeof(numberOfPlaques) + numberOfPlaques * API_TokenBinarySize))
 	{
-		reportError("Wrong payload for %d plaques", numberOfPlaques);
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		ReportError("Wrong payload for %d plaques", numberOfPlaques);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
 	outputBuffer = MMPS_PeekBufferOfSize(chalkboard->pools.dynamic, KB, BUFFER_PLAQUES);
 	if (outputBuffer == NULL) {
-		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
+		SetTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
 	}
 
@@ -61,7 +61,7 @@ HandleDownloadPlaques(struct paquet *paquet)
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -77,21 +77,21 @@ HandleDownloadPlaques(struct paquet *paquet)
 
 		if (!DB_TuplesOK(dbh, dbh->result)) {
 			DB_PokeHandle(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+			SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
 		if (!DB_CorrectNumberOfColumns(dbh->result, 14)) {
 			DB_PokeHandle(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+			SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
 		if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
-		    reportInfo("Requested plaque not found");
+		    ReportInfo("Requested plaque not found");
 			continue;
 //			DB_PokeHandle(dbh);
-//			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+//			SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 //			return -1;
 		}
 
@@ -111,7 +111,7 @@ HandleDownloadPlaques(struct paquet *paquet)
 			!DB_CorrectColumnType(dbh->result, 13, TEXTOID))
 		{
 			DB_PokeHandle(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+			SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
@@ -138,9 +138,9 @@ HandleDownloadPlaques(struct paquet *paquet)
 			|| (direction == NULL) || (tilt == NULL) || (width == NULL) || (height == NULL)
 			|| (backgroundColor == NULL) || (foregroundColor == NULL) || (fontSize == NULL)
 			|| (inscription == NULL)) {
-			reportError("No results");
+			ReportError("No results");
 			DB_PokeHandle(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+			SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 

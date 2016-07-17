@@ -43,11 +43,11 @@ DestructDB(void);
 
 #ifdef STATISTICS
 void *
-statisticsThread(void *arg)
+StatisticsThread(void *arg)
 {
 	while (1)
 	{
-		reportDebug("STATISTICS  DBH: %-4d%-4d%-4d  TASK: %-4d  PAQUET: %-4d  256: %-4d  512: %-4d  1K: %-4d  4K: %-4d  1M: %-4d",
+		ReportDebug("STATISTICS  DBH: %-4d%-4d%-4d  TASK: %-4d  PAQUET: %-4d  256: %-4d  512: %-4d  1K: %-4d  4K: %-4d  1M: %-4d",
 			DB_HanldesInUse(chalkboard->db.guardian),
 			DB_HanldesInUse(chalkboard->db.auth),
 			DB_HanldesInUse(chalkboard->db.plaque),
@@ -75,14 +75,14 @@ main(int argc, char *argv[])
 	rc = CreateChalkboard();
     if (rc != 0)
 	{
-        reportError("Cannot initialize chalkboard");
+        ReportError("Cannot initialize chalkboard");
 		exit(EXIT_FAILURE);
     }
 
-	rc = initTaskList();
+	rc = InitTaskList();
 	if (rc != 0)
 	{
-        reportError("Cannot initialize task list");
+        ReportError("Cannot initialize task list");
 		exit(EXIT_FAILURE);
     }
 
@@ -96,42 +96,43 @@ main(int argc, char *argv[])
 	pthread_attr_t attr;
 	rc = pthread_attr_init(&attr);
 	if (rc != 0)
-		reportError("pthread_attr_init: %d", rc);
+		ReportError("pthread_attr_init: %d", rc);
 
 	int stackSize = 0x800000;
 	rc = pthread_attr_setstacksize(&attr, stackSize);
 	if (rc != 0)
-		reportError("pthread_attr_setstacksize: %d", rc);
+		ReportError("pthread_attr_setstacksize: %d", rc);
 */
 
 	ConstructDB();
 
-	if (setAllSessionsOffline() != 0)
+	rc = SetAllSessionsOffline();
+	if (rc != 0)
 		exit(-1);
 
 #ifdef STATISTICS
-	rc = pthread_create(&statisticsHandler, NULL, &statisticsThread, NULL);
+	rc = pthread_create(&statisticsHandler, NULL, &StatisticsThread, NULL);
     if (rc != 0) {
-        reportError("Cannot create statistics thread: errno=%d", errno);
+        ReportError("Cannot create statistics thread: errno=%d", errno);
         goto quit;
     }
 #endif
 
 	rc = pthread_create(&listenerHandler, NULL, &ListenerThread, NULL);
     if (rc != 0) {
-        reportError("Cannot create listener thread: errno=%d", errno);
+        ReportError("Cannot create listener thread: errno=%d", errno);
         goto quit;
     }
 
 	rc = pthread_create(&broadcasterHandler, NULL, &BroadcasterThread, NULL);
     if (rc != 0) {
-        reportError("Cannot create broadcaster thread: errno=%d", errno);
+        ReportError("Cannot create broadcaster thread: errno=%d", errno);
         goto quit;
     }
 
 	rc = pthread_join(listenerHandler, NULL);
     if (rc != 0) {
-        reportError("Error has occurred while waiting for listener thread: errno=%d", errno);
+        ReportError("Error has occurred while waiting for listener thread: errno=%d", errno);
         goto quit;
     }
 
@@ -144,7 +145,7 @@ quit:
 void
 SignalHandler(int signal)
 {
-	reportError("Received signal to quit: signal=%d", signal);
+	ReportError("Received signal to quit: signal=%d", signal);
 
 	pthread_kill(listenerHandler, signal);
 }

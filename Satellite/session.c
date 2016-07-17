@@ -12,8 +12,8 @@
 extern struct Chalkboard *chalkboard;
 
 int
-getSessionForDevice(
-    struct task *task,
+GetSessionForDevice(
+    struct Task *task,
     struct dbh *dbh,
     uint64 deviceId,
     uint64 *sessionId,
@@ -31,26 +31,26 @@ FROM journal.get_session($1, $2)"
 
 	if (!DB_TuplesOK(dbh, dbh->result))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 2))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, INT8OID) ||
 	    !DB_CorrectColumnType(dbh->result, 1, UUIDOID))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -61,7 +61,7 @@ FROM journal.get_session($1, $2)"
 }
 
 int
-setAllSessionsOffline(void)
+SetAllSessionsOffline(void)
 {
 #define QUERY_SET_ALL_SESSIONS_OFFLINE "\
 UPDATE journal.sessions \
@@ -86,7 +86,7 @@ WHERE satellite_task_id IS NOT NULL"
 }
 
 int
-setSessionOnline(struct task *task)
+SetSessionOnline(struct Task *task)
 {
 #define QUERY_SET_SESSION_ONLINE "\
 UPDATE journal.sessions \
@@ -102,7 +102,7 @@ WHERE device_id = $1"
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.auth);
 	if (dbh == NULL)
 	{
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -116,7 +116,7 @@ WHERE device_id = $1"
 	if (!DB_CommandOK(dbh, dbh->result))
 	{
     	DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -127,7 +127,7 @@ WHERE device_id = $1"
 	if (!DB_CommandOK(dbh, dbh->result))
 	{
     	DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -137,7 +137,7 @@ WHERE device_id = $1"
 }
 
 int
-setSessionOffline(struct task *task)
+SetSessionOffline(struct Task *task)
 {
 #define QUERY_SET_SESSION_OFFLINE "\
 UPDATE journal.sessions \
@@ -153,7 +153,7 @@ WHERE device_id = $1"
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.auth);
 	if (dbh == NULL)
 	{
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -164,7 +164,7 @@ WHERE device_id = $1"
 	if (!DB_CommandOK(dbh, dbh->result))
 	{
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -175,7 +175,7 @@ WHERE device_id = $1"
 	if (!DB_CommandOK(dbh, dbh->result))
 	{
     	DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -205,14 +205,14 @@ FROM journal.sessions \
 WHERE session_id = $1"
 
 int
-getSessionRevisions(
-    struct task         *task,
-    struct revisions    *revisions)
+GetSessionRevisions(
+    struct Task         *task,
+    struct Revisions    *revisions)
 {
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL)
 	{
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -223,42 +223,42 @@ getSessionRevisions(
 	if (!DB_TuplesOK(dbh, dbh->result))
 	{
         DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 3))
 	{
         DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1))
 	{
         DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, INT4OID))
 	{
         DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 1, INT4OID))
 	{
         DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 2, INT4OID))
 	{
         DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -272,8 +272,8 @@ getSessionRevisions(
 }
 
 int
-getSessionOnRadarRevision(
-    struct task *task,
+GetSessionOnRadarRevision(
+    struct Task *task,
     struct dbh  *dbh,
     uint32      *revision)
 {
@@ -283,25 +283,25 @@ getSessionOnRadarRevision(
 
 	if (!DB_TuplesOK(dbh, dbh->result))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, INT4OID))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -311,8 +311,8 @@ getSessionOnRadarRevision(
 }
 
 int
-getSessionInSightRevision(
-    struct task *task,
+GetSessionInSightRevision(
+    struct Task *task,
     struct dbh  *dbh,
     uint32      *revision)
 {
@@ -322,25 +322,25 @@ getSessionInSightRevision(
 
 	if (!DB_TuplesOK(dbh, dbh->result))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, INT4OID))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -350,8 +350,8 @@ getSessionInSightRevision(
 }
 
 int
-getSessionOnMapRevision(
-    struct task *task,
+GetSessionOnMapRevision(
+    struct Task *task,
     struct dbh  *dbh,
     uint32      *revision)
 {
@@ -361,25 +361,25 @@ getSessionOnMapRevision(
 
 	if (!DB_TuplesOK(dbh, dbh->result))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfRows(dbh->result, 1))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, INT4OID))
 	{
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 

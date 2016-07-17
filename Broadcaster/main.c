@@ -97,7 +97,7 @@ broadcasterMain(Datum *arg)
 	if (desk == NULL)
         proc_exit(-1);
 
-    reportInfo("Broadcaster ready");
+    ReportInfo("Broadcaster ready");
 
     desk->listener.portNumber = BROADCASTER_PORT_NUMBER;
 
@@ -179,7 +179,7 @@ initDesk(void)
 	LWLockRelease(AddinShmemInitLock);
 
 	if (desk == NULL) {
-        reportError("Cannot get shared memory");
+        ReportError("Cannot get shared memory");
         return NULL;
     }
 
@@ -188,19 +188,19 @@ initDesk(void)
 
     rc = pthread_mutex_init(&desk->listener.readyToGoMutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize mutex: rc=%d", rc);
+		ReportError("Cannot initialize mutex: rc=%d", rc);
         return NULL;
     }
 
     rc = pthread_cond_init(&desk->listener.readyToGoCond, NULL);
 	if (rc != 0) {
-		reportError("Cannot initialize condition: rc=%d", rc);
+		ReportError("Cannot initialize condition: rc=%d", rc);
         return NULL;
     }
 
 	rc = pthread_mutex_init(&desk->watchdog.mutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize mutex: rc=%d", rc);
+		ReportError("Cannot initialize mutex: rc=%d", rc);
         return NULL;
     }
 
@@ -226,7 +226,7 @@ startListener(struct desk *desk)
 
 	rc = pthread_create(&desk->listener.thread, &desk->listener.attributes, &listenerThread, desk);
     if (rc != 0) {
-        reportError("Cannot create listener thread: errno=%d", errno);
+        ReportError("Cannot create listener thread: errno=%d", errno);
         return -1;
     }
 
@@ -240,13 +240,13 @@ stopListener(struct desk *desk)
 
     rc = pthread_cancel(desk->listener.thread);
     if ((rc != 0) && (rc != ESRCH)) {
-        reportError("Cannot cancel listener thread: rc=%d", rc);
+        ReportError("Cannot cancel listener thread: rc=%d", rc);
         return -1;
     }
 
     rc = pthread_attr_destroy(&desk->listener.attributes);
     if (rc != 0) {
-        reportError("Cannot destroy thread attributes: rc=%d", rc);
+        ReportError("Cannot destroy thread attributes: rc=%d", rc);
         return -1;
     }
 

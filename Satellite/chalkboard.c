@@ -34,7 +34,7 @@ CreateChalkboard(void)
     chalkboard = malloc(sizeof(struct Chalkboard));
     if (chalkboard == NULL)
     {
-        reportHardAlert("Out of memory");
+        ReportSoftAlert("Out of memory");
 
         return -1;
     }
@@ -69,20 +69,20 @@ InitializeMMPS(void)
 	chalkboard->pools.dynamic = MMPS_InitPool(5);
 
 	rc = MMPS_InitBank(chalkboard->pools.task, 0,
-		sizeof(struct task),
+		sizeof(struct Task),
 		0,
 		NUMBER_OF_BUFFERS_TASK);
 	if (rc != 0) {
-		reportError("Cannot create buffer bank: rc=%d", rc);
+		ReportError("Cannot create buffer bank: rc=%d", rc);
         return -1;
     }
 
 	rc = MMPS_InitBank(chalkboard->pools.paquet, 0,
-		sizeof(struct paquet),
+		sizeof(struct Paquet),
 		0,
 		NUMBER_OF_BUFFERS_PAQUET);
 	if (rc != 0) {
-		reportError("Cannot create buffer bank: rc=%d", rc);
+		ReportError("Cannot create buffer bank: rc=%d", rc);
         return -1;
     }
 
@@ -91,7 +91,7 @@ InitializeMMPS(void)
 		sizeof(struct PaquetPilot),
 		NUMBER_OF_BUFFERS_256);
 	if (rc != 0) {
-		reportError("Cannot create buffer bank: rc=%d", rc);
+		ReportError("Cannot create buffer bank: rc=%d", rc);
         return -1;
     }
 
@@ -100,7 +100,7 @@ InitializeMMPS(void)
 		sizeof(struct PaquetPilot),
 		NUMBER_OF_BUFFERS_512);
 	if (rc != 0) {
-		reportError("Cannot create buffer bank: rc=%d", rc);
+		ReportError("Cannot create buffer bank: rc=%d", rc);
         return -1;
     }
 
@@ -109,7 +109,7 @@ InitializeMMPS(void)
 		sizeof(struct PaquetPilot),
 		NUMBER_OF_BUFFERS_1K);
 	if (rc != 0) {
-		reportError("Cannot create buffer bank: rc=%d", rc);
+		ReportError("Cannot create buffer bank: rc=%d", rc);
         return -1;
     }
 
@@ -118,7 +118,7 @@ InitializeMMPS(void)
 		sizeof(struct PaquetPilot),
 		NUMBER_OF_BUFFERS_4K);
 	if (rc != 0) {
-		reportError("Cannot create buffer bank: rc=%d", rc);
+		ReportError("Cannot create buffer bank: rc=%d", rc);
         return -1;
     }
 
@@ -127,7 +127,7 @@ InitializeMMPS(void)
 		sizeof(struct PaquetPilot),
 		NUMBER_OF_BUFFERS_1M);
 	if (rc != 0) {
-		reportError("Cannot create buffer bank: rc=%d", rc);
+		ReportError("Cannot create buffer bank: rc=%d", rc);
         return -1;
     }
 

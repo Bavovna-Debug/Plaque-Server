@@ -15,14 +15,14 @@
 extern struct Chalkboard *chalkboard;
 
 int
-getProfiles(struct paquet *paquet)
+GetProfiles(struct Paquet *paquet)
 {
 #define QUERY_SELECT_PROFILES "\
 SELECT profile_revision, profile_name, user_name \
 FROM auth.profiles \
 WHERE profile_token = $1"
 
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = NULL;
@@ -32,9 +32,9 @@ WHERE profile_token = $1"
 	if (paquet->payloadSize < sizeof(numberOfProfiles))
 	{
 #ifdef DEBUG
-		reportInfo("Wrong payload size %d", paquet->payloadSize);
+		ReportInfo("Wrong payload size %d", paquet->payloadSize);
 #endif
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -45,16 +45,16 @@ WHERE profile_token = $1"
 	if (paquet->payloadSize != sizeof(numberOfProfiles) + numberOfProfiles * API_TokenBinarySize)
 	{
 #ifdef DEBUG
-		reportInfo("Wrong payload size %d for %d profiles", paquet->payloadSize, numberOfProfiles);
+		ReportInfo("Wrong payload size %d for %d profiles", paquet->payloadSize, numberOfProfiles);
 #endif
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
 	outputBuffer = MMPS_PeekBufferOfSize(chalkboard->pools.dynamic, KB, BUFFER_PROFILES);
 	if (outputBuffer == NULL)
 	{
-		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
+		SetTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
 	}
 
@@ -65,7 +65,7 @@ WHERE profile_token = $1"
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL)
 	{
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -83,21 +83,21 @@ WHERE profile_token = $1"
 		if (!DB_TuplesOK(dbh, dbh->result))
 		{
 			DB_PokeHandle(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+			SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
 		if (!DB_CorrectNumberOfColumns(dbh->result, 3))
 		{
 			DB_PokeHandle(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+			SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
 		if (!DB_CorrectNumberOfRows(dbh->result, 1))
 		{
 			DB_PokeHandle(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+			SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
@@ -106,7 +106,7 @@ WHERE profile_token = $1"
 			!DB_CorrectColumnType(dbh->result, 2, VARCHAROID))
 		{
 			DB_PokeHandle(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+			SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
@@ -119,10 +119,10 @@ WHERE profile_token = $1"
 		if ((profileRevision == NULL) || (profileName == NULL) || (userName == NULL))
 		{
 #ifdef DEBUG
-			reportInfo("No results");
+			ReportInfo("No results");
 #endif
 			DB_PokeHandle(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+			SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
@@ -138,7 +138,7 @@ WHERE profile_token = $1"
 }
 
 uint64
-profileIdByToken(struct dbh *dbh, char *profileToken)
+ProfileIdByToken(struct dbh *dbh, char *profileToken)
 {
 #define QUERY_SEARCH_PROFILE_BY_TOKEN "\
 SELECT profile_id \

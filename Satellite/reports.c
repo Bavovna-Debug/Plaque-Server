@@ -15,9 +15,9 @@
 extern struct Chalkboard *chalkboard;
 
 int
-reportMessage(struct paquet *paquet)
+ReportMessage(struct Paquet *paquet)
 {
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
 	const char	*paramValues[2];
     Oid			paramTypes[2];
@@ -28,7 +28,7 @@ reportMessage(struct paquet *paquet)
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
 	if (!MinimumPayloadSize(paquet, sizeof(struct PaquetReport))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -40,15 +40,15 @@ reportMessage(struct paquet *paquet)
 
 	int expectedSize = sizeof(payload) + be32toh(payload.messageLength);
 	if (!ExpectedPayloadSize(paquet, expectedSize)) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
 	char *message = (char *)malloc(payload.messageLength);
 	if (message == NULL) {
-		reportError("Cannot allocate %ud bytes for report message",
+		ReportError("Cannot allocate %ud bytes for report message",
 			payload.messageLength);
-		setTaskStatus(task, TaskStatusOutOfMemory);
+		SetTaskStatus(task, TaskStatusOutOfMemory);
 		return -1;
 	}
 
@@ -57,7 +57,7 @@ reportMessage(struct paquet *paquet)
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		free(message);
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
@@ -79,7 +79,7 @@ VALUES ($1, $2)",
 	if (!DB_CommandOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
 		free(message);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 

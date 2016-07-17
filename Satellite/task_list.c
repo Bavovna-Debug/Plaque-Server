@@ -11,7 +11,7 @@
 extern struct Chalkboard *chalkboard;
 
 int
-initTaskList(void)
+InitTaskList(void)
 {
     long long	    totalListSize;
 	size_t		    maxListPageSize;
@@ -25,13 +25,13 @@ initTaskList(void)
     size_t			pageSize;
 	void			**list;
 	void			*page;
-	struct task		**taskInList;
+	struct Task		**taskInList;
 
 	maxListPageSize = MAX_TASK_LIST_PAGE_SIZE;
 
-	tasksPerPage = MAX_TASK_LIST_PAGE_SIZE / sizeof(struct task *);
+	tasksPerPage = MAX_TASK_LIST_PAGE_SIZE / sizeof(struct Task *);
 
-	totalListSize = (long)MAX_NUMBER_OF_TASK * (long)sizeof(struct task *);
+	totalListSize = (long)MAX_NUMBER_OF_TASK * (long)sizeof(struct Task *);
 	if (totalListSize <= maxListPageSize) {
 		numberOfPages = 1;
 		eachPageSize = totalListSize;
@@ -48,10 +48,10 @@ initTaskList(void)
 		}
 	}
 
-	list = malloc(numberOfPages * sizeof(struct task *));
+	list = malloc(numberOfPages * sizeof(struct Task *));
 	if (list == NULL)
 	{
-        reportError("Out of memory");
+        ReportSoftAlert("Out of memory");
         return -1;
     }
 
@@ -73,7 +73,7 @@ initTaskList(void)
 	    	page = malloc(pageSize);
 			if (page == NULL)
 			{
-        		reportError("Out of memory");
+        		ReportSoftAlert("Out of memory");
     	    	return -1;
 		    }
 
@@ -81,7 +81,7 @@ initTaskList(void)
 			pageId++;
 		}
 
-		taskInList = (void *)((unsigned long)page + (unsigned long)(taskIdInPage * sizeof(struct task *)));
+		taskInList = (void *)((unsigned long)page + (unsigned long)(taskIdInPage * sizeof(struct Task *)));
 		*taskInList = NULL;
 
 		taskIdInPage++;
@@ -94,40 +94,40 @@ initTaskList(void)
 }
 
 void
-taskListPushTask(int taskId, struct task *task)
+TaskListPushTask(int taskId, struct Task *task)
 {
     int			    tasksPerPage;
     int				pageId;
     int				taskIdInPage;
 	void			*page;
-	struct task		**taskInList;
+	struct Task		**taskInList;
 
-	tasksPerPage = MAX_TASK_LIST_PAGE_SIZE / sizeof(struct task *);
+	tasksPerPage = MAX_TASK_LIST_PAGE_SIZE / sizeof(struct Task *);
 
 	pageId = taskId / tasksPerPage;
 	taskIdInPage = taskId % tasksPerPage;
 	page = chalkboard->tasks.list[pageId];
 
-	taskInList = (void *)((unsigned long)page + (unsigned long)(taskIdInPage * sizeof(struct task *)));
+	taskInList = (void *)((unsigned long)page + (unsigned long)(taskIdInPage * sizeof(struct Task *)));
 	*taskInList = task;
 }
 
-struct task *
-taskListTaskById(int taskId)
+struct Task *
+TaskListTaskById(int taskId)
 {
     int			    tasksPerPage;
     int				pageId;
     int				taskIdInPage;
 	void			*page;
-	struct task		**taskInList;
+	struct Task		**taskInList;
 
-	tasksPerPage = MAX_TASK_LIST_PAGE_SIZE / sizeof(struct task *);
+	tasksPerPage = MAX_TASK_LIST_PAGE_SIZE / sizeof(struct Task *);
 
 	pageId = taskId / tasksPerPage;
 	taskIdInPage = taskId % tasksPerPage;
 	page = chalkboard->tasks.list[pageId];
 
-	taskInList = (void *)((unsigned long)page + (unsigned long)(taskIdInPage * sizeof(struct task *)));
+	taskInList = (void *)((unsigned long)page + (unsigned long)(taskIdInPage * sizeof(struct Task *)));
 
 	return *taskInList;
 }

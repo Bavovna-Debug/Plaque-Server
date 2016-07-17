@@ -8,53 +8,53 @@
 #include <time.h>
 #endif
 
-// reportPanic:
+// ReportPanic:
 // A panic condition. Application breaks the execution immediately.
 //
-// reportSoftAlert:
+// ReportSoftAlert:
 // A software condition that should be corrected immediately, such as a corrupted data.
 //
-// reportHardAlert:
+// ReportHardAlert:
 // A hardware condition that should be corrected immediately, such as device errors.
 //
-// reportError:
+// ReportError:
 // Error message. Some system component has broken its usual execution but the system goes on.
 //
-// reportWarning:
+// ReportWarning:
 // Warning message. System continues its normal execution.
 //
-// reportInfo:
+// ReportInfo:
 // Informational message.
 //
-// reportDebug:
+// ReportDebug:
 // Debug message that may be reported if the code is compiled with debug option.
 
 #ifdef PGBGW
 
-#define reportPanic(...) \
+#define ReportPanic(...) \
     elog(LOG, __VA_ARGS__)
 
-#define reportSoftAlert(...) \
+#define ReportSoftAlert(...) \
     elog(LOG, __VA_ARGS__)
 
-#define reportHardAlert(...) \
+#define ReportHardAlert(...) \
     elog(LOG, __VA_ARGS__)
 
-#define reportError(...) \
+#define ReportError(...) \
     elog(LOG, __VA_ARGS__)
 
-#define reportWarning(...) \
+#define ReportWarning(...) \
     elog(LOG, __VA_ARGS__)
 
-#define reportInfo(...) \
+#define ReportInfo(...) \
     elog(LOG, __VA_ARGS__)
 
-#define reportDebug(...) \
+#define ReportDebug(...) \
     elog(LOG, __VA_ARGS__)
 
 #else
 
-#define reportPanic(...) \
+#define ReportPanic(...) \
     do { \
         struct timespec time; \
         clock_gettime(CLOCK_REALTIME, &time); \
@@ -63,7 +63,7 @@
         fprintf(stdout, "\n"); \
     } while (0)
 
-#define reportSoftAlert(...) \
+#define ReportSoftAlert(...) \
     do { \
         struct timespec time; \
         clock_gettime(CLOCK_REALTIME, &time); \
@@ -72,7 +72,7 @@
         fprintf(stdout, "\n"); \
     } while (0)
 
-#define reportHardAlert(...) \
+#define ReportHardAlert(...) \
     do { \
         struct timespec time; \
         clock_gettime(CLOCK_REALTIME, &time); \
@@ -81,7 +81,7 @@
         fprintf(stdout, "\n"); \
     } while (0)
 
-#define reportError(...) \
+#define ReportError(...) \
     do { \
         struct timespec time; \
         clock_gettime(CLOCK_REALTIME, &time); \
@@ -90,7 +90,7 @@
         fprintf(stdout, "\n"); \
     } while (0)
 
-#define reportWarning(...) \
+#define ReportWarning(...) \
     do { \
         struct timespec time; \
         clock_gettime(CLOCK_REALTIME, &time); \
@@ -99,7 +99,7 @@
         fprintf(stdout, "\n"); \
     } while (0)
 
-#define reportInfo(...) \
+#define ReportInfo(...) \
     do { \
         struct timespec time; \
         clock_gettime(CLOCK_REALTIME, &time); \
@@ -108,7 +108,7 @@
         fprintf(stdout, "\n"); \
     } while (0)
 
-#define reportDebug(...) \
+#define ReportDebug(...) \
     do { \
         struct timespec time; \
         clock_gettime(CLOCK_REALTIME, &time); \

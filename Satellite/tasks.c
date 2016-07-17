@@ -22,34 +22,34 @@ extern struct Chalkboard *chalkboard;
 // TASK_THREAD
 
 void *
-taskThread(void *arg);
+TaskThread(void *arg);
 
 int
-taskInit(struct task *task);
+TaskInit(struct Task *task);
 
 void
-taskCleanup(void *arg);
+TaskCleanup(void *arg);
 
-struct task *
-startTask(
+struct Task *
+StartTask(
 	int					sockFD,
 	char				*clientIP)
 {
 	struct MMPS_Buffer	*taskBuffer;
-	struct task			*task;
+	struct Task			*task;
 	int 				rc;
 
 #ifdef TASKS
-	reportInfo("Starting new task");
+	ReportInfo("Starting new task");
 #endif
 
 	taskBuffer = MMPS_PeekBuffer(chalkboard->pools.task, BUFFER_TASK);
 	if (taskBuffer == NULL) {
-        reportError("Out of memory");
+        ReportSoftAlert("Out of memory");
         return NULL;
     }
 
-	task = (struct task *)taskBuffer->data;
+	task = (struct Task *)taskBuffer->data;
 	task->containerBuffer = taskBuffer;
 
 	task->taskId = taskBuffer->bufferId;
@@ -61,18 +61,18 @@ startTask(
 	strncpy(task->clientIP, clientIP, sizeof(task->clientIP));
 
 #ifdef TASKS
-	reportInfo("... creating a thread");
+	ReportInfo("... creating a thread");
 #endif
 
-    rc = pthread_create(&task->thread, NULL, &taskThread, task);
+    rc = pthread_create(&task->thread, NULL, &TaskThread, task);
     if (rc != 0) {
     	MMPS_PokeBuffer(taskBuffer);
-        reportError("Cannot create task: errno=%d", errno);
+        ReportError("Cannot create task: errno=%d", errno);
         return NULL;
     }
 
 #ifdef TASKS
-	reportInfo("... created thread for task 0x%08luX to serve %s",
+	ReportInfo("... created thread for task 0x%08luX to serve %s",
 		(unsigned long) task,
 		task->clientIP);
 #endif
@@ -81,7 +81,7 @@ startTask(
 }
 
 inline void
-__setTaskStatus(struct task *task, uint64 statusMask)
+__SetTaskStatus(struct Task *task, uint64 statusMask)
 {
 	pthread_spin_lock(&task->statusLock);
 	task->status |= statusMask;
@@ -89,7 +89,7 @@ __setTaskStatus(struct task *task, uint64 statusMask)
 }
 
 inline uint64
-getTaskStatus(struct task *task)
+GetTaskStatus(struct Task *task)
 {
 	pthread_spin_lock(&task->statusLock);
 	uint64 status = task->status;
@@ -98,9 +98,9 @@ getTaskStatus(struct task *task)
 }
 
 void
-appentPaquetToTask(struct task *task, struct paquet *paquet)
+AppentPaquetToTask(struct Task *task, struct Paquet *paquet)
 {
-	struct paquet *paquetUnderCursor;
+	struct Paquet *paquetUnderCursor;
 
 	pthread_spin_lock(&task->paquet.chainLock);
 
@@ -119,9 +119,9 @@ appentPaquetToTask(struct task *task, struct paquet *paquet)
 }
 
 void
-removePaquetFromTask(struct task *task, struct paquet *paquet)
+RemovePaquetFromTask(struct Task *task, struct Paquet *paquet)
 {
-	struct paquet *paquetUnderCursor;
+	struct Paquet *paquetUnderCursor;
 
 	pthread_spin_lock(&task->paquet.chainLock);
 
@@ -145,52 +145,52 @@ removePaquetFromTask(struct task *task, struct paquet *paquet)
 }
 
 void *
-taskThread(void *arg)
+TaskThread(void *arg)
 {
-	struct task	*task = (struct task *)arg;
+	struct Task	*task = (struct Task *)arg;
 	int			rc;
 
-	rc = taskInit(task);
+	rc = TaskInit(task);
 	if (rc != 0)
 		pthread_exit(NULL);
 
-    pthread_cleanup_push(taskCleanup, task);
+    pthread_cleanup_push(TaskCleanup, task);
 
-	rc = receiveFixed(task, (char *)&task->dialogue.demande, sizeof(task->dialogue.demande));
+	rc = ReceiveFixed(task, (char *)&task->dialogue.demande, sizeof(task->dialogue.demande));
 	if (rc != 0) {
 #ifdef TASK_THREAD
-       	reportInfo("No dialoge demande");
+       	ReportInfo("No dialoge demande");
 #endif
-		setTaskStatus(task, TaskStatusMissingDialogueDemande);
+		SetTaskStatus(task, TaskStatusMissingDialogueDemande);
 	} else {
 		uint32 dialogueType = be32toh(task->dialogue.demande.dialogueType);
 		switch (dialogueType)
 		{
 			case API_DialogueTypeAnticipant:
 #ifdef TASK_THREAD
-		       	reportInfo("Start anticipant dialogue");
+		       	ReportInfo("Start anticipant dialogue");
 #endif
-				dialogueAnticipant(task);
+				DialogueAnticipant(task);
 				break;
 
 			case API_DialogueTypeRegular:
-				authentifyDialogue(task);
+				AuthentifyDialogue(task);
 #ifdef TASK_THREAD
-		       	reportInfo("Start regular dialogue");
+		       	ReportInfo("Start regular dialogue");
 #endif
-				dialogueRegular(task);
+				DialogueRegular(task);
 				break;
 		}
 	}
 
 #ifdef TASK_THREAD
-	long taskStatus = getTaskStatus(task);
+	long taskStatus = GetTaskStatus(task);
 	if (taskStatus == TaskStatusGood) {
-       	reportInfo("Task complete");
+       	ReportInfo("Task complete");
 	} else {
 	    int commonStatus = taskStatus & 0xFFFFFFFF;
 	    int communicationStatus = taskStatus >> 32;
-       	reportInfo("Task cancelled with status 0x%08X:%08X",
+       	ReportInfo("Task cancelled with status 0x%08X:%08X",
        	    communicationStatus, commonStatus);
     }
 #endif
@@ -201,67 +201,67 @@ taskThread(void *arg)
 }
 
 int
-taskInit(struct task *task)
+TaskInit(struct Task *task)
 {
 	pthread_mutexattr_t mutexAttr;
 	int					rc;
 
-    taskListPushTask(task->taskId, task);
+    TaskListPushTask(task->taskId, task);
 
     pthread_mutexattr_init(&mutexAttr);
     //pthread_mutexattr_setpshared(&mutexAttr, PTHREAD_PROCESS_SHARED);
 
 	rc = pthread_spin_init(&task->statusLock, PTHREAD_PROCESS_PRIVATE);
 	if (rc != 0) {
-		reportError("Cannot initialize spinlock: errno=%d", errno);
+		ReportError("Cannot initialize spinlock: errno=%d", errno);
         return -1;
     }
 
     rc = pthread_mutex_init(&task->xmit.receiveMutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize mutex: rc=%d", rc);
+		ReportError("Cannot initialize mutex: rc=%d", rc);
         return -1;
     }
 
     rc = pthread_mutex_init(&task->xmit.sendMutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize mutex: rc=%d", rc);
+		ReportError("Cannot initialize mutex: rc=%d", rc);
         return -1;
     }
 
 	rc = pthread_spin_init(&task->paquet.chainLock, PTHREAD_PROCESS_PRIVATE);
 	if (rc != 0) {
-		reportError("Cannot initialize spinlock: errno=%d", errno);
+		ReportError("Cannot initialize spinlock: errno=%d", errno);
         return -1;
     }
 
 	rc = pthread_spin_init(&task->paquet.heavyJobLock, PTHREAD_PROCESS_PRIVATE);
 	if (rc != 0) {
-		reportError("Cannot initialize spinlock: errno=%d", errno);
+		ReportError("Cannot initialize spinlock: errno=%d", errno);
         return -1;
     }
 
     rc = pthread_mutex_init(&task->paquet.downloadMutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize mutex: rc=%d", rc);
+		ReportError("Cannot initialize mutex: rc=%d", rc);
         return -1;
     }
 
     rc = pthread_mutex_init(&task->broadcast.editMutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize mutex: rc=%d", rc);
+		ReportError("Cannot initialize mutex: rc=%d", rc);
         return -1;
     }
 
     rc = pthread_mutex_init(&task->broadcast.waitMutex, &mutexAttr);
 	if (rc != 0) {
-		reportError("Cannot initialize mutex: rc=%d", rc);
+		ReportError("Cannot initialize mutex: rc=%d", rc);
         return -1;
     }
 
     rc = pthread_cond_init(&task->broadcast.waitCondition, NULL);
 	if (rc != 0) {
-		reportError("Cannot initialize condition: rc=%d", rc);
+		ReportError("Cannot initialize condition: rc=%d", rc);
         return -1;
     }
 
@@ -279,10 +279,10 @@ taskInit(struct task *task)
 }
 
 void
-taskCleanup(void *arg)
+TaskCleanup(void *arg)
 {
-	struct task 	*task = (struct task *)arg;
-	struct paquet	*paquetToCancel;
+	struct Task 	*task = (struct Task *)arg;
+	struct Paquet	*paquetToCancel;
 	int 			rc;
 
 	do {
@@ -301,41 +301,41 @@ taskCleanup(void *arg)
 
 	rc = pthread_spin_destroy(&task->statusLock);
 	if (rc != 0)
-		reportError("Cannot destroy spinlock: errno=%d", errno);
+		ReportError("Cannot destroy spinlock: errno=%d", errno);
 
 	rc = pthread_mutex_destroy(&task->xmit.receiveMutex);
 	if (rc != 0)
-		reportError("Cannot destroy mutex: rc=%d", rc);
+		ReportError("Cannot destroy mutex: rc=%d", rc);
 
 	rc = pthread_mutex_destroy(&task->xmit.sendMutex);
 	if (rc != 0)
-		reportError("Cannot destroy mutex: rc=%d", rc);
+		ReportError("Cannot destroy mutex: rc=%d", rc);
 
 	rc = pthread_spin_destroy(&task->paquet.chainLock);
 	if (rc != 0)
-		reportError("Cannot destroy spinlock: errno=%d", errno);
+		ReportError("Cannot destroy spinlock: errno=%d", errno);
 
 	rc = pthread_spin_destroy(&task->paquet.heavyJobLock);
 	if (rc != 0)
-		reportError("Cannot destroy spinlock: errno=%d", errno);
+		ReportError("Cannot destroy spinlock: errno=%d", errno);
 
 	rc = pthread_mutex_destroy(&task->paquet.downloadMutex);
 	if (rc != 0)
-		reportError("Cannot destroy mutex: rc=%d", rc);
+		ReportError("Cannot destroy mutex: rc=%d", rc);
 
 	rc = pthread_mutex_destroy(&task->broadcast.editMutex);
 	if (rc != 0)
-		reportError("Cannot destroy mutex: rc=%d", rc);
+		ReportError("Cannot destroy mutex: rc=%d", rc);
 
 	rc = pthread_mutex_destroy(&task->broadcast.waitMutex);
 	if (rc != 0)
-		reportError("Cannot destroy mutex: rc=%d", rc);
+		ReportError("Cannot destroy mutex: rc=%d", rc);
 
     rc = pthread_cond_destroy(&task->broadcast.waitCondition);
 	if (rc != 0)
-		reportError("Cannot destroy condition: rc=%d", rc);
+		ReportError("Cannot destroy condition: rc=%d", rc);
 
-    taskListPushTask(task->taskId, NULL);
+    TaskListPushTask(task->taskId, NULL);
 
     MMPS_PokeBuffer(task->containerBuffer);
 }

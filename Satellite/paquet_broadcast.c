@@ -17,21 +17,21 @@
 extern struct Chalkboard *chalkboard;
 
 static int
-HandleBroadcastPlaquesOnRadar(struct paquet *paquet);
+HandleBroadcastPlaquesOnRadar(struct Paquet *paquet);
 
 static int
-HandleBroadcastPlaquesInSight(struct paquet *paquet);
+HandleBroadcastPlaquesInSight(struct Paquet *paquet);
 
 static int
-HandleBroadcastPlaquesOnMap(struct paquet *paquet);
+HandleBroadcastPlaquesOnMap(struct Paquet *paquet);
 
 int
-HandleBroadcast(struct paquet *paquet)
+HandleBroadcast(struct Paquet *paquet)
 {
-    struct task         *task;
-    struct revisions    *lastKnownRevision;
-    struct revisions    *currentRevision;
-    struct revisions    missingRevision;
+    struct Task         *task;
+    struct Revisions    *lastKnownRevision;
+    struct Revisions    *currentRevision;
+    struct Revisions    missingRevision;
     int                 rc;
 
     task = paquet->task;
@@ -40,7 +40,7 @@ HandleBroadcast(struct paquet *paquet)
     currentRevision = &task->broadcast.currentRevision;
 
 	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetBroadcast))) {
-		setTaskStatus(task, TaskStatusWrongPayloadSize);
+		SetTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
@@ -52,19 +52,19 @@ HandleBroadcast(struct paquet *paquet)
 	lastKnownRevision->inSight = be32toh(broadcast->lastKnownInSightRevision);
 	lastKnownRevision->onMap = be32toh(broadcast->lastKnownOnMapRevision);
 
-    rc = getSessionRevisions(task, currentRevision);
+    rc = GetSessionRevisions(task, currentRevision);
     if (rc != 0) {
-		setTaskStatus(task, TaskStatusOtherError);
+		SetTaskStatus(task, TaskStatusOtherError);
 		return -1;
     }
 
-    reportInfo("'On radar' revisions: 'last known' %u 'current' %u",
+    ReportInfo("'On radar' revisions: 'last known' %u 'current' %u",
         lastKnownRevision->onRadar,
         currentRevision->onRadar);
-    reportInfo("'In sight' revisions: 'last known' %u 'current' %u",
+    ReportInfo("'In sight' revisions: 'last known' %u 'current' %u",
         lastKnownRevision->inSight,
         currentRevision->inSight);
-    reportInfo("'On map' revisions: 'last known' %u 'current' %u",
+    ReportInfo("'On map' revisions: 'last known' %u 'current' %u",
         lastKnownRevision->onMap,
         currentRevision->onMap);
 
@@ -82,7 +82,7 @@ HandleBroadcast(struct paquet *paquet)
 	if (task->broadcast.broadcastPaquet != NULL) {
 		//paquetCancel(task->broadcast.broadcastPaquet);
 	    pthread_mutex_unlock(&task->broadcast.editMutex);
-		reportInfo("Broadcast request received while another broadcast request is still in process");
+		ReportInfo("Broadcast request received while another broadcast request is still in process");
 	    return -1;
 	}
 
@@ -95,57 +95,57 @@ HandleBroadcast(struct paquet *paquet)
     missingRevision.onMap = currentRevision->onMap - lastKnownRevision->onMap;
 
     if ((missingRevision.onRadar > 0) || (missingRevision.inSight > 0) || (missingRevision.onMap > 0)) {
-        reportInfo("Do not wait for boradcast because there are already %u / %u / %u missing revisions",
+        ReportInfo("Do not wait for boradcast because there are already %u / %u / %u missing revisions",
             missingRevision.onRadar,
             missingRevision.inSight,
             missingRevision.onMap);
     } else {
-        reportInfo("Waiting for broadcast with known revisions %u / %u / %u",
+        ReportInfo("Waiting for broadcast with known revisions %u / %u / %u",
             lastKnownRevision->onRadar,
             lastKnownRevision->inSight,
             lastKnownRevision->onMap);
 
         rc = pthread_mutex_lock(&task->broadcast.waitMutex);
         if (rc != 0) {
-            reportError("Error has occurred on mutex lock: rc=%d", rc);
+            ReportError("Error has occurred on mutex lock: rc=%d", rc);
             return -1;
         }
 
         rc = pthread_cond_wait(&task->broadcast.waitCondition, &task->broadcast.waitMutex);
         if (rc != 0) {
             pthread_mutex_unlock(&task->broadcast.waitMutex);
-            reportError("Error has occurred while whaiting for condition: rc=%d", rc);
+            ReportError("Error has occurred while whaiting for condition: rc=%d", rc);
             return -1;
         }
 
         rc = pthread_mutex_unlock(&task->broadcast.waitMutex);
         if (rc != 0) {
-            reportError("Error has occurred on mutex unlock: rc=%d", rc);
+            ReportError("Error has occurred on mutex unlock: rc=%d", rc);
             return -1;
         }
 
-        reportInfo("Received broadcast");
+        ReportInfo("Received broadcast");
     }
 
 	pthread_mutex_lock(&task->broadcast.editMutex);
 
     if (currentRevision->onRadar > lastKnownRevision->onRadar) {
-        reportInfo("Fetch 'on radar' for broadcast from revision %u to %u",
+        ReportInfo("Fetch 'on radar' for broadcast from revision %u to %u",
             lastKnownRevision->onRadar,
             currentRevision->onRadar);
         rc = HandleBroadcastPlaquesOnRadar(paquet);
     } else if (currentRevision->inSight > lastKnownRevision->inSight) {
-        reportInfo("Fetch 'in sight' for broadcast from revision %u to %u",
+        ReportInfo("Fetch 'in sight' for broadcast from revision %u to %u",
             lastKnownRevision->inSight,
             currentRevision->inSight);
         rc = HandleBroadcastPlaquesInSight(paquet);
     } else if (currentRevision->onMap > lastKnownRevision->onMap) {
-        reportInfo("Fetch 'on map' for broadcast from revision %u to %u",
+        ReportInfo("Fetch 'on map' for broadcast from revision %u to %u",
             lastKnownRevision->onMap,
             currentRevision->onMap);
         rc = HandleBroadcastPlaquesOnMap(paquet);
     } else {
-        reportInfo("Nothing to fetch for broadcast");
+        ReportInfo("Nothing to fetch for broadcast");
         rc = -1;
     }
 
@@ -181,14 +181,14 @@ WHERE session_id = $1 \
   AND on_map_revision > $2"
 
 static int
-HandleBroadcastPlaquesOnRadar(struct paquet *paquet)
+HandleBroadcastPlaquesOnRadar(struct Paquet *paquet)
 {
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
     struct MMPS_Buffer *outputBuffer =
         MMPS_PeekBufferOfSize(chalkboard->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
-		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
+		SetTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
 	}
 
@@ -198,12 +198,12 @@ HandleBroadcastPlaquesOnRadar(struct paquet *paquet)
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
     uint32 currentRevision;
-    if (getSessionOnRadarRevision(task, dbh, &currentRevision) != 0) {
+    if (GetSessionOnRadarRevision(task, dbh, &currentRevision) != 0) {
 		DB_PokeHandle(dbh);
 		return -1;
 	}
@@ -216,31 +216,31 @@ HandleBroadcastPlaquesOnRadar(struct paquet *paquet)
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 3)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 1, INT4OID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 2, BOOLOID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -253,7 +253,7 @@ HandleBroadcastPlaquesOnRadar(struct paquet *paquet)
 
 	uint32 numberOfPlaques = PQntuples(dbh->result);
 
-	reportInfo("Found %u plaques for 'on radar' current revision %u last known revision %u",
+	ReportInfo("Found %u plaques for 'on radar' current revision %u last known revision %u",
 	    numberOfPlaques,
 	    currentRevision,
 	    task->broadcast.lastKnownRevision.onRadar);
@@ -267,9 +267,9 @@ HandleBroadcastPlaquesOnRadar(struct paquet *paquet)
 		char *plaqueRevision = PQgetvalue(dbh->result, rowNumber, 1);
 		char disappeared = *PQgetvalue(dbh->result, rowNumber, 2);
 		if ((plaqueToken == NULL) || (plaqueRevision == NULL)) {
-			reportError("No results");
+			ReportError("No results");
 			DB_PokeHandle(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+			SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
@@ -284,14 +284,14 @@ HandleBroadcastPlaquesOnRadar(struct paquet *paquet)
 }
 
 static int
-HandleBroadcastPlaquesInSight(struct paquet *paquet)
+HandleBroadcastPlaquesInSight(struct Paquet *paquet)
 {
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
     struct MMPS_Buffer *outputBuffer =
         MMPS_PeekBufferOfSize(chalkboard->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
-		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
+		SetTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
 	}
 
@@ -301,12 +301,12 @@ HandleBroadcastPlaquesInSight(struct paquet *paquet)
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
     uint32 currentRevision;
-    if (getSessionInSightRevision(task, dbh, &currentRevision) != 0) {
+    if (GetSessionInSightRevision(task, dbh, &currentRevision) != 0) {
 		DB_PokeHandle(dbh);
 		return -1;
 	}
@@ -319,31 +319,31 @@ HandleBroadcastPlaquesInSight(struct paquet *paquet)
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 3)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 1, INT4OID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 2, BOOLOID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -356,7 +356,7 @@ HandleBroadcastPlaquesInSight(struct paquet *paquet)
 
 	uint32 numberOfPlaques = PQntuples(dbh->result);
 
-	reportInfo("Found %u plaques for 'in sight' current revision %u last known revision %u",
+	ReportInfo("Found %u plaques for 'in sight' current revision %u last known revision %u",
 	    numberOfPlaques,
 	    currentRevision,
 	    task->broadcast.lastKnownRevision.inSight);
@@ -370,9 +370,9 @@ HandleBroadcastPlaquesInSight(struct paquet *paquet)
 		char *plaqueRevision = PQgetvalue(dbh->result, rowNumber, 1);
 		char disappeared = *PQgetvalue(dbh->result, rowNumber, 2);
 		if ((plaqueToken == NULL) || (plaqueRevision == NULL)) {
-			reportError("No results");
+			ReportError("No results");
 			DB_PokeHandle(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+			SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
@@ -387,14 +387,14 @@ HandleBroadcastPlaquesInSight(struct paquet *paquet)
 }
 
 static int
-HandleBroadcastPlaquesOnMap(struct paquet *paquet)
+HandleBroadcastPlaquesOnMap(struct Paquet *paquet)
 {
-	struct task	*task = paquet->task;
+	struct Task	*task = paquet->task;
 
     struct MMPS_Buffer *outputBuffer =
         MMPS_PeekBufferOfSize(chalkboard->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
-		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
+		SetTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
 	}
 
@@ -404,12 +404,12 @@ HandleBroadcastPlaquesOnMap(struct paquet *paquet)
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
-		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
+		SetTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
     uint32 currentRevision;
-    if (getSessionOnMapRevision(task, dbh, &currentRevision) != 0) {
+    if (GetSessionOnMapRevision(task, dbh, &currentRevision) != 0) {
 		DB_PokeHandle(dbh);
 		return -1;
 	}
@@ -422,31 +422,31 @@ HandleBroadcastPlaquesOnMap(struct paquet *paquet)
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectNumberOfColumns(dbh->result, 3)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 1, INT4OID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	if (!DB_CorrectColumnType(dbh->result, 2, BOOLOID)) {
 		DB_PokeHandle(dbh);
-		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+		SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
@@ -457,7 +457,7 @@ HandleBroadcastPlaquesOnMap(struct paquet *paquet)
 
 	uint32 numberOfPlaques = PQntuples(dbh->result);
 
-	reportInfo("Found %u plaques for 'on map' current revision %u last known revision %u",
+	ReportInfo("Found %u plaques for 'on map' current revision %u last known revision %u",
 	    numberOfPlaques,
 	    currentRevision,
 	    task->broadcast.lastKnownRevision.onMap);
@@ -471,9 +471,9 @@ HandleBroadcastPlaquesOnMap(struct paquet *paquet)
 		char *plaqueRevision = PQgetvalue(dbh->result, rowNumber, 1);
 		char disappeared = *PQgetvalue(dbh->result, rowNumber, 2);
 		if ((plaqueToken == NULL) || (plaqueRevision == NULL)) {
-			reportError("No results");
+			ReportError("No results");
 			DB_PokeHandle(dbh);
-			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
+			SetTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 

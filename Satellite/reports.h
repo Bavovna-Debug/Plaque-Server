@@ -4,6 +4,6 @@
 #include "paquet.h"
 
 int
-reportMessage(struct paquet *paquet);
+ReportMessage(struct Paquet *paquet);
 
 #endif
