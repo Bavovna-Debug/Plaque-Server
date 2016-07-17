@@ -14,30 +14,30 @@ getSessionForDevice(
     char *knownSessionToken,
     char *givenSessionToken)
 {
-    dbhPushBIGINT(dbh, &deviceId);
-    dbhPushUUID(dbh, knownSessionToken);
+    DB_PushBIGINT(dbh, &deviceId);
+    DB_PushUUID(dbh, knownSessionToken);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 SELECT session_id, session_token \
 FROM journal.get_session($1, $2)");
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
+	if (!DB_TuplesOK(dbh, dbh->result)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 2)) {
+	if (!DB_CorrectNumberOfColumns(dbh->result, 2)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, INT8OID) ||
-	    !dbhCorrectColumnType(dbh->result, 1, UUIDOID)) {
+	if (!DB_CorrectColumnType(dbh->result, 0, INT8OID) ||
+	    !DB_CorrectColumnType(dbh->result, 1, UUIDOID)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -51,21 +51,21 @@ FROM journal.get_session($1, $2)");
 int
 setAllSessionsOffline(struct desk *desk)
 {
-	struct dbh *dbh = peekDB(desk->dbh.auth);
+	struct dbh *dbh = DB_PeekHandle(desk->db.auth);
 	if (dbh == NULL)
 		return -1;
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 UPDATE journal.sessions \
 SET satellite_task_id = NULL \
 WHERE satellite_task_id IS NOT NULL");
 
-	if (!dbhCommandOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_CommandOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		return -1;
 	}
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	return 0;
 }
@@ -73,7 +73,7 @@ WHERE satellite_task_id IS NOT NULL");
 int
 setSessionOnline(struct task *task)
 {
-	struct dbh *dbh = peekDB(task->desk->dbh.auth);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.auth);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -81,35 +81,35 @@ setSessionOnline(struct task *task)
 
     uint32 satelliteTaskId = htobe32(task->taskId);
 
-    dbhPushBIGINT(dbh, &task->sessionId);
-    dbhPushINTEGER(dbh, &satelliteTaskId);
+    DB_PushBIGINT(dbh, &task->sessionId);
+    DB_PushINTEGER(dbh, &satelliteTaskId);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 UPDATE journal.sessions \
 SET satellite_task_id = $2 \
 WHERE session_id = $1");
 
-	if (!dbhCommandOK(dbh, dbh->result)) {
-    	pokeDB(dbh);
+	if (!DB_CommandOK(dbh, dbh->result)) {
+    	DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-    dbhPushBIGINT(dbh, &task->deviceId);
+    DB_PushBIGINT(dbh, &task->deviceId);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 UPDATE journal.device_displacements \
 SET need_on_radar_revision = TRUE, \
     need_in_sight_revision = TRUE \
 WHERE device_id = $1");
 
-	if (!dbhCommandOK(dbh, dbh->result)) {
-    	pokeDB(dbh);
+	if (!DB_CommandOK(dbh, dbh->result)) {
+    	DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	return 0;
 }
@@ -117,40 +117,40 @@ WHERE device_id = $1");
 int
 setSessionOffline(struct task *task)
 {
-	struct dbh *dbh = peekDB(task->desk->dbh.auth);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.auth);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
-    dbhPushBIGINT(dbh, &task->sessionId);
+    DB_PushBIGINT(dbh, &task->sessionId);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 UPDATE journal.sessions \
 SET satellite_task_id = NULL \
 WHERE session_id = $1");
 
-	if (!dbhCommandOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_CommandOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-    dbhPushBIGINT(dbh, &task->deviceId);
+    DB_PushBIGINT(dbh, &task->deviceId);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 UPDATE journal.device_displacements \
 SET need_on_radar_revision = FALSE, \
     need_in_sight_revision = FALSE \
 WHERE device_id = $1");
 
-	if (!dbhCommandOK(dbh, dbh->result)) {
-    	pokeDB(dbh);
+	if (!DB_CommandOK(dbh, dbh->result)) {
+    	DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	return 0;
 }
@@ -160,51 +160,51 @@ getSessionRevisions(
     struct task         *task,
     struct revisions    *revisions)
 {
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
-    dbhPushBIGINT(dbh, &task->sessionId);
+    DB_PushBIGINT(dbh, &task->sessionId);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 SELECT on_radar_revision, in_sight_revision, on_map_revision \
 FROM journal.sessions \
 WHERE session_id = $1");
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-        pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+        DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 3)) {
-        pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 3)) {
+        DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-        pokeDB(dbh);
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+        DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, INT4OID)) {
-        pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, INT4OID)) {
+        DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 1, INT4OID)) {
-        pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 1, INT4OID)) {
+        DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 2, INT4OID)) {
-        pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 2, INT4OID)) {
+        DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -213,7 +213,7 @@ WHERE session_id = $1");
     revisions->inSight = be32toh(*(uint32 *)PQgetvalue(dbh->result, 0, 1));
     revisions->onMap = be32toh(*(uint32 *)PQgetvalue(dbh->result, 0, 2));
 
-    pokeDB(dbh);
+    DB_PokeHandle(dbh);
 
 	return 0;
 }
@@ -224,29 +224,29 @@ getSessionOnRadarRevision(
     struct dbh  *dbh,
     uint32      *revision)
 {
-    dbhPushBIGINT(dbh, &task->sessionId);
+    DB_PushBIGINT(dbh, &task->sessionId);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 SELECT in_sight_revision \
 FROM journal.sessions \
 WHERE session_id = $1");
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
+	if (!DB_TuplesOK(dbh, dbh->result)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, INT4OID)) {
+	if (!DB_CorrectColumnType(dbh->result, 0, INT4OID)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -262,29 +262,29 @@ getSessionInSightRevision(
     struct dbh  *dbh,
     uint32      *revision)
 {
-    dbhPushBIGINT(dbh, &task->sessionId);
+    DB_PushBIGINT(dbh, &task->sessionId);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 SELECT in_sight_revision \
 FROM journal.sessions \
 WHERE session_id = $1");
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
+	if (!DB_TuplesOK(dbh, dbh->result)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, INT4OID)) {
+	if (!DB_CorrectColumnType(dbh->result, 0, INT4OID)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -300,29 +300,29 @@ getSessionOnMapRevision(
     struct dbh  *dbh,
     uint32      *revision)
 {
-    dbhPushBIGINT(dbh, &task->sessionId);
+    DB_PushBIGINT(dbh, &task->sessionId);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 SELECT on_map_revision \
 FROM journal.sessions \
 WHERE session_id = $1");
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
+	if (!DB_TuplesOK(dbh, dbh->result)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, INT4OID)) {
+	if (!DB_CorrectColumnType(dbh->result, 0, INT4OID)) {
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}

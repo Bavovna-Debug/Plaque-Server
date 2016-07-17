@@ -164,7 +164,7 @@ paquetBroadcastPlaquesOnRadar(struct paquet *paquet)
 
     paquet->outputBuffer = outputBuffer;
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -172,15 +172,15 @@ paquetBroadcastPlaquesOnRadar(struct paquet *paquet)
 
     uint32 currentRevision;
     if (getSessionOnRadarRevision(task, dbh, &currentRevision) != 0) {
-		pokeDB(dbh);
+		DB_PokeHandle(dbh);
 		return -1;
 	}
 
     uint32 lastKnownRevision = htobe32(task->broadcast.lastKnownRevision.onRadar);
-    dbhPushBIGINT(dbh, &task->sessionId);
-    dbhPushINTEGER(dbh, &lastKnownRevision);
+    DB_PushBIGINT(dbh, &task->sessionId);
+    DB_PushINTEGER(dbh, &lastKnownRevision);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 SELECT plaque_token, plaque_revision, disappeared \
 FROM journal.session_on_radar_plaques \
 JOIN surrounding.plaques \
@@ -188,32 +188,32 @@ JOIN surrounding.plaques \
 WHERE session_id = $1 \
   AND on_radar_revision > $2");
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 3)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 3)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 1, INT4OID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 1, INT4OID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 2, BOOLOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 2, BOOLOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -242,7 +242,7 @@ WHERE session_id = $1 \
 		char disappeared = *PQgetvalue(dbh->result, rowNumber, 2);
 		if ((plaqueToken == NULL) || (plaqueRevision == NULL)) {
 			reportError("No results");
-			pokeDB(dbh);
+			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
@@ -252,7 +252,7 @@ WHERE session_id = $1 \
 		outputBuffer = MMPS_PutData(outputBuffer, &disappeared, sizeof(disappeared));
 	}
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	return 0;
 }
@@ -272,7 +272,7 @@ paquetBroadcastPlaquesInSight(struct paquet *paquet)
 
     paquet->outputBuffer = outputBuffer;
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -280,15 +280,15 @@ paquetBroadcastPlaquesInSight(struct paquet *paquet)
 
     uint32 currentRevision;
     if (getSessionInSightRevision(task, dbh, &currentRevision) != 0) {
-		pokeDB(dbh);
+		DB_PokeHandle(dbh);
 		return -1;
 	}
 
     uint32 lastKnownRevision = htobe32(task->broadcast.lastKnownRevision.inSight);
-    dbhPushBIGINT(dbh, &task->sessionId);
-    dbhPushINTEGER(dbh, &lastKnownRevision);
+    DB_PushBIGINT(dbh, &task->sessionId);
+    DB_PushINTEGER(dbh, &lastKnownRevision);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 SELECT plaque_token, plaque_revision, disappeared \
 FROM journal.session_in_sight_plaques \
 JOIN surrounding.plaques \
@@ -296,32 +296,32 @@ JOIN surrounding.plaques \
 WHERE session_id = $1 \
   AND in_sight_revision > $2");
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 3)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 3)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 1, INT4OID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 1, INT4OID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 2, BOOLOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 2, BOOLOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -350,7 +350,7 @@ WHERE session_id = $1 \
 		char disappeared = *PQgetvalue(dbh->result, rowNumber, 2);
 		if ((plaqueToken == NULL) || (plaqueRevision == NULL)) {
 			reportError("No results");
-			pokeDB(dbh);
+			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
@@ -360,7 +360,7 @@ WHERE session_id = $1 \
 		outputBuffer = MMPS_PutData(outputBuffer, &disappeared, sizeof(disappeared));
 	}
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	return 0;
 }
@@ -380,7 +380,7 @@ paquetBroadcastPlaquesOnMap(struct paquet *paquet)
 
     paquet->outputBuffer = outputBuffer;
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -388,15 +388,15 @@ paquetBroadcastPlaquesOnMap(struct paquet *paquet)
 
     uint32 currentRevision;
     if (getSessionOnMapRevision(task, dbh, &currentRevision) != 0) {
-		pokeDB(dbh);
+		DB_PokeHandle(dbh);
 		return -1;
 	}
 
     uint32 lastKnownRevision = htobe32(task->broadcast.lastKnownRevision.onMap);
-    dbhPushBIGINT(dbh, &task->sessionId);
-    dbhPushINTEGER(dbh, &lastKnownRevision);
+    DB_PushBIGINT(dbh, &task->sessionId);
+    DB_PushINTEGER(dbh, &lastKnownRevision);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 SELECT plaque_token, plaque_revision, disappeared \
 FROM journal.session_on_map_plaques \
 JOIN surrounding.plaques \
@@ -404,32 +404,32 @@ JOIN surrounding.plaques \
 WHERE session_id = $1 \
   AND on_map_revision > $2");
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 3)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 3)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 1, INT4OID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 1, INT4OID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 2, BOOLOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 2, BOOLOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -456,7 +456,7 @@ WHERE session_id = $1 \
 		char disappeared = *PQgetvalue(dbh->result, rowNumber, 2);
 		if ((plaqueToken == NULL) || (plaqueRevision == NULL)) {
 			reportError("No results");
-			pokeDB(dbh);
+			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
@@ -466,7 +466,7 @@ WHERE session_id = $1 \
 		outputBuffer = MMPS_PutData(outputBuffer, &disappeared, sizeof(disappeared));
 	}
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	return 0;
 }

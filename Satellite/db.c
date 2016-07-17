@@ -40,10 +40,10 @@ disconnectFromPostgres(struct dbh *dbh)
 	dbh->conn = NULL;
 }
 
-struct dbChain *
-initDBChain(const char *chainName, unsigned int numberOfConnections, char *conninfo)
+struct DB_Chain *
+DB_InitChain(const char *chainName, unsigned int numberOfConnections, char *conninfo)
 {
-	struct dbChain *chain = malloc(sizeof(struct dbChain) + numberOfConnections * sizeof(unsigned int));
+	struct DB_Chain *chain = malloc(sizeof(struct DB_Chain) + numberOfConnections * sizeof(unsigned int));
 	if (chain == NULL) {
         reportError("Out of memory");
         return NULL;
@@ -89,7 +89,7 @@ initDBChain(const char *chainName, unsigned int numberOfConnections, char *conni
 }
 
 void
-releaseDBChain(struct dbChain *chain)
+DB_ReleaseChain(struct DB_Chain *chain)
 {
 	unsigned int dbhId;
 
@@ -108,7 +108,7 @@ releaseDBChain(struct dbChain *chain)
 }
 
 struct dbh *
-peekDB(struct dbChain *chain)
+DB_PeekHandle(struct DB_Chain *chain)
 {
 #ifdef DB_PEEK_POKE
 	reportInfo("Peek DB from chain %s", chain->chainName);
@@ -159,7 +159,7 @@ peekDB(struct dbChain *chain)
 		// Could not connect to DB? Then quit.
 		//
 		if (dbh->conn == NULL) {
-			pokeDB(dbh);
+			DB_PokeHandle(dbh);
 			return NULL;
 		}
 
@@ -177,7 +177,7 @@ peekDB(struct dbChain *chain)
 			connectToPostgres(dbh);
 
 			if ((dbh->conn == NULL) || (PQstatus(dbh->conn) != CONNECTION_OK)) {
-				pokeDB(dbh);
+				DB_PokeHandle(dbh);
 				dbh = NULL;
 			} else {
 				PQclear(result);
@@ -186,7 +186,7 @@ peekDB(struct dbChain *chain)
 					//
 					// If still cannot connect to Db, then fail.
 					//
-					pokeDB(dbh);
+					DB_PokeHandle(dbh);
 					reportError("Start transaction failed: %s",
 						PQerrorMessage(dbh->conn));
 					dbh = NULL;
@@ -206,7 +206,7 @@ peekDB(struct dbChain *chain)
 }
 
 void
-pokeDB(struct dbh *dbh)
+DB_PokeHandle(struct dbh *dbh)
 {
 #ifdef DB_PEEK_POKE
 	reportInfo("Poke DB %u to chain %s (last status %d)",
@@ -215,7 +215,7 @@ pokeDB(struct dbh *dbh)
 		(dbh->result == NULL) ? -1 : PQresultStatus(dbh->result));
 #endif
 
-	struct dbChain *chain = dbh->chain;
+	struct DB_Chain *chain = dbh->chain;
 
 	if (dbh->result != NULL) {
 		//
@@ -251,7 +251,7 @@ pokeDB(struct dbh *dbh)
 }
 
 void
-resetDB(struct dbh *dbh)
+DB_ResetHandle(struct dbh *dbh)
 {
 	// Rollback all previous transactions.
 	//
@@ -262,7 +262,7 @@ resetDB(struct dbh *dbh)
 }
 
 inline int
-sqlState(PGresult *result, const char *checkState)
+DB_HasState(PGresult *result, const char *checkState)
 {
 	char *sqlStateString = PQresultErrorField(result, PG_DIAG_SQLSTATE);
 	if (sqlStateString == NULL) {
@@ -277,7 +277,7 @@ sqlState(PGresult *result, const char *checkState)
 }
 
 inline int
-__dbhTuplesOK(
+__TuplesOK(
 	const char	*functionName,
 	struct dbh	*dbh,
 	PGresult	*result)
@@ -295,7 +295,7 @@ __dbhTuplesOK(
 }
 
 inline int
-__dbhCommandOK(
+__CommandOK(
 	const char	*functionName,
 	struct dbh	*dbh,
 	PGresult	*result)
@@ -313,7 +313,7 @@ __dbhCommandOK(
 }
 
 inline int
-__dbhCorrectNumberOfColumns(
+__CorrectNumberOfColumns(
 	const char	*functionName,
 	PGresult	*result,
 	int			expectedNumberOfColumns)
@@ -331,7 +331,7 @@ __dbhCorrectNumberOfColumns(
 }
 
 inline int
-__dbhCorrectNumberOfRows(
+__CorrectNumberOfRows(
 	const char	*functionName,
 	PGresult	*result,
 	int			expectedNumberOfRows)
@@ -349,7 +349,7 @@ __dbhCorrectNumberOfRows(
 }
 
 inline int
-__dbhCorrectColumnType(
+__CorrectColumnType(
 	const char	*functionName,
 	PGresult	*result,
 	int 		columnNumber,
@@ -369,7 +369,7 @@ __dbhCorrectColumnType(
 }
 
 inline void
-dbhExecute(struct dbh *dbh, const char *query)
+DB_Execute(struct dbh *dbh, const char *query)
 {
 	if (dbh->result != NULL)
 		PQclear(dbh->result);
@@ -386,7 +386,7 @@ dbhExecute(struct dbh *dbh, const char *query)
 }
 
 inline void
-dbhPushArgument(struct dbh *dbh, char *value, Oid type, int length, int format)
+DB_PushArgument(struct dbh *dbh, char *value, Oid type, int length, int format)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = type;
@@ -396,7 +396,7 @@ dbhPushArgument(struct dbh *dbh, char *value, Oid type, int length, int format)
 }
 
 inline void
-dbhPushBIGINT(struct dbh *dbh, uint64 *value)
+DB_PushBIGINT(struct dbh *dbh, uint64 *value)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = INT8OID;
@@ -406,7 +406,7 @@ dbhPushBIGINT(struct dbh *dbh, uint64 *value)
 }
 
 inline void
-dbhPushINTEGER(struct dbh *dbh, uint32 *value)
+DB_PushINTEGER(struct dbh *dbh, uint32 *value)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = INT4OID;
@@ -416,7 +416,7 @@ dbhPushINTEGER(struct dbh *dbh, uint32 *value)
 }
 
 inline void
-dbhPushDOUBLE(struct dbh *dbh, double *value)
+DB_PushDOUBLE(struct dbh *dbh, double *value)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = FLOAT8OID;
@@ -426,7 +426,7 @@ dbhPushDOUBLE(struct dbh *dbh, double *value)
 }
 
 inline void
-dbhPushREAL(struct dbh *dbh, float *value)
+DB_PushREAL(struct dbh *dbh, float *value)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = FLOAT4OID;
@@ -436,7 +436,7 @@ dbhPushREAL(struct dbh *dbh, float *value)
 }
 
 inline void
-dbhPushCHAR(struct dbh *dbh, char *value, int length)
+DB_PushCHAR(struct dbh *dbh, char *value, int length)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = CHAROID;
@@ -446,7 +446,7 @@ dbhPushCHAR(struct dbh *dbh, char *value, int length)
 }
 
 inline void
-dbhPushVARCHAR(struct dbh *dbh, char *value, int length)
+DB_PushVARCHAR(struct dbh *dbh, char *value, int length)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = VARCHAROID;
@@ -456,7 +456,7 @@ dbhPushVARCHAR(struct dbh *dbh, char *value, int length)
 }
 
 inline void
-dbhPushBYTEA(struct dbh *dbh, char *value, int length)
+DB_PushBYTEA(struct dbh *dbh, char *value, int length)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = BYTEAOID;
@@ -466,7 +466,7 @@ dbhPushBYTEA(struct dbh *dbh, char *value, int length)
 }
 
 inline void
-dbhPushUUID(struct dbh *dbh, char *value)
+DB_PushUUID(struct dbh *dbh, char *value)
 {
 	dbh->arguments.values   [dbh->arguments.numberOfArguments] = value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = UUIDOID;
@@ -486,7 +486,7 @@ dbhGetUInt64(PGresult *result, int rowNumber, int columnNumber)
 }
 
 int
-dbhInUse(struct dbChain *chain)
+DB_HanldesInUse(struct DB_Chain *chain)
 {
 	pthread_spin_lock(&chain->lock);
 	int dbhInUse = (chain->peekCursor >= chain->pokeCursor)

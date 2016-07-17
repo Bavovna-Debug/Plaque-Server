@@ -55,10 +55,10 @@ typedef struct desk {
     } pools;
 
     struct {
-        struct dbChain      *guardian;
-        struct dbChain      *auth;
-        struct dbChain      *plaque;
-    } dbh;
+        struct DB_Chain     *guardian;
+        struct DB_Chain     *auth;
+        struct DB_Chain     *plaque;
+    } db;
 
     struct {
         void                **list;

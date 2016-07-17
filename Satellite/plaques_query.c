@@ -45,7 +45,7 @@ paquetDownloadPlaques(struct paquet *paquet)
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -57,50 +57,50 @@ paquetDownloadPlaques(struct paquet *paquet)
 	{
 		inputBuffer = MMPS_GetData(inputBuffer, plaqueToken, TokenBinarySize);
 
-        dbhPushUUID(dbh, plaqueToken);
+        DB_PushUUID(dbh, plaqueToken);
 
-	    dbhExecute(dbh, "\
+	    DB_Execute(dbh, "\
 SELECT plaque_revision, profile_token, dimension, latitude, longitude, altitude, direction, tilt, width, height, background_color, foreground_color, font_size, inscription \
 FROM surrounding.plaques \
 JOIN auth.profiles USING (profile_id) \
 WHERE plaque_token = $1");
 
-		if (!dbhTuplesOK(dbh, dbh->result)) {
-			pokeDB(dbh);
+		if (!DB_TuplesOK(dbh, dbh->result)) {
+			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
-		if (!dbhCorrectNumberOfColumns(dbh->result, 14)) {
-			pokeDB(dbh);
+		if (!DB_CorrectNumberOfColumns(dbh->result, 14)) {
+			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
-		if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
+		if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
 		    reportInfo("Requested plaque not found");
 			continue;
-//			pokeDB(dbh);
+//			DB_PokeHandle(dbh);
 //			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 //			return -1;
 		}
 
-		if (!dbhCorrectColumnType(dbh->result, 0, INT4OID) ||
-			!dbhCorrectColumnType(dbh->result, 1, UUIDOID) ||
-			//!dbhCorrectColumnType(dbh->result, 2, CHAROID) ||
-			!dbhCorrectColumnType(dbh->result, 3, FLOAT8OID) ||
-			!dbhCorrectColumnType(dbh->result, 4, FLOAT8OID) ||
-			!dbhCorrectColumnType(dbh->result, 5, FLOAT4OID) ||
-			!dbhCorrectColumnType(dbh->result, 6, FLOAT4OID) ||
-			!dbhCorrectColumnType(dbh->result, 7, FLOAT4OID) ||
-			!dbhCorrectColumnType(dbh->result, 8, FLOAT4OID) ||
-			!dbhCorrectColumnType(dbh->result, 9, FLOAT4OID) ||
-			!dbhCorrectColumnType(dbh->result, 10, INT4OID) ||
-			!dbhCorrectColumnType(dbh->result, 11, INT4OID) ||
-			!dbhCorrectColumnType(dbh->result, 12, FLOAT4OID) ||
-			!dbhCorrectColumnType(dbh->result, 13, TEXTOID))
+		if (!DB_CorrectColumnType(dbh->result, 0, INT4OID) ||
+			!DB_CorrectColumnType(dbh->result, 1, UUIDOID) ||
+			//!DB_CorrectColumnType(dbh->result, 2, CHAROID) ||
+			!DB_CorrectColumnType(dbh->result, 3, FLOAT8OID) ||
+			!DB_CorrectColumnType(dbh->result, 4, FLOAT8OID) ||
+			!DB_CorrectColumnType(dbh->result, 5, FLOAT4OID) ||
+			!DB_CorrectColumnType(dbh->result, 6, FLOAT4OID) ||
+			!DB_CorrectColumnType(dbh->result, 7, FLOAT4OID) ||
+			!DB_CorrectColumnType(dbh->result, 8, FLOAT4OID) ||
+			!DB_CorrectColumnType(dbh->result, 9, FLOAT4OID) ||
+			!DB_CorrectColumnType(dbh->result, 10, INT4OID) ||
+			!DB_CorrectColumnType(dbh->result, 11, INT4OID) ||
+			!DB_CorrectColumnType(dbh->result, 12, FLOAT4OID) ||
+			!DB_CorrectColumnType(dbh->result, 13, TEXTOID))
 		{
-			pokeDB(dbh);
+			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
@@ -129,7 +129,7 @@ WHERE plaque_token = $1");
 			|| (backgroundColor == NULL) || (foregroundColor == NULL) || (fontSize == NULL)
 			|| (inscription == NULL)) {
 			reportError("No results");
-			pokeDB(dbh);
+			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
@@ -156,7 +156,7 @@ WHERE plaque_token = $1");
 		outputBuffer = MMPS_PutString(outputBuffer, inscription, inscriptionSize);
 	}
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	return 0;
 }

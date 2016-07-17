@@ -1,32 +1,35 @@
-#ifndef __DBH__
-#define __DBH__
+#ifndef __DB__
+#define __DB__
 
 #include <c.h>
 #include <libpq-fe.h>
 #include <pthread.h>
 
-#define BOOLOID					16
-#define BYTEAOID				17
-#define CHAROID					18
-#define INT8OID					20
-#define INT2OID					21
-#define INT4OID					23
-#define TEXTOID					25
-#define XMLOID					142
-#define FLOAT4OID				700
-#define FLOAT8OID				701
-#define INETOID					869
-#define VARCHAROID				1043
-#define UUIDOID					2950
+#define BOOLOID						16
+#define BYTEAOID					17
+#define CHAROID						18
+#define INT8OID						20
+#define INT2OID						21
+#define INT4OID						23
+#define TEXTOID						25
+#define XMLOID						142
+#define FLOAT4OID					700
+#define FLOAT8OID					701
+#define INETOID						869
+#define VARCHAROID					1043
+#define UUIDOID						2950
 
-#define UUIDBinarySize			16
+#define UUIDBinarySize				16
 
-#define UNIQUE_VIOLATION		"23505"
-#define CHECK_VIOLATION			"23514"
+#define UNIQUE_VIOLATION			"23505"
+#define CHECK_VIOLATION				"23514"
 
-#define DB_CHAIN_NAME_LENGTH	16
+#define DB_CHAIN_NAME_LENGTH		16
 
-typedef struct dbChain {
+#define DB_MAX_NUMBER_OF_ARGUMENTS	20
+
+struct DB_Chain
+{
 	char				chainName[DB_CHAIN_NAME_LENGTH];
 	pthread_spinlock_t	lock;
 	unsigned int		numberOfConnections;
@@ -35,122 +38,125 @@ typedef struct dbChain {
 	char				conninfo[255];
 	void				*block;
 	unsigned int		ids[];
-} dbChain_t;
+};
 
-typedef struct dbh {
-	struct dbChain		*chain;
+struct dbh
+{
+	struct DB_Chain		*chain;
 	unsigned int		dbhId;
 	PGconn				*conn;
 	PGresult			*result;
-	struct arguments {
+
+	struct
+	{
 		int				numberOfArguments;
-		const char		*values  [8];
-    	Oid				types    [8];
-		int				lengths  [8];
-		int				formats  [8];
+		const char		*values  [DB_MAX_NUMBER_OF_ARGUMENTS];
+    	Oid				types    [DB_MAX_NUMBER_OF_ARGUMENTS];
+		int				lengths  [DB_MAX_NUMBER_OF_ARGUMENTS];
+		int				formats  [DB_MAX_NUMBER_OF_ARGUMENTS];
 	} arguments;
-} dbh_t;
+};
 
 
-struct dbChain *
-initDBChain(const char *chainName, unsigned int numberOfConnections, char *conninfo);
+struct DB_Chain *
+DB_InitChain(const char *chainName, unsigned int numberOfConnections, char *conninfo);
 
 void
-releaseDBChain(struct dbChain *chain);
+DB_ReleaseChain(struct DB_Chain *chain);
 
 struct dbh *
-peekDB(struct dbChain *chain);
+DB_PeekHandle(struct DB_Chain *chain);
 
 void
-pokeDB(struct dbh* dbh);
+DB_PokeHandle(struct dbh* dbh);
 
 void
-resetDB(struct dbh* dbh);
+DB_ResetHandle(struct dbh* dbh);
 
 inline int
-sqlState(PGresult *result, const char *checkState);
+DB_HasState(PGresult *result, const char *checkState);
 
 inline int
-__dbhTuplesOK(
+__TuplesOK(
 	const char	*functionName,
 	struct dbh	*dbh,
 	PGresult	*result);
 
-#define dbhTuplesOK(dbh, result) \
-	__dbhTuplesOK(__FUNCTION__, dbh, result)
+#define DB_TuplesOK(dbh, result) \
+	__TuplesOK(__FUNCTION__, dbh, result)
 
 inline int
-__dbhCommandOK(
+__CommandOK(
 	const char	*functionName,
 	struct dbh	*dbh,
 	PGresult	*result);
 
-#define dbhCommandOK(dbh, result) \
-	__dbhCommandOK(__FUNCTION__, dbh, result)
+#define DB_CommandOK(dbh, result) \
+	__CommandOK(__FUNCTION__, dbh, result)
 
 inline int
-__dbhCorrectNumberOfColumns(
+__CorrectNumberOfColumns(
 	const char	*functionName,
 	PGresult	*result,
 	int			expectedNumberOfColumns);
 
-#define dbhCorrectNumberOfColumns(result, expectedNumberOfColumns) \
-	__dbhCorrectNumberOfColumns(__FUNCTION__, result, expectedNumberOfColumns)
+#define DB_CorrectNumberOfColumns(result, expectedNumberOfColumns) \
+	__CorrectNumberOfColumns(__FUNCTION__, result, expectedNumberOfColumns)
 
 inline int
-__dbhCorrectNumberOfRows(
+__CorrectNumberOfRows(
 	const char	*functionName,
 	PGresult	*result,
 	int			expectedNumberOfRows);
 
-#define dbhCorrectNumberOfRows(result, expectedNumberOfRows) \
-	__dbhCorrectNumberOfRows(__FUNCTION__, result, expectedNumberOfRows)
+#define DB_CorrectNumberOfRows(result, expectedNumberOfRows) \
+	__CorrectNumberOfRows(__FUNCTION__, result, expectedNumberOfRows)
 
 inline int
-__dbhCorrectColumnType(
+__CorrectColumnType(
 	const char	*functionName,
 	PGresult	*result,
 	int 		columnNumber,
 	Oid			expectedColumnType);
 
-#define dbhCorrectColumnType(result, columnNumber, expectedColumnType) \
-	__dbhCorrectColumnType(__FUNCTION__, result, columnNumber, expectedColumnType)
+#define DB_CorrectColumnType(result, columnNumber, expectedColumnType) \
+	__CorrectColumnType(__FUNCTION__, result, columnNumber, expectedColumnType)
 
 inline void
-dbhExecute(struct dbh *dbh, const char *query);
+DB_Execute(struct dbh *dbh, const char *query);
 
 inline void
-dbhPushArgument(struct dbh *dbh, char *value, Oid type, int length, int format);
+DB_PushArgument(struct dbh *dbh, char *value, Oid type, int length, int format);
 
 inline void
-dbhPushBIGINT(struct dbh *dbh, uint64 *value);
+DB_PushBIGINT(struct dbh *dbh, uint64 *value);
 
 inline void
-dbhPushINTEGER(struct dbh *dbh, uint32 *value);
+DB_PushINTEGER(struct dbh *dbh, uint32 *value);
 
 inline void
-dbhPushDOUBLE(struct dbh *dbh, double *value);
+DB_PushDOUBLE(struct dbh *dbh, double *value);
 
 inline void
-dbhPushREAL(struct dbh *dbh, float *value);
+DB_PushREAL(struct dbh *dbh, float *value);
 
 inline void
-dbhPushCHAR(struct dbh *dbh, char *value, int length);
+DB_PushCHAR(struct dbh *dbh, char *value, int length);
 
 inline void
-dbhPushVARCHAR(struct dbh *dbh, char *value, int length);
+DB_PushVARCHAR(struct dbh *dbh, char *value, int length);
 
 inline void
-dbhPushBYTEA(struct dbh *dbh, char *value, int length);
+DB_PushBYTEA(struct dbh *dbh, char *value, int length);
 
 inline void
-dbhPushUUID(struct dbh *dbh, char *value);
+DB_PushUUID(struct dbh *dbh, char *value);
 
 inline uint64
-dbhGetUInt64(PGresult *result, int rowNumber, int columnNumber);
+DB_GetUInt64(PGresult *result, int rowNumber, int columnNumber);
 
 int
-dbhInUse(struct dbChain *chain);
+DB_HanldesInUse(struct DB_Chain *chain);
 
 #endif
 

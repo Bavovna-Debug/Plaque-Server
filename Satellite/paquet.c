@@ -195,14 +195,14 @@ expectedPayloadSize(struct paquet *paquet, int expectedSize)
 uint64
 deviceIdByToken(struct dbh *dbh, char *deviceToken)
 {
-    dbhPushUUID(dbh, deviceToken);
+    DB_PushUUID(dbh, deviceToken);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 SELECT device_id \
 FROM auth.devices \
 WHERE device_token = $1");
 
-	if (!dbhTuplesOK(dbh, dbh->result))
+	if (!DB_TuplesOK(dbh, dbh->result))
 		return 0;
 
 	if (PQnfields(dbh->result) != 1)

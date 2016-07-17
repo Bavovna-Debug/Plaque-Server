@@ -48,9 +48,9 @@ statisticsThread(void *arg)
 	while (1)
 	{
 		reportDebug("STATISTICS  DBH: %-4d%-4d%-4d  TASK: %-4d  PAQUET: %-4d  256: %-4d  512: %-4d  1K: %-4d  4K: %-4d  1M: %-4d",
-			dbhInUse(desk->dbh.guardian),
-			dbhInUse(desk->dbh.auth),
-			dbhInUse(desk->dbh.plaque),
+			DB_HanldesInUse(desk->db.guardian),
+			DB_HanldesInUse(desk->db.auth),
+			DB_HanldesInUse(desk->db.plaque),
 			MMPS_NumberOfBuffersInUse(desk->pools.task, 0),
 			MMPS_NumberOfBuffersInUse(desk->pools.paquet, 0),
 			MMPS_NumberOfBuffersInUse(desk->pools.dynamic, 0),
@@ -248,17 +248,17 @@ initDesk(void)
 void
 constructDB(struct desk *desk)
 {
-	desk->dbh.guardian = initDBChain(
+	desk->db.guardian = DB_InitChain(
 		"GUARDIAN",
 		NUMBER_OF_DBH_GUARDIANS,
 		"hostaddr = '127.0.0.1' dbname = 'guardian' user = 'guardian' password = 'nVUcDYDVZCMaRdCfayWrG23w'");
 
-	desk->dbh.auth = initDBChain(
+	desk->db.auth = DB_InitChain(
 		"AUTH",
 		NUMBER_OF_DBH_AUTHENTICATION,
 		"hostaddr = '127.0.0.1' dbname = 'vp' user = 'vp' password = 'vi79HRhxbFahmCKFUKMAACrY'");
 
-	desk->dbh.plaque = initDBChain(
+	desk->db.plaque = DB_InitChain(
 		"PLAQUE",
 		NUMBER_OF_DBH_PLAQUES_SESSION,
 		"hostaddr = '127.0.0.1' dbname = 'vp' user = 'vp' password = 'vi79HRhxbFahmCKFUKMAACrY'");
@@ -267,7 +267,7 @@ constructDB(struct desk *desk)
 void
 destructDB(struct desk *desk)
 {
-	releaseDBChain(desk->dbh.guardian);
-	releaseDBChain(desk->dbh.auth);
-	releaseDBChain(desk->dbh.plaque);
+	DB_ReleaseChain(desk->db.guardian);
+	DB_ReleaseChain(desk->db.auth);
+	DB_ReleaseChain(desk->db.plaque);
 }

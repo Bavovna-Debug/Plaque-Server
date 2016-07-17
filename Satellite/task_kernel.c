@@ -22,7 +22,7 @@ authentifyDialogue(struct task *task)
 {
 	int rc = 0;
 
-	struct dbh *dbh = peekDB(task->desk->dbh.auth);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.auth);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -84,7 +84,7 @@ authentifyDialogue(struct task *task)
 		be64toh(sessionId));
 #endif
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	task->deviceId = deviceId;
 	task->profileId = profileId;

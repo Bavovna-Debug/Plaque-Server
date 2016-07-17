@@ -11,38 +11,38 @@
 int
 verifyGuest(struct task *task)
 {
-	struct dbh *dbh = peekDB(task->desk->dbh.guardian);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.guardian);
 	if (dbh == NULL) {
 		reportError("No database handler available");
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
-	dbhPushArgument(dbh, (char *)&task->clientIP, INETOID, strlen(task->clientIP), 0);
+	DB_PushArgument(dbh, (char *)&task->clientIP, INETOID, strlen(task->clientIP), 0);
 
-	dbhExecute(dbh, "SELECT pool.verify_ip($1)");
+	DB_Execute(dbh, "SELECT pool.verify_ip($1)");
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	int ipOK = (*PQgetvalue(dbh->result, 0, 0) == 1) ? 0 : -1;
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	return ipOK;
 }
@@ -56,52 +56,52 @@ registerDevice(
 	if (verifyGuest(task) != 0)
 		return -1;
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
-	dbhPushArgument(dbh, (char *)&anticipant->vendorToken, UUIDOID, TokenBinarySize, 1);
+	DB_PushArgument(dbh, (char *)&anticipant->vendorToken, UUIDOID, TokenBinarySize, 1);
 
-	dbhPushVARCHAR(dbh,
+	DB_PushVARCHAR(dbh,
 		(char *)&anticipant->deviceName,
 		strnlen(anticipant->deviceName, AnticipantDeviceNameLength));
 
-	dbhPushVARCHAR(dbh,
+	DB_PushVARCHAR(dbh,
 		(char *)&anticipant->deviceModel,
 		strnlen(anticipant->deviceModel, AnticipantDeviceModelLength));
 
-	dbhPushVARCHAR(dbh,
+	DB_PushVARCHAR(dbh,
 		(char *)&anticipant->systemName,
 		strnlen(anticipant->systemName, AnticipantSystemNamelLength));
 
-	dbhPushVARCHAR(dbh,
+	DB_PushVARCHAR(dbh,
 		(char *)&anticipant->systemVersion,
 		strnlen(anticipant->systemVersion, AnticipantSystemVersionlLength));
 
-	dbhExecute(dbh, "SELECT auth.register_device($1, $2, $3, $4, $5)");
+	DB_Execute(dbh, "SELECT auth.register_device($1, $2, $3, $4, $5)");
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -110,7 +110,7 @@ registerDevice(
 
 	memcpy(deviceToken, queryResult, TokenBinarySize);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	return 0;
 }
@@ -137,38 +137,38 @@ validateProfileName(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, (char *)&validation, sizeof(validation));
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
-	dbhPushVARCHAR(dbh,
+	DB_PushVARCHAR(dbh,
 		(char *)&validation.profileName,
 		strnlen(validation.profileName, BonjourProfileNameLength));
 
-	dbhExecute(dbh, "SELECT auth.is_profile_name_free($1)");
+	DB_Execute(dbh, "SELECT auth.is_profile_name_free($1)");
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, BOOLOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, BOOLOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -181,7 +181,7 @@ validateProfileName(struct paquet *paquet)
 
 	outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	paquet->outputBuffer = paquet->inputBuffer;
 
@@ -208,21 +208,21 @@ createProfile(struct paquet *paquet)
 
 	struct bonjourCreateProfile *profile = (struct bonjourCreateProfile *)inputBuffer->cursor;
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
-    dbhPushVARCHAR(dbh,
+    DB_PushVARCHAR(dbh,
     	(char *)&profile->profileName,
     	strnlen(profile->profileName, BonjourProfileNameLength));
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 INSERT INTO auth.profiles (profile_name) VALUES (TRIM($1)) RETURNING profile_id");
 
-	if (sqlState(dbh->result, CHECK_VIOLATION)) {
-		pokeDB(dbh);
+	if (DB_HasState(dbh->result, CHECK_VIOLATION)) {
+		DB_PokeHandle(dbh);
 
 		MMPS_ResetBufferData(outputBuffer, 1);
 
@@ -234,8 +234,8 @@ INSERT INTO auth.profiles (profile_name) VALUES (TRIM($1)) RETURNING profile_id"
 		return 0;
 	}
 
-	if (sqlState(dbh->result, UNIQUE_VIOLATION)) {
-		pokeDB(dbh);
+	if (DB_HasState(dbh->result, UNIQUE_VIOLATION)) {
+		DB_PokeHandle(dbh);
 
 		MMPS_ResetBufferData(outputBuffer, 1);
 
@@ -247,26 +247,26 @@ INSERT INTO auth.profiles (profile_name) VALUES (TRIM($1)) RETURNING profile_id"
 		return 0;
 	}
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, INT8OID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, INT8OID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -275,28 +275,28 @@ INSERT INTO auth.profiles (profile_name) VALUES (TRIM($1)) RETURNING profile_id"
 	//memcpy(&profileIdBigEndian, PQgetvalue(dbh->result, 0, 0), sizeof(profileIdBigEndian));
     profileIdBigEndian = *(uint64 *)PQgetvalue(dbh->result, 0, 0);
 
-    dbhPushBIGINT(dbh, &profileIdBigEndian);
-    dbhPushVARCHAR(dbh,
+    DB_PushBIGINT(dbh, &profileIdBigEndian);
+    DB_PushVARCHAR(dbh,
     	(char *)&profile->userName,
     	strnlen(profile->userName, BonjourUserNameLength));
 
 	if (strnlen(profile->passwordMD5, BonjourMD5Length) == 0) {
-	    dbhPushCHAR(dbh, NULL, 0);
+	    DB_PushCHAR(dbh, NULL, 0);
 	} else {
-	    dbhPushCHAR(dbh,
+	    DB_PushCHAR(dbh,
 	    	(char *)&profile->passwordMD5,
 	    	strnlen(profile->passwordMD5, BonjourMD5Length));
 	}
 
 	if (strnlen(profile->emailAddress, BonjourEmailAddressLength) == 0) {
-	    dbhPushVARCHAR(dbh, NULL, 0);
+	    DB_PushVARCHAR(dbh, NULL, 0);
 	} else {
-	    dbhPushVARCHAR(dbh,
+	    DB_PushVARCHAR(dbh,
 	    	(char *)&profile->emailAddress,
 	    	strnlen(profile->emailAddress, BonjourEmailAddressLength));
 	}
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 UPDATE auth.profiles \
 SET user_name = TRIM($2), \
 	password_md5 = $3, \
@@ -304,8 +304,8 @@ SET user_name = TRIM($2), \
 WHERE profile_id = $1 \
 RETURNING profile_token");
 
-	if (sqlState(dbh->result, CHECK_VIOLATION)) {
-		pokeDB(dbh);
+	if (DB_HasState(dbh->result, CHECK_VIOLATION)) {
+		DB_PokeHandle(dbh);
 
 		MMPS_ResetBufferData(outputBuffer, 1);
 
@@ -317,8 +317,8 @@ RETURNING profile_token");
 		return 0;
 	}
 
-	if (sqlState(dbh->result, UNIQUE_VIOLATION)) {
-		pokeDB(dbh);
+	if (DB_HasState(dbh->result, UNIQUE_VIOLATION)) {
+		DB_PokeHandle(dbh);
 
 		MMPS_ResetBufferData(outputBuffer, 1);
 
@@ -330,26 +330,26 @@ RETURNING profile_token");
 		return 0;
 	}
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -357,7 +357,7 @@ RETURNING profile_token");
 	char *profileToken = PQgetvalue(dbh->result, 0, 0);
 	if (profileToken == NULL) {
 		reportError("No results");
-		pokeDB(dbh);
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -370,7 +370,7 @@ RETURNING profile_token");
 
 	outputBuffer = MMPS_PutData(outputBuffer, profileToken, TokenBinarySize);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	paquet->outputBuffer = paquet->inputBuffer;
 
@@ -407,40 +407,40 @@ notificationsToken(struct paquet *paquet)
 	}
 */
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
-    dbhPushBIGINT(dbh, &task->deviceId);
-    dbhPushBYTEA(dbh,
+    DB_PushBIGINT(dbh, &task->deviceId);
+    DB_PushBYTEA(dbh,
     	(char *)&payload.notificationsToken,
     	NotificationsTokenBinarySize);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 SELECT journal.set_apns_token($1, $2)");
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, BOOLOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, BOOLOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -458,7 +458,7 @@ SELECT journal.set_apns_token($1, $2)");
 
 	outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	paquet->outputBuffer = paquet->inputBuffer;
 

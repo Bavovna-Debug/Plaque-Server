@@ -48,7 +48,7 @@ reportMessage(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, message, payload.messageLength);
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		free(message);
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
@@ -70,8 +70,8 @@ INSERT INTO debug.reports (device_id, message) \
 VALUES ($1, $2)",
 		2, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
-	if (!dbhCommandOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_CommandOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		free(message);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
@@ -79,7 +79,7 @@ VALUES ($1, $2)",
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	free(message);
 

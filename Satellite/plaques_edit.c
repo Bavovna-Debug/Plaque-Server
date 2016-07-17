@@ -50,7 +50,7 @@ paquetPostNewPlaque(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, inscription, plaque.inscriptionLength);
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		free(inscription);
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
@@ -145,26 +145,26 @@ RETURNING plaque_token",
 
 	free(inscription);
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -179,7 +179,7 @@ RETURNING plaque_token",
 
 	outputBuffer = MMPS_PutData(outputBuffer, plaqueToken, TokenBinarySize);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	paquet->outputBuffer = paquet->inputBuffer;
 
@@ -210,7 +210,7 @@ paquetChangePlaqueLocation(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -245,33 +245,33 @@ WHERE plaque_token = $1 \
 RETURNING plaque_token",
 		4, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	paquet->outputBuffer = paquet->inputBuffer;
 
@@ -302,7 +302,7 @@ paquetChangePlaqueOrientation(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -345,33 +345,33 @@ WHERE plaque_token = $1 \
 RETURNING plaque_token",
 		3, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	paquet->outputBuffer = paquet->inputBuffer;
 
@@ -402,7 +402,7 @@ paquetChangePlaqueSize(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -431,33 +431,33 @@ WHERE plaque_token = $1 \
 RETURNING plaque_token",
 		3, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	paquet->outputBuffer = paquet->inputBuffer;
 
@@ -488,7 +488,7 @@ paquetChangePlaqueColors(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -517,33 +517,33 @@ WHERE plaque_token = $1 \
 RETURNING plaque_token",
 		3, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	paquet->outputBuffer = paquet->inputBuffer;
 
@@ -574,7 +574,7 @@ paquetChangePlaqueFont(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -597,33 +597,33 @@ WHERE plaque_token = $1 \
 RETURNING plaque_token",
 		2, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	paquet->outputBuffer = paquet->inputBuffer;
 
@@ -670,7 +670,7 @@ paquetChangePlaqueInscription(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, inscription, payload.inscriptionLength);
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		free(inscription);
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
@@ -694,29 +694,29 @@ WHERE plaque_token = $1 \
 RETURNING plaque_token",
 		2, paramTypes, paramValues, paramLengths, paramFormats, 1);
 
-	if (!dbhTuplesOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_TuplesOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		free(inscription);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfColumns(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		free(inscription);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-		pokeDB(dbh);
+	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+		DB_PokeHandle(dbh);
 		free(inscription);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!dbhCorrectColumnType(dbh->result, 0, UUIDOID)) {
-		pokeDB(dbh);
+	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
+		DB_PokeHandle(dbh);
 		free(inscription);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
@@ -724,7 +724,7 @@ RETURNING plaque_token",
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	free(inscription);
 

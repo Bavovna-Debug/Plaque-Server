@@ -49,7 +49,7 @@ getProfiles(struct paquet *paquet)
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -62,36 +62,36 @@ getProfiles(struct paquet *paquet)
 
 		inputBuffer = MMPS_GetData(inputBuffer, profileToken, TokenBinarySize);
 
-        dbhPushUUID(dbh, (char *)&profileToken);
+        DB_PushUUID(dbh, (char *)&profileToken);
 
-    	dbhExecute(dbh, "\
+    	DB_Execute(dbh, "\
 SELECT profile_revision, profile_name, user_name \
 FROM auth.profiles \
 WHERE profile_token = $1");
 
-		if (!dbhTuplesOK(dbh, dbh->result)) {
-			pokeDB(dbh);
+		if (!DB_TuplesOK(dbh, dbh->result)) {
+			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
-		if (!dbhCorrectNumberOfColumns(dbh->result, 3)) {
-			pokeDB(dbh);
+		if (!DB_CorrectNumberOfColumns(dbh->result, 3)) {
+			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
-		if (!dbhCorrectNumberOfRows(dbh->result, 1)) {
-			pokeDB(dbh);
+		if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
-		if (!dbhCorrectColumnType(dbh->result, 0, INT4OID) ||
-    		!dbhCorrectColumnType(dbh->result, 1, VARCHAROID) ||
-			!dbhCorrectColumnType(dbh->result, 2, VARCHAROID))
+		if (!DB_CorrectColumnType(dbh->result, 0, INT4OID) ||
+    		!DB_CorrectColumnType(dbh->result, 1, VARCHAROID) ||
+			!DB_CorrectColumnType(dbh->result, 2, VARCHAROID))
 		{
-			pokeDB(dbh);
+			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
@@ -106,7 +106,7 @@ WHERE profile_token = $1");
 #ifdef DEBUG
 			reportInfo("No results");
 #endif
-			pokeDB(dbh);
+			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
@@ -117,7 +117,7 @@ WHERE profile_token = $1");
 		outputBuffer = MMPS_PutString(outputBuffer, userName, userNameSize);
 	}
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	return 0;
 }
@@ -125,11 +125,11 @@ WHERE profile_token = $1");
 uint64
 profileIdByToken(struct dbh *dbh, char *profileToken)
 {
-    dbhPushUUID(dbh, profileToken);
+    DB_PushUUID(dbh, profileToken);
 
-	dbhExecute(dbh, "SELECT profile_id FROM auth.profiles WHERE profile_token = $1");
+	DB_Execute(dbh, "SELECT profile_id FROM auth.profiles WHERE profile_token = $1");
 
-	if (!dbhTuplesOK(dbh, dbh->result))
+	if (!DB_TuplesOK(dbh, dbh->result))
 		return 0;
 
 	if (PQnfields(dbh->result) != 1)

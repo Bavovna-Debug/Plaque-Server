@@ -31,7 +31,7 @@ paquetDisplacementOnRadar(struct paquet *paquet)
 
 	struct paquetDisplacement *displacement = (struct paquetDisplacement *)inputBuffer->cursor;
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -39,19 +39,19 @@ paquetDisplacementOnRadar(struct paquet *paquet)
 
     journalUserLocation(task, dbh, displacement);
 
-    dbhPushBIGINT(dbh, &task->deviceId);
-    dbhPushDOUBLE(dbh, &displacement->latitude);
-    dbhPushDOUBLE(dbh, &displacement->longitude);
-    dbhPushREAL(dbh, &displacement->range);
+    DB_PushBIGINT(dbh, &task->deviceId);
+    DB_PushDOUBLE(dbh, &displacement->latitude);
+    DB_PushDOUBLE(dbh, &displacement->longitude);
+    DB_PushREAL(dbh, &displacement->range);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 UPDATE journal.device_displacements \
 SET on_radar_coordinate = LL_TO_EARTH($2, $3), \
     on_radar_range = $4 \
 WHERE device_id = $1");
 
-	if (!dbhCommandOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_CommandOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -61,7 +61,7 @@ WHERE device_id = $1");
     uint32 result = PaquetCreatePlaqueSucceeded;
     outputBuffer = MMPS_PutInt32(outputBuffer, &result);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	paquet->outputBuffer = paquet->inputBuffer;
 
@@ -85,7 +85,7 @@ paquetDisplacementInSight(struct paquet *paquet)
 
 	struct paquetDisplacement *displacement = (struct paquetDisplacement *)inputBuffer->cursor;
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -93,19 +93,19 @@ paquetDisplacementInSight(struct paquet *paquet)
 
     journalUserLocation(task, dbh, displacement);
 
-    dbhPushBIGINT(dbh, &task->deviceId);
-    dbhPushDOUBLE(dbh, &displacement->latitude);
-    dbhPushDOUBLE(dbh, &displacement->longitude);
-    dbhPushREAL(dbh, &displacement->range);
+    DB_PushBIGINT(dbh, &task->deviceId);
+    DB_PushDOUBLE(dbh, &displacement->latitude);
+    DB_PushDOUBLE(dbh, &displacement->longitude);
+    DB_PushREAL(dbh, &displacement->range);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 UPDATE journal.device_displacements \
 SET in_sight_coordinate = LL_TO_EARTH($2, $3), \
     in_sight_range = $4 \
 WHERE device_id = $1");
 
-	if (!dbhCommandOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_CommandOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -115,7 +115,7 @@ WHERE device_id = $1");
     uint32 result = PaquetCreatePlaqueSucceeded;
     outputBuffer = MMPS_PutInt32(outputBuffer, &result);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	paquet->outputBuffer = paquet->inputBuffer;
 
@@ -139,7 +139,7 @@ paquetDisplacementOnMap(struct paquet *paquet)
 
 	struct paquetDisplacement *displacement = (struct paquetDisplacement *)inputBuffer->cursor;
 
-	struct dbh *dbh = peekDB(task->desk->dbh.plaque);
+	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -147,19 +147,19 @@ paquetDisplacementOnMap(struct paquet *paquet)
 
     journalUserLocation(task, dbh, displacement);
 
-    dbhPushBIGINT(dbh, &task->deviceId);
-    dbhPushDOUBLE(dbh, &displacement->latitude);
-    dbhPushDOUBLE(dbh, &displacement->longitude);
-    dbhPushREAL(dbh, &displacement->range);
+    DB_PushBIGINT(dbh, &task->deviceId);
+    DB_PushDOUBLE(dbh, &displacement->latitude);
+    DB_PushDOUBLE(dbh, &displacement->longitude);
+    DB_PushREAL(dbh, &displacement->range);
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 UPDATE journal.device_displacements \
 SET on_map_coordinate = LL_TO_EARTH($2, $3), \
     on_map_range = $4 \
 WHERE device_id = $1");
 
-	if (!dbhCommandOK(dbh, dbh->result)) {
-		pokeDB(dbh);
+	if (!DB_CommandOK(dbh, dbh->result)) {
+		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
@@ -169,7 +169,7 @@ WHERE device_id = $1");
     uint32 result = PaquetCreatePlaqueSucceeded;
     outputBuffer = MMPS_PutInt32(outputBuffer, &result);
 
-	pokeDB(dbh);
+	DB_PokeHandle(dbh);
 
 	paquet->outputBuffer = paquet->inputBuffer;
 
@@ -182,24 +182,24 @@ journalUserLocation(
     struct dbh *dbh,
     struct paquetDisplacement *displacement)
 {
-    dbhPushBIGINT(dbh, &task->deviceId);
-    dbhPushDOUBLE(dbh, &displacement->latitude);
-    dbhPushDOUBLE(dbh, &displacement->longitude);
-    dbhPushREAL(dbh, &displacement->altitude);
+    DB_PushBIGINT(dbh, &task->deviceId);
+    DB_PushDOUBLE(dbh, &displacement->latitude);
+    DB_PushDOUBLE(dbh, &displacement->longitude);
+    DB_PushREAL(dbh, &displacement->altitude);
 
 	if (displacement->courseAvailable == DeviceBooleanFalse) {
-        dbhPushREAL(dbh, NULL);
+        DB_PushREAL(dbh, NULL);
 	} else {
-        dbhPushREAL(dbh, &displacement->course);
+        DB_PushREAL(dbh, &displacement->course);
 	}
 
 	if (displacement->floorLevelAvailable == DeviceBooleanFalse) {
-        dbhPushINTEGER(dbh, NULL);
+        DB_PushINTEGER(dbh, NULL);
 	} else {
-        dbhPushINTEGER(dbh, &displacement->floorLevel);
+        DB_PushINTEGER(dbh, &displacement->floorLevel);
 	}
 
-	dbhExecute(dbh, "\
+	DB_Execute(dbh, "\
 INSERT INTO journal.movements \
 (device_id, latitude, longitude, altitude, course, floor_level) \
 VALUES ($1, $2, $3, $4, $5, $6)");
