@@ -8,36 +8,45 @@
 #include "report.h"
 #include "tasks.h"
 
+/**
+ * VerifyGuest()
+ *
+ * @task:
+ */
+int
+VerifyGuest(struct task *task)
+{
 #define QUERY_VERIFY_GUEST "\
 SELECT pool.verify_ip($1)"
 
-int
-verifyGuest(struct task *task)
-{
 	struct dbh *dbh = DB_PeekHandle(task->desk->db.guardian);
-	if (dbh == NULL) {
+	if (dbh == NULL)
+	{
 		reportError("No database handler available");
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
-	DB_PushArgument(dbh, (char *)&task->clientIP, INETOID, strlen(task->clientIP), 0);
+	DB_PushArgument(dbh, (char *) &task->clientIP, INETOID, strlen(task->clientIP), 0);
 
 	DB_Execute(dbh, QUERY_VERIFY_GUEST);
 
-	if (!DB_TuplesOK(dbh, dbh->result)) {
+	if (!DB_TuplesOK(dbh, dbh->result))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfRows(dbh->result, 1))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
@@ -50,63 +59,75 @@ verifyGuest(struct task *task)
 	return ipOK;
 }
 
+/**
+ * RegisterDevice()
+ *
+ * @task:
+ * @anticipant:
+ * @deviceToken:
+ */
+int
+RegisterDevice(
+	struct task 				*task,
+	struct DialogueAnticipant 	*anticipant,
+	char 						*deviceToken)
+{
 #define QUERY_REGISTER_DEVICE "\
 SELECT auth.register_device($1, $2, $3, $4, $5)"
 
-int
-registerDevice(
-	struct task *task,
-	struct dialogueAnticipant *anticipant,
-	char *deviceToken)
-{
-	if (verifyGuest(task) != 0)
+	if (VerifyGuest(task) != 0)
 		return -1;
 
 	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
-	if (dbh == NULL) {
+	if (dbh == NULL)
+	{
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
-	DB_PushArgument(dbh, (char *)&anticipant->vendorToken, UUIDOID, TokenBinarySize, 1);
+	DB_PushArgument(dbh, (char *) &anticipant->vendorToken, UUIDOID, TokenBinarySize, 1);
 
 	DB_PushVARCHAR(dbh,
-		(char *)&anticipant->deviceName,
+		(char *) &anticipant->deviceName,
 		strnlen(anticipant->deviceName, AnticipantDeviceNameLength));
 
 	DB_PushVARCHAR(dbh,
-		(char *)&anticipant->deviceModel,
+		(char *) &anticipant->deviceModel,
 		strnlen(anticipant->deviceModel, AnticipantDeviceModelLength));
 
 	DB_PushVARCHAR(dbh,
-		(char *)&anticipant->systemName,
+		(char *) &anticipant->systemName,
 		strnlen(anticipant->systemName, AnticipantSystemNamelLength));
 
 	DB_PushVARCHAR(dbh,
-		(char *)&anticipant->systemVersion,
+		(char *) &anticipant->systemVersion,
 		strnlen(anticipant->systemVersion, AnticipantSystemVersionlLength));
 
 	DB_Execute(dbh, QUERY_REGISTER_DEVICE);
 
-	if (!DB_TuplesOK(dbh, dbh->result)) {
+	if (!DB_TuplesOK(dbh, dbh->result))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfRows(dbh->result, 1))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
+	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
@@ -121,12 +142,17 @@ registerDevice(
 	return 0;
 }
 
+/**
+ * ValidateProfileName()
+ *
+ * @paquet:
+ */
+int
+ValidateProfileName(struct paquet *paquet)
+{
 #define QUERY_VALIDATE_PROFILE_NAME "\
 SELECT auth.is_profile_name_free($1)"
 
-int
-validateProfileName(struct paquet *paquet)
-{
 	struct task	*task = paquet->task;
 
 	//if (deviceIdByToken(dbh, bonjourDeviceToken(task->request)) == 0)
@@ -135,42 +161,47 @@ validateProfileName(struct paquet *paquet)
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
-	if (!expectedPayloadSize(paquet, sizeof(struct bonjourProfileNameValidation))) {
+	if (!expectedPayloadSize(paquet, sizeof(struct BonjourProfileNameValidation)))
+	{
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
 	MMPS_ResetCursor(inputBuffer, 1);
 
-	struct bonjourProfileNameValidation validation;
+	struct BonjourProfileNameValidation validation;
 
-	inputBuffer = MMPS_GetData(inputBuffer, (char *)&validation, sizeof(validation));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *) &validation, sizeof(validation));
 
 	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
-	if (dbh == NULL) {
+	if (dbh == NULL)
+	{
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
 	DB_PushVARCHAR(dbh,
-		(char *)&validation.profileName,
+		(char *) &validation.profileName,
 		strnlen(validation.profileName, BonjourProfileNameLength));
 
 	DB_Execute(dbh, QUERY_VALIDATE_PROFILE_NAME);
 
-	if (!DB_TuplesOK(dbh, dbh->result)) {
+	if (!DB_TuplesOK(dbh, dbh->result))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfRows(dbh->result, 1))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
@@ -197,6 +228,14 @@ validateProfileName(struct paquet *paquet)
 	return 0;
 }
 
+/**
+ * CreateProfile()
+ *
+ * @paquet:
+ */
+int
+CreateProfile(struct paquet *paquet)
+{
 #define QUERY_CREATE_PROFILE "\
 INSERT INTO auth.profiles (profile_name) \
 VALUES (TRIM($1)) RETURNING profile_id"
@@ -209,9 +248,6 @@ SET user_name = TRIM($2), \
 WHERE profile_id = $1 \
 RETURNING profile_token"
 
-int
-createProfile(struct paquet *paquet)
-{
 	struct task	*task = paquet->task;
 
 	//if (deviceIdByToken(dbh, bonjourDeviceToken(task->request)) == 0)
@@ -220,28 +256,32 @@ createProfile(struct paquet *paquet)
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
-	if (!expectedPayloadSize(paquet, sizeof(struct bonjourCreateProfile))) {
+	if (!expectedPayloadSize(paquet, sizeof(struct BonjourCreateProfile)))
+	{
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
 	MMPS_ResetCursor(inputBuffer, 1);
 
-	struct bonjourCreateProfile *profile = (struct bonjourCreateProfile *)inputBuffer->cursor;
+	struct BonjourCreateProfile *profile =
+		(struct BonjourCreateProfile *) inputBuffer->cursor;
 
 	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
-	if (dbh == NULL) {
+	if (dbh == NULL)
+	{
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
     DB_PushVARCHAR(dbh,
-    	(char *)&profile->profileName,
+    	(char *) &profile->profileName,
     	strnlen(profile->profileName, BonjourProfileNameLength));
 
 	DB_Execute(dbh, QUERY_CREATE_PROFILE);
 
-	if (DB_HasState(dbh->result, CHECK_VIOLATION)) {
+	if (DB_HasState(dbh->result, CHECK_VIOLATION))
+	{
 		DB_PokeHandle(dbh);
 
 		MMPS_ResetBufferData(outputBuffer, 1);
@@ -254,7 +294,8 @@ createProfile(struct paquet *paquet)
 		return 0;
 	}
 
-	if (DB_HasState(dbh->result, UNIQUE_VIOLATION)) {
+	if (DB_HasState(dbh->result, UNIQUE_VIOLATION))
+	{
 		DB_PokeHandle(dbh);
 
 		MMPS_ResetBufferData(outputBuffer, 1);
@@ -267,25 +308,29 @@ createProfile(struct paquet *paquet)
 		return 0;
 	}
 
-	if (!DB_TuplesOK(dbh, dbh->result)) {
+	if (!DB_TuplesOK(dbh, dbh->result))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfRows(dbh->result, 1))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectColumnType(dbh->result, 0, INT8OID)) {
+	if (!DB_CorrectColumnType(dbh->result, 0, INT8OID))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
@@ -293,18 +338,18 @@ createProfile(struct paquet *paquet)
 
 	uint64 profileIdBigEndian;
 	//memcpy(&profileIdBigEndian, PQgetvalue(dbh->result, 0, 0), sizeof(profileIdBigEndian));
-    profileIdBigEndian = *(uint64 *)PQgetvalue(dbh->result, 0, 0);
+    profileIdBigEndian = *(uint64 *) PQgetvalue(dbh->result, 0, 0);
 
     DB_PushBIGINT(dbh, &profileIdBigEndian);
     DB_PushVARCHAR(dbh,
-    	(char *)&profile->userName,
+    	(char *) &profile->userName,
     	strnlen(profile->userName, BonjourUserNameLength));
 
 	if (strnlen(profile->passwordMD5, BonjourMD5Length) == 0) {
 	    DB_PushCHAR(dbh, NULL, 0);
 	} else {
 	    DB_PushCHAR(dbh,
-	    	(char *)&profile->passwordMD5,
+	    	(char *) &profile->passwordMD5,
 	    	strnlen(profile->passwordMD5, BonjourMD5Length));
 	}
 
@@ -312,13 +357,14 @@ createProfile(struct paquet *paquet)
 	    DB_PushVARCHAR(dbh, NULL, 0);
 	} else {
 	    DB_PushVARCHAR(dbh,
-	    	(char *)&profile->emailAddress,
+	    	(char *) &profile->emailAddress,
 	    	strnlen(profile->emailAddress, BonjourEmailAddressLength));
 	}
 
 	DB_Execute(dbh, QUERY_UPDATE_PROFILE);
 
-	if (DB_HasState(dbh->result, CHECK_VIOLATION)) {
+	if (DB_HasState(dbh->result, CHECK_VIOLATION))
+	{
 		DB_PokeHandle(dbh);
 
 		MMPS_ResetBufferData(outputBuffer, 1);
@@ -331,7 +377,8 @@ createProfile(struct paquet *paquet)
 		return 0;
 	}
 
-	if (DB_HasState(dbh->result, UNIQUE_VIOLATION)) {
+	if (DB_HasState(dbh->result, UNIQUE_VIOLATION))
+	{
 		DB_PokeHandle(dbh);
 
 		MMPS_ResetBufferData(outputBuffer, 1);
@@ -344,25 +391,29 @@ createProfile(struct paquet *paquet)
 		return 0;
 	}
 
-	if (!DB_TuplesOK(dbh, dbh->result)) {
+	if (!DB_TuplesOK(dbh, dbh->result))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfRows(dbh->result, 1))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID)) {
+	if (!DB_CorrectColumnType(dbh->result, 0, UUIDOID))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
@@ -391,18 +442,24 @@ createProfile(struct paquet *paquet)
 	return 0;
 }
 
+/**
+ * NotificationsToken()
+ *
+ * @paquet:
+ */
+int
+NotificationsToken(struct paquet *paquet)
+{
 #define QUERY_SET_APNS_TOKEN "\
 SELECT journal.set_apns_token($1, $2)"
 
-int
-notificationsToken(struct paquet *paquet)
-{
 	struct task	*task = paquet->task;
 
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
-	if (!expectedPayloadSize(paquet, sizeof(struct paquetNotificationsToken))) {
+	if (!expectedPayloadSize(paquet, sizeof(struct paquetNotificationsToken)))
+	{
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
@@ -411,7 +468,7 @@ notificationsToken(struct paquet *paquet)
 
 	struct paquetNotificationsToken payload;
 
-	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload));
 
 /*
 	char notificationsToken[NotificationsTokenStringSize];
@@ -425,37 +482,42 @@ notificationsToken(struct paquet *paquet)
 */
 
 	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
-	if (dbh == NULL) {
+	if (dbh == NULL)
+	{
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
 
     DB_PushBIGINT(dbh, &task->deviceId);
     DB_PushBYTEA(dbh,
-    	(char *)&payload.notificationsToken,
+    	(char *) &payload.notificationsToken,
     	NotificationsTokenBinarySize);
 
 	DB_Execute(dbh, QUERY_SET_APNS_TOKEN);
 
-	if (!DB_TuplesOK(dbh, dbh->result)) {
+	if (!DB_TuplesOK(dbh, dbh->result))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectNumberOfColumns(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfColumns(dbh->result, 1))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+	if (!DB_CorrectNumberOfRows(dbh->result, 1))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;
 	}
 
-	if (!DB_CorrectColumnType(dbh->result, 0, BOOLOID)) {
+	if (!DB_CorrectColumnType(dbh->result, 0, BOOLOID))
+	{
 		DB_PokeHandle(dbh);
 		setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 		return -1;

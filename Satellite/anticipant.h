@@ -7,7 +7,7 @@
 #include "tasks.h"
 
 #pragma pack(push, 1)
-struct dialogueAnticipant
+struct DialogueAnticipant
 {
         char                    vendorToken[TokenBinarySize];
         char                    deviceName[AnticipantDeviceNameLength];
@@ -18,14 +18,14 @@ struct dialogueAnticipant
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct bonjourProfileNameValidation
+struct BonjourProfileNameValidation
 {
         char                    profileName[BonjourProfileNameLength];
 };
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct bonjourCreateProfile
+struct BonjourCreateProfile
 {
         char                    profileName[BonjourProfileNameLength];
         char                    userName[BonjourUserNameLength];
@@ -34,22 +34,49 @@ struct bonjourCreateProfile
 };
 #pragma pack(pop)
 
+/**
+ * VerifyGuest()
+ *
+ * @task:
+ */
 int
-verifyGuest(struct task *task);
+VerifyGuest(struct task *task);
 
+/**
+ * RegisterDevice()
+ *
+ * @task:
+ * @anticipant:
+ * @deviceToken:
+ */
 int
-registerDevice(
-	struct task *task,
-	struct dialogueAnticipant *anticipant,
-	char *deviceToken);
+RegisterDevice(
+	struct task 				*task,
+	struct DialogueAnticipant 	*anticipant,
+	char 						*deviceToken);
 
+/**
+ * ValidateProfileName()
+ *
+ * @paquet:
+ */
 int
-validateProfileName(struct paquet *paquet);
+ValidateProfileName(struct paquet *paquet);
 
+/**
+ * CreateProfile()
+ *
+ * @paquet:
+ */
 int
-createProfile(struct paquet *paquet);
+CreateProfile(struct paquet *paquet);
 
+/**
+ * NotificationsToken()
+ *
+ * @paquet:
+ */
 int
-notificationsToken(struct paquet *paquet);
+NotificationsToken(struct paquet *paquet);
 
 #endif

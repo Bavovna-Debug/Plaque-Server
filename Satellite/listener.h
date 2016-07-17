@@ -6,7 +6,12 @@
 #define SLEEP_ON_CANNOT_ACCEPT                   500  // Milliseconds
 #define SLEEP_ON_SET_SOCKET_OPTIONS              250  // Milliseconds
 
+/**
+ * ListenerThread()
+ *
+ * @arg:
+ */
 void *
-listenerThread(void *arg);
+ListenerThread(void *arg);
 
 #endif

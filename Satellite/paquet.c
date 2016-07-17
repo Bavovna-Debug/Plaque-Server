@@ -95,15 +95,15 @@ paquetThread(void *arg)
 			break;
 
 		case PaquetNotificationsToken:
-			rc = notificationsToken(paquet);
+			rc = NotificationsToken(paquet);
 			break;
 
 		case PaquetValidateProfileName:
-			rc = validateProfileName(paquet);
+			rc = ValidateProfileName(paquet);
 			break;
 
 		case PaquetCreateProfile:
-			rc = createProfile(paquet);
+			rc = CreateProfile(paquet);
 			break;
 
 		case PaquetReportMessage:

@@ -1,7 +1,12 @@
 #ifndef __BROADCASTER__
 #define __BROADCASTER__
 
+/**
+ * BroadcasterThread()
+ *
+ * @arg:
+ */
 void *
-broadcasterThread(void *arg);
+BroadcasterThread(void *arg);
 
 #endif

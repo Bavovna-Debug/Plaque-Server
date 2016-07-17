@@ -12,10 +12,15 @@
 #include "tasks.h"
 
 void *
-listenerCleanup(void *arg);
+ListenerCleanup(void *arg);
 
+/**
+ * ListenerThread()
+ *
+ * @arg:
+ */
 void *
-listenerThread(void *arg)
+ListenerThread(void *arg)
 {
 	struct desk         *desk = (struct desk *)arg;
 	int                 listenSockFD;
@@ -26,7 +31,7 @@ listenerThread(void *arg)
 	const int           socketValue = 1;
 	int                 rc;
 
-    pthread_cleanup_push(&listenerCleanup, desk);
+    pthread_cleanup_push(&ListenerCleanup, desk);
 
     while (1)
     {
@@ -138,8 +143,13 @@ listenerThread(void *arg)
 	pthread_exit(NULL);
 }
 
+/**
+ * ListenerCleanup()
+ *
+ * @arg:
+ */
 void *
-listenerCleanup(void *arg)
+ListenerCleanup(void *arg)
 {
 	struct desk *desk = (struct desk *)arg;
 	int         listenSockFD;

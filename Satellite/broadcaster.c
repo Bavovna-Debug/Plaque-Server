@@ -19,16 +19,21 @@
 #define TIMEOUT_ON_POLL_FOR_RECEIPT                5 * 1000 * 1000	// Milliseconds
 
 static void
-broadcasterDialog(struct desk *desk, int sockFD);
+BroadcasterDialog(struct desk *desk, int sockFD);
 
 static int
-receiveSession(int sockFD, struct session *session);
+ReceiveSession(int sockFD, struct session *session);
 
 static int
-confirmSession(int sockFD, struct session *session);
+ConfirmSession(int sockFD, struct session *session);
 
+/**
+ * BroadcasterThread()
+ *
+ * @arg:
+ */
 void *
-broadcasterThread(void *arg)
+BroadcasterThread(void *arg)
 {
 	struct desk *desk = (struct desk *)arg;
 	int sockFD;
@@ -80,7 +85,7 @@ broadcasterThread(void *arg)
 	        }
 	    }
 
-        broadcasterDialog(desk, sockFD);
+        BroadcasterDialog(desk, sockFD);
 
 	    close(sockFD);
 	}
@@ -89,7 +94,7 @@ broadcasterThread(void *arg)
 }
 
 static void
-broadcasterDialog(struct desk *desk, int sockFD)
+BroadcasterDialog(struct desk *desk, int sockFD)
 {
 	int             sessionNumber;
 	struct session  *session;
@@ -101,7 +106,7 @@ broadcasterDialog(struct desk *desk, int sockFD)
     {
         session = &desk->broadcaster.session;
 
-        rc = receiveSession(sockFD, session);
+        rc = ReceiveSession(sockFD, session);
         if (rc != 0)
             break;
 
@@ -163,14 +168,14 @@ broadcasterDialog(struct desk *desk, int sockFD)
             }
         }
 
-        rc = confirmSession(sockFD, session);
+        rc = ConfirmSession(sockFD, session);
         if (rc != 0)
             break;
     }
 }
 
 static int
-receiveSession(int sockFD, struct session *session)
+ReceiveSession(int sockFD, struct session *session)
 {
 	struct pollfd		pollFD;
 	ssize_t		        expectedSize;
@@ -216,7 +221,7 @@ receiveSession(int sockFD, struct session *session)
 }
 
 static int
-confirmSession(int sockFD, struct session *session)
+ConfirmSession(int sockFD, struct session *session)
 {
 	struct pollfd		pollFD;
 	int                 pollRC;

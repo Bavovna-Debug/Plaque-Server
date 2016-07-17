@@ -126,19 +126,19 @@ dialogueAnticipant(struct task *task)
         reportInfo("Anticipant begin");
 #endif
 
-	struct dialogueAnticipant anticipant;
-	rc = receiveFixed(task, (char *)&anticipant, sizeof(anticipant));
+	struct DialogueAnticipant anticipant;
+	rc = receiveFixed(task, (char *) &anticipant, sizeof(anticipant));
 	if (rc != 0) {
 		setTaskStatus(task, TaskStatusMissingAnticipantRecord);
 		return;
 	}
 
 	char deviceToken[TokenBinarySize];
-	rc = registerDevice(task, &anticipant, (char *)&deviceToken);
+	rc = RegisterDevice(task, &anticipant, (char *) &deviceToken);
 	if (rc != 0)
 		return;
 
-	rc = sendFixed(task, (char *)&deviceToken, sizeof(deviceToken));
+	rc = sendFixed(task, (char *) &deviceToken, sizeof(deviceToken));
 	if (rc != 0)
 		return;
 

@@ -108,13 +108,13 @@ main(int argc, char *argv[])
     }
 #endif
 
-	rc = pthread_create(&listenerHandler, NULL, &listenerThread, desk);
+	rc = pthread_create(&listenerHandler, NULL, &ListenerThread, desk);
     if (rc != 0) {
         reportError("Cannot create listener thread: errno=%d", errno);
         goto quit;
     }
 
-	rc = pthread_create(&broadcasterHandler, NULL, &broadcasterThread, desk);
+	rc = pthread_create(&broadcasterHandler, NULL, &BroadcasterThread, desk);
     if (rc != 0) {
         reportError("Cannot create broadcaster thread: errno=%d", errno);
         goto quit;

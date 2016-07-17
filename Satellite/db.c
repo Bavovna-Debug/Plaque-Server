@@ -12,8 +12,8 @@
 
 const unsigned int NODBH = 0xFFFF0000;
 
-void
-connectToPostgres(struct dbh *dbh)
+static void
+ConnectToPostgres(struct dbh *dbh)
 {
 	// Connect to database.
 	//
@@ -22,7 +22,8 @@ connectToPostgres(struct dbh *dbh)
 
 	// Check to see that the backend connection was successfully made.
 	//
-	if (PQstatus(dbh->conn) != CONNECTION_OK) {
+	if (PQstatus(dbh->conn) != CONNECTION_OK)
+	{
 		reportError("Connection to database failed: %s",
 				PQerrorMessage(dbh->conn));
 
@@ -30,8 +31,8 @@ connectToPostgres(struct dbh *dbh)
 	}
 }
 
-void
-disconnectFromPostgres(struct dbh *dbh)
+static void
+DisconnectFromPostgres(struct dbh *dbh)
 {
 	// Disconnect from database and cleanup.
 	//
@@ -40,17 +41,30 @@ disconnectFromPostgres(struct dbh *dbh)
 	dbh->conn = NULL;
 }
 
+/**
+ * DB_InitChain()
+ *
+ * @chainName:
+ * @numberOfConnections:
+ * @conninfo:
+ */
 struct DB_Chain *
-DB_InitChain(const char *chainName, unsigned int numberOfConnections, char *conninfo)
+DB_InitChain(
+	const char 		*chainName,
+	unsigned int 	numberOfConnections,
+	char 			*conninfo)
 {
-	struct DB_Chain *chain = malloc(sizeof(struct DB_Chain) + numberOfConnections * sizeof(unsigned int));
-	if (chain == NULL) {
+	struct DB_Chain *chain =
+		malloc(sizeof(struct DB_Chain) + numberOfConnections * sizeof(unsigned int));
+	if (chain == NULL)
+	{
         reportError("Out of memory");
         return NULL;
     }
 
 	chain->block = malloc(numberOfConnections * sizeof(struct dbh));
-	if (chain->block == NULL) {
+	if (chain->block == NULL)
+	{
 		reportError("Out of memory");
 		return NULL;
 	}
@@ -82,12 +96,17 @@ DB_InitChain(const char *chainName, unsigned int numberOfConnections, char *conn
 	for (dbhId = 0; dbhId < chain->numberOfConnections; dbhId++)
 	{
 		struct dbh *dbh = chain->block + dbhId * sizeof(struct dbh);
-		connectToPostgres(dbh);
+		ConnectToPostgres(dbh);
 	}
 
 	return chain;
 }
 
+/**
+ * DB_ReleaseChain()
+ *
+ * @chain:
+ */
 void
 DB_ReleaseChain(struct DB_Chain *chain)
 {
@@ -97,7 +116,7 @@ DB_ReleaseChain(struct DB_Chain *chain)
 	{
 		struct dbh *dbh = chain->block + dbhId * sizeof(struct dbh);
 
-		disconnectFromPostgres(dbh);
+		DisconnectFromPostgres(dbh);
 	}
 
 	pthread_spin_destroy(&chain->lock);
@@ -107,6 +126,11 @@ DB_ReleaseChain(struct DB_Chain *chain)
 	free(chain);
 }
 
+/**
+ * DB_PeekHandle()
+ *
+ * @chain:
+ */
 struct dbh *
 DB_PeekHandle(struct DB_Chain *chain)
 {
@@ -148,11 +172,11 @@ DB_PeekHandle(struct DB_Chain *chain)
 		// Connect or disconnect if needed.
 		//
 		if (dbh->conn == NULL) {
-			connectToPostgres(dbh);
+			ConnectToPostgres(dbh);
 		} else {
 			if (PQstatus(dbh->conn) != CONNECTION_OK) {
-				disconnectFromPostgres(dbh);
-				connectToPostgres(dbh);
+				DisconnectFromPostgres(dbh);
+				ConnectToPostgres(dbh);
 			}
 		}
 
@@ -168,13 +192,14 @@ DB_PeekHandle(struct DB_Chain *chain)
 		// Start the transaction block.
 		//
 		result = PQexec(dbh->conn, "BEGIN");
-		if (PQresultStatus(result) != PGRES_COMMAND_OK) {
+		if (PQresultStatus(result) != PGRES_COMMAND_OK)
+		{
 			//
 			// Perhaps connection is being lost since this DB handler was last in use.
 			// Try to reconnect now.
 			//
-			disconnectFromPostgres(dbh);
-			connectToPostgres(dbh);
+			DisconnectFromPostgres(dbh);
+			ConnectToPostgres(dbh);
 
 			if ((dbh->conn == NULL) || (PQstatus(dbh->conn) != CONNECTION_OK)) {
 				DB_PokeHandle(dbh);
@@ -205,6 +230,11 @@ DB_PeekHandle(struct DB_Chain *chain)
 	return dbh;
 }
 
+/**
+ * DB_PokeHandle()
+ *
+ * @dbh:
+ */
 void
 DB_PokeHandle(struct dbh *dbh)
 {
@@ -225,8 +255,8 @@ DB_PokeHandle(struct dbh *dbh)
 		PQclear(dbh->result);
 		dbh->result = NULL;
 
-		if (PQstatus(dbh->conn) == CONNECTION_OK) {
-			//
+		if (PQstatus(dbh->conn) == CONNECTION_OK)
+		{
 			// Commit transaction.
 			//
 			PGresult *result = PQexec(dbh->conn, "COMMIT");
@@ -236,7 +266,7 @@ DB_PokeHandle(struct dbh *dbh)
 		//
 		// Otherwise disconnect this DB handler from DB so that it will be connected on next use.
 		//
-//		disconnectFromPostgres(dbh);
+//		DisconnectFromPostgres(dbh);
 	}
 
 	pthread_spin_lock(&chain->lock);
@@ -250,6 +280,11 @@ DB_PokeHandle(struct dbh *dbh)
 	pthread_spin_unlock(&chain->lock);
 }
 
+/**
+ * DB_ResetHandle()
+ *
+ * @dbh:
+ */
 void
 DB_ResetHandle(struct dbh *dbh)
 {
@@ -261,6 +296,12 @@ DB_ResetHandle(struct dbh *dbh)
 	PQreset(dbh->conn);
 }
 
+/**
+ * DB_HasState()
+ *
+ * @result:
+ * @checkState:
+ */
 inline int
 DB_HasState(PGresult *result, const char *checkState)
 {
@@ -276,6 +317,13 @@ DB_HasState(PGresult *result, const char *checkState)
 	}
 }
 
+/**
+ * __TuplesOK()
+ *
+ * @functionName:
+ * @dbh:
+ * @result:
+ */
 inline int
 __TuplesOK(
 	const char	*functionName,
@@ -294,6 +342,13 @@ __TuplesOK(
 	}
 }
 
+/**
+ * __CommandOK()
+ *
+ * @functionName:
+ * @dbh:
+ * @result:
+ */
 inline int
 __CommandOK(
 	const char	*functionName,
@@ -312,6 +367,13 @@ __CommandOK(
 	}
 }
 
+/**
+ * __CorrectNumberOfColumns()
+ *
+ * @functionName:
+ * @result:
+ * @expectedNumberOfColumns:
+ */
 inline int
 __CorrectNumberOfColumns(
 	const char	*functionName,
@@ -330,6 +392,13 @@ __CorrectNumberOfColumns(
 	}
 }
 
+/**
+ * __CorrectNumberOfRows()
+ *
+ * @functionName:
+ * @result:
+ * @expectedNumberOfRows:
+ */
 inline int
 __CorrectNumberOfRows(
 	const char	*functionName,
@@ -348,6 +417,14 @@ __CorrectNumberOfRows(
 	}
 }
 
+/**
+ * __CorrectColumnType()
+ *
+ * @functionName:
+ * @result:
+ * @columnNumber:
+ * @expectedColumnType:
+ */
 inline int
 __CorrectColumnType(
 	const char	*functionName,
@@ -368,6 +445,12 @@ __CorrectColumnType(
 	}
 }
 
+/**
+ * DB_Execute()
+ *
+ * @dbh:
+ * @query:
+ */
 inline void
 DB_Execute(struct dbh *dbh, const char *query)
 {
@@ -385,6 +468,15 @@ DB_Execute(struct dbh *dbh, const char *query)
 	dbh->arguments.numberOfArguments = 0;
 }
 
+/**
+ * DB_PushArgument()
+ *
+ * @dbh:
+ * @value:
+ * @type:
+ * @length:
+ * @format:
+ */
 inline void
 DB_PushArgument(struct dbh *dbh, char *value, Oid type, int length, int format)
 {
@@ -395,46 +487,77 @@ DB_PushArgument(struct dbh *dbh, char *value, Oid type, int length, int format)
 	dbh->arguments.numberOfArguments++;
 }
 
+/**
+ * DB_PushBIGINT()
+ *
+ * @dbh:
+ * @value:
+ */
 inline void
 DB_PushBIGINT(struct dbh *dbh, uint64 *value)
 {
-	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
+	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *) value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = INT8OID;
 	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = (value == NULL) ? 0 : sizeof(uint64);
 	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
 	dbh->arguments.numberOfArguments++;
 }
 
+/**
+ * DB_PushINTEGER()
+ *
+ * @dbh:
+ * @value:
+ */
 inline void
 DB_PushINTEGER(struct dbh *dbh, uint32 *value)
 {
-	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
+	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *) value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = INT4OID;
 	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = (value == NULL) ? 0 : sizeof(uint32);
 	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
 	dbh->arguments.numberOfArguments++;
 }
 
+/**
+ * DB_PushDOUBLE()
+ *
+ * @dbh:
+ * @value:
+ */
 inline void
 DB_PushDOUBLE(struct dbh *dbh, double *value)
 {
-	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
+	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *) value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = FLOAT8OID;
 	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = (value == NULL) ? 0 : sizeof(double);
 	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
 	dbh->arguments.numberOfArguments++;
 }
 
+/**
+ * DB_PushREAL()
+ *
+ * @dbh:
+ * @value:
+ */
 inline void
 DB_PushREAL(struct dbh *dbh, float *value)
 {
-	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *)value;
+	dbh->arguments.values   [dbh->arguments.numberOfArguments] = (char *) value;
 	dbh->arguments.types    [dbh->arguments.numberOfArguments] = FLOAT4OID;
 	dbh->arguments.lengths  [dbh->arguments.numberOfArguments] = (value == NULL) ? 0 : sizeof(float);
 	dbh->arguments.formats  [dbh->arguments.numberOfArguments] = 1;
 	dbh->arguments.numberOfArguments++;
 }
 
+/**
+ * DB_PushCHAR()
+ *
+ * @dbh:
+ * @value:
+ * @length:
+ */
 inline void
 DB_PushCHAR(struct dbh *dbh, char *value, int length)
 {
@@ -445,6 +568,13 @@ DB_PushCHAR(struct dbh *dbh, char *value, int length)
 	dbh->arguments.numberOfArguments++;
 }
 
+/**
+ * DB_PushVARCHAR()
+ *
+ * @dbh:
+ * @value:
+ * @length:
+ */
 inline void
 DB_PushVARCHAR(struct dbh *dbh, char *value, int length)
 {
@@ -455,6 +585,13 @@ DB_PushVARCHAR(struct dbh *dbh, char *value, int length)
 	dbh->arguments.numberOfArguments++;
 }
 
+/**
+ * DB_PushBYTEA()
+ *
+ * @dbh:
+ * @value:
+ * @length:
+ */
 inline void
 DB_PushBYTEA(struct dbh *dbh, char *value, int length)
 {
@@ -465,6 +602,12 @@ DB_PushBYTEA(struct dbh *dbh, char *value, int length)
 	dbh->arguments.numberOfArguments++;
 }
 
+/**
+ * DB_PushUUID()
+ *
+ * @dbh:
+ * @value:
+ */
 inline void
 DB_PushUUID(struct dbh *dbh, char *value)
 {
@@ -475,16 +618,28 @@ DB_PushUUID(struct dbh *dbh, char *value)
 	dbh->arguments.numberOfArguments++;
 }
 
+/**
+ * DB_GetUInt64()
+ *
+ * @result:
+ * @rowNumber:
+ * @columnNumber:
+ */
 inline uint64
-dbhGetUInt64(PGresult *result, int rowNumber, int columnNumber)
+DB_GetUInt64(PGresult *result, int rowNumber, int columnNumber)
 {
 	char *c = PQgetvalue(result, rowNumber, columnNumber);
 	uint64 value;
-	memcpy((void *)&value, c, sizeof(value));
+	memcpy((void *) &value, c, sizeof(value));
 	value = be64toh(value);
 	return value;
 }
 
+/**
+ * DB_HanldesInUse()
+ *
+ * @chain:
+ */
 int
 DB_HanldesInUse(struct DB_Chain *chain)
 {
