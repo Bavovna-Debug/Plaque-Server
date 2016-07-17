@@ -283,10 +283,12 @@ taskCleanup(void *arg)
 		pthread_spin_lock(&task->paquet.chainLock);
 
 		paquetToCancel = task->paquet.chainAnchor;
+
+		pthread_spin_unlock(&task->paquet.chainLock);
+
 		if (paquetToCancel != NULL)
 			paquetCancel(paquetToCancel);
 
-		pthread_spin_unlock(&task->paquet.chainLock);
 	} while (paquetToCancel != NULL);
 
 	close(task->xmit.sockFD);
