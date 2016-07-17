@@ -76,7 +76,7 @@ schedulerMain(Datum *arg)
 
     BackgroundWorkerInitializeConnection("vp", "vp");
 
-    reportLog("Scheduler ready");
+    reportInfo("Scheduler ready");
 
 	while (!gotSigTerm)
 	{
@@ -86,7 +86,7 @@ schedulerMain(Datum *arg)
 	    revisionSessionsForModifiedPlaques(&numberOfProcessedSessions);
 
         if (numberOfProcessedSessions > 0)
-    	    reportLog("Processed %d sessions", numberOfProcessedSessions);
+    	    reportInfo("Processed %d sessions", numberOfProcessedSessions);
 
         latchTimeout = (numberOfProcessedSessions) ? LATCH_TIMEOUT_WHEN_BUSY : LATCH_TIMEOUT_WHEN_IDLE;
 
