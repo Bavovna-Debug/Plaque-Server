@@ -1,6 +1,10 @@
+CFLAGS += -Wall
+
 MODULES = vp_dispatcher
-PG_CONFIG = /usr/pgsql-9.4/bin/pg_config
+
+PG_CONFIG := /usr/pgsql-9.4/bin/pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
+
 include $(PGXS)
 
 vp_dispatcher.so: main.o apns.o

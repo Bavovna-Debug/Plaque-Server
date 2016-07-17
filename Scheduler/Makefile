@@ -1,8 +1,14 @@
+CFLAGS += -Wall
+
 MODULES = vp_scheduler
-PG_CONFIG = /usr/pgsql-9.4/bin/pg_config
+
+PG_CONFIG := /usr/pgsql-9.4/bin/pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
-INCLUDE := -I/usr/pgsql-9.4/include/ -I/usr/pgsql-9.4/include/server/ -I../lib/
-DEFINES := -D PGBGW
+
+INCLUDE += -I/usr/pgsql-9.4/include/ -I/usr/pgsql-9.4/include/server/ -I../lib/
+INCLUDE += -I../lib/
+
+DEFINES += -D PGBGW
 
 include $(PGXS)
 
