@@ -2,7 +2,8 @@ MODULES = vp_broadcaster
 PG_CONFIG = /usr/pgsql-9.4/bin/pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 INCLUDE := -I/usr/pgsql-9.4/include/ -I/usr/pgsql-9.4/include/server/ -I../lib/ -I../api/
-DEFINES := -D PGBGW -D BUFFERS_INIT_BANK -D BUFFERS_PEEK_POKE
+DEFINES += -D PGBGW
+DEFINES += -D BUFFERS_INIT_BANK -D BUFFERS_PEEK_POKE
 
 include $(PGXS)
 

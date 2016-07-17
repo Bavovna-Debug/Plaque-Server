@@ -97,7 +97,7 @@ broadcasterMain(Datum *arg)
 	if (desk == NULL)
         proc_exit(-1);
 
-    reportLog("Broadcaster ready");
+    reportInfo("Broadcaster ready");
 
     desk->listener.portNumber = BROADCASTER_PORT_NUMBER;
 

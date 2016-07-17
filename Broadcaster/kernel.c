@@ -67,7 +67,7 @@ FROM journal.revised_sessions"
     numberOfSessions = DatumGetInt64(SPI_getbinval(tuple, tupdesc, 1, &isNull));
 
     if (numberOfSessions > 0)
-        reportLog("There are %lu revised sessions", numberOfSessions);
+        reportInfo("There are %lu revised sessions", numberOfSessions);
 
     PGBGW_COMMIT;
 
@@ -87,7 +87,7 @@ getListOfRevisedSessions(struct desk *desk)
 	int             rc;
 
     if (pthread_mutex_trylock(&desk->watchdog.mutex) != 0) {
-        reportLog("Broadcaster is still busy with xmit, wait for %d seconds",
+        reportInfo("Broadcaster is still busy with xmit, wait for %d seconds",
             SLEEP_WHEN_LISTENER_IS_BUSY);
         sleep(SLEEP_WHEN_LISTENER_IS_BUSY);
         return 0;
@@ -127,7 +127,7 @@ RETURNING session_id"
             session->receiptId = desk->watchdog.lastReceiptId;
             session->sessionId = DatumGetInt64(SPI_getbinval(tuple, tupdesc, 1, &isNull));
 
-            reportLog("Broadcaster has detected revised session %lu", session->sessionId);
+            reportInfo("Broadcaster has detected revised session %lu", session->sessionId);
         }
 
 	    for (sessionNumber = 0; sessionNumber < numberOfSessions; sessionNumber++)
@@ -161,7 +161,7 @@ RETURNING in_cache_revision, on_radar_revision, in_sight_revision, on_map_revisi
                 // This session is not online, therefore there is no need
                 // to send it broadcast to listener.
                 //
-                reportLog("Ignoring revised session because session is offline: sessionId=%lu",
+                reportInfo("Ignoring revised session because session is offline: sessionId=%lu",
                     session->sessionId);
 
                 session->sessionId = 0;
@@ -178,7 +178,7 @@ RETURNING in_cache_revision, on_radar_revision, in_sight_revision, on_map_revisi
                 session->onMapRevision = DatumGetInt32(SPI_getbinval(tuple, tupdesc, 4, &isNull));
                 session->satelliteTaskId = DatumGetInt32(SPI_getbinval(tuple, tupdesc, 5, &isNull));
 
-                reportLog("Detected revised session: receiptId=%lu sessionId=%lu, revisions=%u/%u/%u/%u, taskId=%u",
+                reportInfo("Detected revised session: receiptId=%lu sessionId=%lu, revisions=%u/%u/%u/%u, taskId=%u",
                     session->receiptId,
                     session->sessionId,
                     session->inCacheRevision,

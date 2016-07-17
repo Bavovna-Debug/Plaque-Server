@@ -78,13 +78,13 @@ listenerThread(void *arg)
     	    	break;
 		    }
 
-    		reportLog("Accepted connection from %s:%d",
+    		reportInfo("Accepted connection from %s:%d",
 	    	    inet_ntoa(clientAddress.sin_addr),
 		        clientAddress.sin_port);
 
             rc = conversation(desk, clientSockFD);
             if (rc != 0)
-                reportLog("Broadcaster conversation has broken");
+                reportInfo("Broadcaster conversation has broken");
 
 	    	close(clientSockFD);
 	    }
@@ -100,7 +100,7 @@ listenerKnockKnock(struct desk *desk)
 {
     int rc;
 
-    reportLog("Messenger knock... knock...");
+    reportInfo("Messenger knock... knock...");
 
     rc = pthread_mutex_lock(&desk->listener.readyToGoMutex);
     if (rc != 0) {
@@ -150,7 +150,7 @@ conversation(struct desk *desk, int sockFD)
 
         // Wait for condition for some time.
         //
-        reportLog("Broadcaster thread waiting %d seconds for revised sessions",
+        reportInfo("Broadcaster thread waiting %d seconds for revised sessions",
             TIMEOUT_DISCONNECT_IF_IDLE);
 
         rc = pthread_mutex_lock(&desk->listener.readyToGoMutex);
@@ -180,7 +180,7 @@ conversation(struct desk *desk, int sockFD)
             //
             // Condition wait has timed out.
             //
-            reportLog("Broadcaster connection idle for %d seconds - disconnect",
+            reportInfo("Broadcaster connection idle for %d seconds - disconnect",
                 TIMEOUT_DISCONNECT_IF_IDLE);
 
             break;
@@ -227,10 +227,10 @@ broadcasterDialog(struct desk *desk, int sockFD)
                 break;
 
             if (receiptId == session->receiptId) {
-                reportLog("Received confirmation for revised session %lu",
+                reportInfo("Received confirmation for revised session %lu",
                     be64toh(session->sessionId));
             } else {
-                reportLog("Confirmation for revised session %lu failed, expected %lu, received %lu",
+                reportInfo("Confirmation for revised session %lu failed, expected %lu, received %lu",
                     be64toh(session->sessionId),
                     be64toh(session->receiptId),
                     be64toh(receiptId));
@@ -268,7 +268,7 @@ sendReceipt(int sockFD, struct session *session)
 	}
 
 	if (pollRC == 0) {
-		reportLog("Wait for send timed out");
+		reportInfo("Wait for send timed out");
 		return -1;
 	} else if (pollRC != 1) {
 		reportError("Poll error on send");
@@ -315,7 +315,7 @@ receiveReceipt(int sockFD, struct session *session, uint64 *receiptId)
 	}
 
 	if (pollRC == 0) {
-		reportLog("Wait for receive timed out");
+		reportInfo("Wait for receive timed out");
 		return -1;
 	} else if (pollRC != 1) {
 		reportError("Poll error on receive");
