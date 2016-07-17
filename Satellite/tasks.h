@@ -52,7 +52,8 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 #pragma pack(push, 1)
-typedef struct dialogueDemande {
+struct dialogueDemande
+{
 	uint64  		dialogueSignature;
 	double			deviceTimestamp;
 	uint32  		dialogueType;
@@ -64,24 +65,27 @@ typedef struct dialogueDemande {
 	char			deviceToken[TokenBinarySize];
 	char			profileToken[TokenBinarySize];
 	char			sessionToken[TokenBinarySize];
-} dialogueDemande;
+};
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-typedef struct dialogueVerdict {
+struct dialogueVerdict
+{
 	uint64  		dialogueSignature;
 	uint32  		verdictCode;
 	char			sessionToken[TokenBinarySize];
-} dialogueVerdict;
+};
 #pragma pack(pop)
 
-struct revisions {
+struct revisions
+{
 	uint32				onRadar;
 	uint32				inSight;
 	uint32				onMap;
-} revisions_t;
+};
 
-typedef struct task {
+struct task
+{
 	struct MMPS_Buffer	*containerBuffer;
 	struct desk     	*desk;
 	pthread_t			thread;
@@ -93,25 +97,29 @@ typedef struct task {
 	long				status;
 	char				clientIP[MAX(INET_ADDRSTRLEN, INET6_ADDRSTRLEN)];
 
-	struct {
+	struct
+	{
 		struct dialogueDemande	demande;
 		struct dialogueVerdict	verdict;
 	} dialogue;
 
-	struct {
+	struct
+	{
 		int					sockFD;
 		pthread_mutex_t		receiveMutex;
 		pthread_mutex_t		sendMutex;
 	} xmit;
 
-	struct {
+	struct
+	{
 		pthread_spinlock_t	chainLock;
 		pthread_spinlock_t	heavyJobLock;
 		pthread_mutex_t		downloadMutex;
 		struct paquet		*chainAnchor;
 	} paquet;
 
-	struct {
+	struct
+	{
 		struct revisions	lastKnownRevision;
 		struct revisions	currentRevision;
 		struct paquet		*broadcastPaquet;
@@ -119,9 +127,10 @@ typedef struct task {
 		pthread_mutex_t		waitMutex;
 		pthread_cond_t		waitCondition;
 	} broadcast;
-} task_t;
+};
 
-typedef struct paquet {
+struct paquet
+{
 	struct MMPS_Buffer	*containerBuffer;
 	struct task			*task;
 	struct paquet		*nextInChain;
@@ -132,7 +141,7 @@ typedef struct paquet {
 	uint32				payloadSize;
 	struct MMPS_Buffer	*inputBuffer;
 	struct MMPS_Buffer	*outputBuffer;
-} paquet_t;
+};
 
 struct task *
 startTask(

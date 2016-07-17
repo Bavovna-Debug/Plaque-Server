@@ -47,32 +47,38 @@
 #define BUFFER_PROFILES             0xFF000000
 #define BUFFER_PLAQUES              0xAA000000
 
-typedef struct desk {
-    struct {
+struct desk
+{
+    struct
+    {
         struct MMPS_Pool    *task;
         struct MMPS_Pool    *paquet;
         struct MMPS_Pool    *dynamic;
     } pools;
 
-    struct {
+    struct
+    {
         struct DB_Chain     *guardian;
         struct DB_Chain     *auth;
         struct DB_Chain     *plaque;
     } db;
 
-    struct {
+    struct
+    {
         void                **list;
     } tasks;
 
-    struct {
+    struct
+    {
         uint16_t            portNumber;
         struct session      session;
     } broadcaster;
 
-    struct {
+    struct
+    {
         uint16_t            portNumber;
         int                 listenSockFD;
     } listener;
-} desk_t;
+};
 
 #endif

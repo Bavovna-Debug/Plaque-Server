@@ -7,28 +7,31 @@
 #include "tasks.h"
 
 #pragma pack(push, 1)
-typedef struct dialogueAnticipant {
+struct dialogueAnticipant
+{
         char                    vendorToken[TokenBinarySize];
         char                    deviceName[AnticipantDeviceNameLength];
         char                    deviceModel[AnticipantDeviceModelLength];
         char                    systemName[AnticipantSystemNamelLength];
         char                    systemVersion[AnticipantSystemVersionlLength];
-} bonjourAnticipant;
+};
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-typedef struct bonjourProfileNameValidation {
+struct bonjourProfileNameValidation
+{
         char                    profileName[BonjourProfileNameLength];
-} bonjourProfileNameValidation;
+};
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-typedef struct bonjourCreateProfile {
+struct bonjourCreateProfile
+{
         char                    profileName[BonjourProfileNameLength];
         char                    userName[BonjourUserNameLength];
         char                    passwordMD5[BonjourMD5Length];
         char                    emailAddress[BonjourEmailAddressLength];
-} bonjourCreateProfile;
+};
 #pragma pack(pop)
 
 int

@@ -208,7 +208,7 @@ dialogueRegular(struct task *task)
 
 			// Receive is needed if rest of data does not contain even a paquet pilot.
 			//
-			if (receiveBuffer->dataSize < sizeof(paquetPilot)) {
+			if (receiveBuffer->dataSize < sizeof(struct paquetPilot)) {
 				receiveNeeded = 1;
 			} else {
 				struct paquetPilot *pilot = (struct paquetPilot *)receiveBuffer->data;
@@ -216,7 +216,7 @@ dialogueRegular(struct task *task)
 
 				// Receive is needed if rest of data contains only a part of paquet.
 				//
-				if (MMPS_TotalDataSize(receiveBuffer) < sizeof(paquetPilot) + payloadSize) {
+				if (MMPS_TotalDataSize(receiveBuffer) < sizeof(struct paquetPilot) + payloadSize) {
 					receiveNeeded = 1;
 				} else {
 					//
@@ -246,7 +246,7 @@ dialogueRegular(struct task *task)
 			paquet->payloadSize);
 #endif
 
-		if (totalReceivedData < sizeof(paquetPilot) + paquet->payloadSize) {
+		if (totalReceivedData < sizeof(struct paquetPilot) + paquet->payloadSize) {
 			//
 			// If amount of data in receive buffer is less then necessary for current paquet
 			// then quit with error.
@@ -279,7 +279,7 @@ dialogueRegular(struct task *task)
 			// Then truncate the buffer.
 			//
 			struct MMPS_Buffer *sliceDataBuffer = receiveBuffer;
-			int paquetDataRest = sizeof(paquetPilot) + paquet->payloadSize;
+			int paquetDataRest = sizeof(struct paquetPilot) + paquet->payloadSize;
 			while (sliceDataBuffer->next != NULL)
 			{
 				paquetDataRest -= sliceDataBuffer->dataSize;
