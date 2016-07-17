@@ -6,10 +6,15 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#include "desk.h"
+#include "chalkboard.h"
 #include "listener.h"
 #include "report.h"
 #include "tasks.h"
+
+// Take a pointer to chalkboard. Chalkboard must be initialized
+// before any routine of this module could be called.
+//
+extern struct Chalkboard *chalkboard;
 
 void *
 ListenerCleanup(void *arg);
@@ -22,7 +27,6 @@ ListenerCleanup(void *arg);
 void *
 ListenerThread(void *arg)
 {
-	struct desk         *desk = (struct desk *)arg;
 	int                 listenSockFD;
 	int                 clientSockFD;
 	struct sockaddr_in  serverAddress;
@@ -31,7 +35,7 @@ ListenerThread(void *arg)
 	const int           socketValue = 1;
 	int                 rc;
 
-    pthread_cleanup_push(&ListenerCleanup, desk);
+    pthread_cleanup_push(&ListenerCleanup, NULL);
 
     while (1)
     {
@@ -47,7 +51,7 @@ ListenerThread(void *arg)
 	    	continue;
     	}
 
-        desk->listener.listenSockFD = listenSockFD;
+        chalkboard->listener.listenSockFD = listenSockFD;
 
         // Notify the stack that the socket address needs to be reused.
         // Important for the case when the socket needed to be reopened.
@@ -71,11 +75,11 @@ ListenerThread(void *arg)
 	        continue;
         }
 
-	    bzero((char *)&serverAddress, sizeof(serverAddress));
+	    bzero((char *) &serverAddress, sizeof(serverAddress));
 
 	    serverAddress.sin_family = AF_INET;
 	    serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-	    serverAddress.sin_port = htons(desk->listener.portNumber);
+	    serverAddress.sin_port = htons(chalkboard->listener.portNumber);
 
         while (1)
         {
@@ -115,7 +119,7 @@ ListenerThread(void *arg)
 	    while (1)
 	    {
 		    clientSockFD = accept(listenSockFD,
-				(struct sockaddr *)&clientAddress,
+				(struct sockaddr *) &clientAddress,
 				&clientAddressLength);
 		    if (clientSockFD < 0)
 		    {
@@ -129,7 +133,7 @@ ListenerThread(void *arg)
 
 		    char *clientIP = inet_ntoa(clientAddress.sin_addr);
 
-		    struct task *task = startTask(desk, clientSockFD, clientIP);
+		    struct task *task = startTask(clientSockFD, clientIP);
             if (task == NULL) {
                 reportError("Cannot start new task");
 			    close(clientSockFD);
@@ -151,10 +155,9 @@ ListenerThread(void *arg)
 void *
 ListenerCleanup(void *arg)
 {
-	struct desk *desk = (struct desk *)arg;
 	int         listenSockFD;
 
-	listenSockFD = desk->listener.listenSockFD;
+	listenSockFD = chalkboard->listener.listenSockFD;
 
     if (listenSockFD > 0)
     	close(listenSockFD);

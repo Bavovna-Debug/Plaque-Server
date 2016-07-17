@@ -2,12 +2,18 @@
 #include <string.h>
 
 #include "api.h"
+#include "chalkboard.h"
 #include "db.h"
 #include "mmps.h"
 #include "paquet.h"
 #include "paquet_broadcast.h"
 #include "report.h"
 #include "tasks.h"
+
+// Take a pointer to chalkboard. Chalkboard must be initialized
+// before any routine of this module could be called.
+//
+extern struct Chalkboard *chalkboard;
 
 static int
 paquetBroadcastPlaquesOnRadar(struct paquet *paquet);
@@ -179,7 +185,7 @@ paquetBroadcastPlaquesOnRadar(struct paquet *paquet)
 	struct task	*task = paquet->task;
 
     struct MMPS_Buffer *outputBuffer =
-        MMPS_PeekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
+        MMPS_PeekBufferOfSize(chalkboard->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
@@ -189,7 +195,7 @@ paquetBroadcastPlaquesOnRadar(struct paquet *paquet)
 
     paquet->outputBuffer = outputBuffer;
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -282,7 +288,7 @@ paquetBroadcastPlaquesInSight(struct paquet *paquet)
 	struct task	*task = paquet->task;
 
     struct MMPS_Buffer *outputBuffer =
-        MMPS_PeekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
+        MMPS_PeekBufferOfSize(chalkboard->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
@@ -292,7 +298,7 @@ paquetBroadcastPlaquesInSight(struct paquet *paquet)
 
     paquet->outputBuffer = outputBuffer;
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -385,7 +391,7 @@ paquetBroadcastPlaquesOnMap(struct paquet *paquet)
 	struct task	*task = paquet->task;
 
     struct MMPS_Buffer *outputBuffer =
-        MMPS_PeekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
+        MMPS_PeekBufferOfSize(chalkboard->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
@@ -395,7 +401,7 @@ paquetBroadcastPlaquesOnMap(struct paquet *paquet)
 
     paquet->outputBuffer = outputBuffer;
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;

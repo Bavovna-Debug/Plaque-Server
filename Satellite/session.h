@@ -16,7 +16,7 @@ getSessionForDevice(
     char *givenSessionToken);
 
 int
-setAllSessionsOffline(struct desk *desk);
+setAllSessionsOffline(void);
 
 int
 setSessionOnline(struct task *task);

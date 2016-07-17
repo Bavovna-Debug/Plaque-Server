@@ -5,7 +5,7 @@
 
 #include "anticipant.h"
 #include "api.h"
-#include "desk.h"
+#include "chalkboard.h"
 #include "mmps.h"
 #include "paquet.h"
 #include "plaques_edit.h"
@@ -17,12 +17,17 @@
 #include "task_kernel.h"
 #include "task_xmit.h"
 
+// Take a pointer to chalkboard. Chalkboard must be initialized
+// before any routine of this module could be called.
+//
+extern struct Chalkboard *chalkboard;
+
 int
 authentifyDialogue(struct task *task)
 {
 	int rc = 0;
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.auth);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.auth);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -171,7 +176,7 @@ dialogueRegular(struct task *task)
 
 		// Get a buffer for new paquet.
 		//
-    	paquetBuffer = MMPS_PeekBuffer(task->desk->pools.paquet, BUFFER_DIALOGUE_PAQUET);
+    	paquetBuffer = MMPS_PeekBuffer(chalkboard->pools.paquet, BUFFER_DIALOGUE_PAQUET);
     	if (paquetBuffer == NULL) {
             reportError("Out of memory");
 			setTaskStatus(task, TaskStatusOutOfMemory);
@@ -191,7 +196,7 @@ dialogueRegular(struct task *task)
 		// If there is no rest data from previous receive then allocate a new buffer and start receive.
 		//
 		if (receiveBuffer == NULL) {
-			receiveBuffer = MMPS_PeekBufferOfSize(task->desk->pools.dynamic,
+			receiveBuffer = MMPS_PeekBufferOfSize(chalkboard->pools.dynamic,
 			    KB,
 			    BUFFER_DIALOGUE_FIRST);
 
@@ -288,7 +293,7 @@ dialogueRegular(struct task *task)
 
 			// Allocate new receive buffer to be used on next loop.
 			//
-			receiveBuffer = MMPS_PeekBufferOfSize(task->desk->pools.dynamic,
+			receiveBuffer = MMPS_PeekBufferOfSize(chalkboard->pools.dynamic,
 			    KB,
 			    BUFFER_DIALOGUE_FOLLOWING);
 			if (receiveBuffer == NULL) {

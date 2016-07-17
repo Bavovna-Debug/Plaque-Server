@@ -3,13 +3,18 @@
 #include <string.h>
 #include <pthread.h>
 
-#include "desk.h"
+#include "chalkboard.h"
 #include "mmps.h"
 #include "paquet.h"
 #include "report.h"
 #include "tasks.h"
 #include "task_kernel.h"
 #include "task_xmit.h"
+
+// Take a pointer to chalkboard. Chalkboard must be initialized
+// before any routine of this module could be called.
+//
+extern struct Chalkboard *chalkboard;
 
 // TASKS
 // TASK_THREAD
@@ -25,7 +30,6 @@ taskCleanup(void *arg);
 
 struct task *
 startTask(
-	struct desk			*desk,
 	int					sockFD,
 	char				*clientIP)
 {
@@ -37,7 +41,7 @@ startTask(
 	reportInfo("Starting new task");
 #endif
 
-	taskBuffer = MMPS_PeekBuffer(desk->pools.task, BUFFER_TASK);
+	taskBuffer = MMPS_PeekBuffer(chalkboard->pools.task, BUFFER_TASK);
 	if (taskBuffer == NULL) {
         reportError("Out of memory");
         return NULL;
@@ -47,8 +51,6 @@ startTask(
 	task->containerBuffer = taskBuffer;
 
 	task->taskId = taskBuffer->bufferId;
-
-	task->desk = desk;
 
 	task->status = TaskStatusGood;
 
@@ -200,7 +202,7 @@ taskInit(struct task *task)
 	pthread_mutexattr_t mutexAttr;
 	int					rc;
 
-    taskListPushTask(task->desk, task->taskId, task);
+    taskListPushTask(task->taskId, task);
 
     pthread_mutexattr_init(&mutexAttr);
     //pthread_mutexattr_setpshared(&mutexAttr, PTHREAD_PROCESS_SHARED);
@@ -329,7 +331,7 @@ taskCleanup(void *arg)
 	if (rc != 0)
 		reportError("Cannot destroy condition: rc=%d", rc);
 
-    taskListPushTask(task->desk, task->taskId, NULL);
+    taskListPushTask(task->taskId, NULL);
 
     MMPS_PokeBuffer(task->containerBuffer);
 }

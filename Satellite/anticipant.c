@@ -3,10 +3,16 @@
 
 #include "api.h"
 #include "anticipant.h"
+#include "chalkboard.h"
 #include "db.h"
 #include "mmps.h"
 #include "report.h"
 #include "tasks.h"
+
+// Take a pointer to chalkboard. Chalkboard must be initialized
+// before any routine of this module could be called.
+//
+extern struct Chalkboard *chalkboard;
 
 /**
  * VerifyGuest()
@@ -19,7 +25,7 @@ VerifyGuest(struct task *task)
 #define QUERY_VERIFY_GUEST "\
 SELECT pool.verify_ip($1)"
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.guardian);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.guardian);
 	if (dbh == NULL)
 	{
 		reportError("No database handler available");
@@ -78,7 +84,7 @@ SELECT auth.register_device($1, $2, $3, $4, $5)"
 	if (VerifyGuest(task) != 0)
 		return -1;
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL)
 	{
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
@@ -173,7 +179,7 @@ SELECT auth.is_profile_name_free($1)"
 
 	inputBuffer = MMPS_GetData(inputBuffer, (char *) &validation, sizeof(validation));
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL)
 	{
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
@@ -267,7 +273,7 @@ RETURNING profile_token"
 	struct BonjourCreateProfile *profile =
 		(struct BonjourCreateProfile *) inputBuffer->cursor;
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL)
 	{
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
@@ -481,7 +487,7 @@ SELECT journal.set_apns_token($1, $2)"
 	}
 */
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL)
 	{
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);

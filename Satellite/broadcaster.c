@@ -7,7 +7,7 @@
 
 #include "broadcaster_api.h"
 #include "broadcaster.h"
-#include "desk.h"
+#include "chalkboard.h"
 #include "report.h"
 #include "tasks.h"
 #include "task_list.h"
@@ -18,8 +18,13 @@
 #define TIMEOUT_ON_WAIT_FOR_BEGIN_TO_TRANSMIT     10 * 1000 * 1000	// Milliseconds
 #define TIMEOUT_ON_POLL_FOR_RECEIPT                5 * 1000 * 1000	// Milliseconds
 
+// Take a pointer to chalkboard. Chalkboard must be initialized
+// before any routine of this module could be called.
+//
+extern struct Chalkboard *chalkboard;
+
 static void
-BroadcasterDialog(struct desk *desk, int sockFD);
+BroadcasterDialog(int sockFD);
 
 static int
 ReceiveSession(int sockFD, struct session *session);
@@ -35,30 +40,32 @@ ConfirmSession(int sockFD, struct session *session);
 void *
 BroadcasterThread(void *arg)
 {
-	struct desk *desk = (struct desk *)arg;
-	int sockFD;
-	struct sockaddr_in broadcasterAddress;
-	int rc;
+	int                 sockFD;
+	struct sockaddr_in  broadcasterAddress;
+	int                 rc;
 
     while (1)
     {
     	sockFD = socket(AF_INET, SOCK_STREAM, 0);
-	    if (sockFD < 0) {
+	    if (sockFD < 0)
+	    {
 	    	reportError("Cannot open a socket, wait for %d microseconds: errno=%d",
 	    	    BROADCASTER_SLEEP_ON_CANNOT_OPEN_SOCKET, errno);
 	    	usleep(BROADCASTER_SLEEP_ON_CANNOT_OPEN_SOCKET);
     		continue;
 	    }
 
-    	bzero((char *)&broadcasterAddress, sizeof(broadcasterAddress));
+    	bzero((char *) &broadcasterAddress, sizeof(broadcasterAddress));
 
     	broadcasterAddress.sin_family = AF_INET;
 	    broadcasterAddress.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    	broadcasterAddress.sin_port = htons(desk->broadcaster.portNumber);
+    	broadcasterAddress.sin_port = htons(chalkboard->broadcaster.portNumber);
 
         while (1)
         {
-	        rc = connect(sockFD, (struct sockaddr *)&broadcasterAddress, sizeof(broadcasterAddress));
+	        rc = connect(sockFD,
+	            (struct sockaddr *) &broadcasterAddress,
+	            sizeof(broadcasterAddress));
     	    if (rc == 0) {
     	        //
     	        // Connection established.
@@ -85,7 +92,7 @@ BroadcasterThread(void *arg)
 	        }
 	    }
 
-        BroadcasterDialog(desk, sockFD);
+        BroadcasterDialog(sockFD);
 
 	    close(sockFD);
 	}
@@ -94,7 +101,7 @@ BroadcasterThread(void *arg)
 }
 
 static void
-BroadcasterDialog(struct desk *desk, int sockFD)
+BroadcasterDialog(int sockFD)
 {
 	int             sessionNumber;
 	struct session  *session;
@@ -104,7 +111,7 @@ BroadcasterDialog(struct desk *desk, int sockFD)
 
     while (1)
     {
-        session = &desk->broadcaster.session;
+        session = &chalkboard->broadcaster.session;
 
         rc = ReceiveSession(sockFD, session);
         if (rc != 0)
@@ -112,7 +119,7 @@ BroadcasterDialog(struct desk *desk, int sockFD)
 
         satelliteTaskId = be32toh(session->satelliteTaskId);
 
-        task = taskListTaskById(desk, satelliteTaskId);
+        task = taskListTaskById(satelliteTaskId);
         if (task == NULL) {
             reportInfo("Task %u is already closed", satelliteTaskId);
         } else {

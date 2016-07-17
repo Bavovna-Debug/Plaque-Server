@@ -2,11 +2,17 @@
 #include <string.h>
 
 #include "db.h"
+#include "chalkboard.h"
 #include "mmps.h"
 #include "paquet.h"
 #include "report.h"
 #include "reports.h"
 #include "tasks.h"
+
+// Take a pointer to chalkboard. Chalkboard must be initialized
+// before any routine of this module could be called.
+//
+extern struct Chalkboard *chalkboard;
 
 int
 reportMessage(struct paquet *paquet)
@@ -48,7 +54,7 @@ reportMessage(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, message, payload.messageLength);
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		free(message);
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);

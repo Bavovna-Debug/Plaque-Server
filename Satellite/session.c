@@ -2,8 +2,14 @@
 #include <string.h>
 
 #include "api.h"
+#include "chalkboard.h"
 #include "db.h"
 #include "tasks.h"
+
+// Take a pointer to chalkboard. Chalkboard must be initialized
+// before any routine of this module could be called.
+//
+extern struct Chalkboard *chalkboard;
 
 #define QUERY_GET_SESSION "\
 SELECT session_id, session_token \
@@ -60,9 +66,9 @@ SET satellite_task_id = NULL \
 WHERE satellite_task_id IS NOT NULL"
 
 int
-setAllSessionsOffline(struct desk *desk)
+setAllSessionsOffline(void)
 {
-	struct dbh *dbh = DB_PeekHandle(desk->db.auth);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.auth);
 	if (dbh == NULL)
 		return -1;
 
@@ -93,7 +99,7 @@ WHERE device_id = $1"
 int
 setSessionOnline(struct task *task)
 {
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.auth);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.auth);
 	if (dbh == NULL)
 	{
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
@@ -144,7 +150,7 @@ WHERE device_id = $1"
 int
 setSessionOffline(struct task *task)
 {
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.auth);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.auth);
 	if (dbh == NULL)
 	{
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
@@ -203,7 +209,7 @@ getSessionRevisions(
     struct task         *task,
     struct revisions    *revisions)
 {
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL)
 	{
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);

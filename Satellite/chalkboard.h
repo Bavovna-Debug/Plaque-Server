@@ -1,9 +1,9 @@
-#ifndef __DESK__
-#define __DESK__
+#ifndef __CHALKBOARD__
+#define __CHALKBOARD__
 
 #include "broadcaster_api.h"
-#include "mmps.h"
 #include "db.h"
+#include "mmps.h"
 #include "tasks.h"
 
 #define undef
@@ -47,7 +47,7 @@
 #define BUFFER_PROFILES             0xFF000000
 #define BUFFER_PLAQUES              0xAA000000
 
-struct desk
+struct Chalkboard
 {
     struct
     {
@@ -80,5 +80,15 @@ struct desk
         int                 listenSockFD;
     } listener;
 };
+
+/**
+ * CreateChalkboard()
+ * Allocate and initialize chalkboard.
+ *
+ * Returns 0 upon successful completion or an error code (negative value),
+ * in case of error.
+ */
+int
+CreateChalkboard(void);
 
 #endif

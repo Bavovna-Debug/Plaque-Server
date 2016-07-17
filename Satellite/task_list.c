@@ -1,12 +1,17 @@
 #include <c.h>
 
-#include "desk.h"
+#include "chalkboard.h"
 #include "report.h"
 #include "task_list.h"
 #include "tasks.h"
 
-void **
-initTaskList(struct desk *desk)
+// Take a pointer to chalkboard. Chalkboard must be initialized
+// before any routine of this module could be called.
+//
+extern struct Chalkboard *chalkboard;
+
+int
+initTaskList(void)
 {
     long long	    totalListSize;
 	size_t		    maxListPageSize;
@@ -44,9 +49,10 @@ initTaskList(struct desk *desk)
 	}
 
 	list = malloc(numberOfPages * sizeof(struct task *));
-	if (list == NULL) {
+	if (list == NULL)
+	{
         reportError("Out of memory");
-        return NULL;
+        return -1;
     }
 
 	pageId = 0;
@@ -65,9 +71,10 @@ initTaskList(struct desk *desk)
 			}
 
 	    	page = malloc(pageSize);
-			if (page == NULL) {
+			if (page == NULL)
+			{
         		reportError("Out of memory");
-    	    	return NULL;
+    	    	return -1;
 		    }
 
 			list[pageId] = page;
@@ -81,11 +88,13 @@ initTaskList(struct desk *desk)
 		taskId++;
 	}
 
-	return list;
+	chalkboard->tasks.list = list;
+
+	return 0;
 }
 
 void
-taskListPushTask(struct desk *desk, int taskId, struct task *task)
+taskListPushTask(int taskId, struct task *task)
 {
 	size_t		    maxListPageSize;
     int			    tasksPerPage;
@@ -100,14 +109,14 @@ taskListPushTask(struct desk *desk, int taskId, struct task *task)
 
 	pageId = taskId / tasksPerPage;
 	taskIdInPage = taskId % tasksPerPage;
-	page = desk->tasks.list[pageId];
+	page = chalkboard->tasks.list[pageId];
 
 	taskInList = (void *)((unsigned long)page + (unsigned long)(taskIdInPage * sizeof(struct task *)));
 	*taskInList = task;
 }
 
 struct task *
-taskListTaskById(struct desk *desk, int taskId)
+taskListTaskById(int taskId)
 {
 	size_t		    maxListPageSize;
     int			    tasksPerPage;
@@ -122,7 +131,7 @@ taskListTaskById(struct desk *desk, int taskId)
 
 	pageId = taskId / tasksPerPage;
 	taskIdInPage = taskId % tasksPerPage;
-	page = desk->tasks.list[pageId];
+	page = chalkboard->tasks.list[pageId];
 
 	taskInList = (void *)((unsigned long)page + (unsigned long)(taskIdInPage * sizeof(struct task *)));
 

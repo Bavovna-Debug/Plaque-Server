@@ -5,7 +5,6 @@
 #include <pthread.h>
 
 #include "api.h"
-#include "desk.h"
 #include "mmps.h"
 #include "report.h"
 
@@ -87,7 +86,6 @@ struct revisions
 struct task
 {
 	struct MMPS_Buffer	*containerBuffer;
-	struct desk     	*desk;
 	pthread_t			thread;
 	int					taskId;
 	uint64  			deviceId;
@@ -145,7 +143,6 @@ struct paquet
 
 struct task *
 startTask(
-	struct desk		*desk,
 	int				sockFD,
 	char			*clientIP);
 

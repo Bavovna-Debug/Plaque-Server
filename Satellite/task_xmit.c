@@ -8,11 +8,16 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#include "desk.h"
+#include "chalkboard.h"
 #include "paquet.h"
 #include "report.h"
 #include "tasks.h"
 #include "task_kernel.h"
+
+// Take a pointer to chalkboard. Chalkboard must be initialized
+// before any routine of this module could be called.
+//
+extern struct Chalkboard *chalkboard;
 
 // NETWORK_RECEIVE
 // NETWORK_SEND
@@ -275,7 +280,7 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 		receivedTotal += receivedPerBuffer;
 
 		if (receivedTotal < toReceiveTotal) {
-		    struct MMPS_Pool *pool = task->desk->pools.dynamic;
+		    struct MMPS_Pool *pool = chalkboard->pools.dynamic;
 			struct MMPS_Buffer *nextBuffer = MMPS_PeekBufferOfSize(pool, toReceiveTotal - receivedTotal, BUFFER_XMIT);
 			if (nextBuffer == NULL) {
                 pthread_mutex_unlock(&task->xmit.receiveMutex);

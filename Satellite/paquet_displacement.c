@@ -2,11 +2,17 @@
 #include <string.h>
 
 #include "db.h"
+#include "chalkboard.h"
 #include "mmps.h"
 #include "paquet.h"
 #include "paquet_displacement.h"
 #include "report.h"
 #include "tasks.h"
+
+// Take a pointer to chalkboard. Chalkboard must be initialized
+// before any routine of this module could be called.
+//
+extern struct Chalkboard *chalkboard;
 
 static void
 journalUserLocation(
@@ -54,7 +60,7 @@ paquetDisplacementOnRadar(struct paquet *paquet)
 
 	struct paquetDisplacement *displacement = (struct paquetDisplacement *)inputBuffer->cursor;
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -104,7 +110,7 @@ paquetDisplacementInSight(struct paquet *paquet)
 
 	struct paquetDisplacement *displacement = (struct paquetDisplacement *)inputBuffer->cursor;
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -154,7 +160,7 @@ paquetDisplacementOnMap(struct paquet *paquet)
 
 	struct paquetDisplacement *displacement = (struct paquetDisplacement *)inputBuffer->cursor;
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;

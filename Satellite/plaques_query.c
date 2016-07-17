@@ -2,13 +2,18 @@
 #include <string.h>
 
 #include "api.h"
+#include "chalkboard.h"
 #include "db.h"
-#include "desk.h"
 #include "mmps.h"
 #include "paquet.h"
 #include "plaques_query.h"
 #include "report.h"
 #include "tasks.h"
+
+// Take a pointer to chalkboard. Chalkboard must be initialized
+// before any routine of this module could be called.
+//
+extern struct Chalkboard *chalkboard;
 
 #define QUERY_SELECT_PLAQUES "\
 SELECT plaque_revision, profile_token, dimension, latitude, longitude, altitude, \
@@ -43,7 +48,7 @@ paquetDownloadPlaques(struct paquet *paquet)
 		return -1;
 	}
 
-	outputBuffer = MMPS_PeekBufferOfSize(task->desk->pools.dynamic, KB, BUFFER_PLAQUES);
+	outputBuffer = MMPS_PeekBufferOfSize(chalkboard->pools.dynamic, KB, BUFFER_PLAQUES);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
@@ -53,7 +58,7 @@ paquetDownloadPlaques(struct paquet *paquet)
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;

@@ -3,12 +3,18 @@
 #include <string.h>
 
 #include "api.h"
+#include "chalkboard.h"
 #include "db.h"
 #include "mmps.h"
 #include "paquet.h"
 #include "plaques_edit.h"
 #include "report.h"
 #include "tasks.h"
+
+// Take a pointer to chalkboard. Chalkboard must be initialized
+// before any routine of this module could be called.
+//
+extern struct Chalkboard *chalkboard;
 
 int
 paquetPostNewPlaque(struct paquet *paquet)
@@ -50,7 +56,7 @@ paquetPostNewPlaque(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, inscription, plaque.inscriptionLength);
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		free(inscription);
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
@@ -210,7 +216,7 @@ paquetChangePlaqueLocation(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -302,7 +308,7 @@ paquetChangePlaqueOrientation(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -402,7 +408,7 @@ paquetChangePlaqueSize(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -488,7 +494,7 @@ paquetChangePlaqueColors(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -574,7 +580,7 @@ paquetChangePlaqueFont(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
@@ -670,7 +676,7 @@ paquetChangePlaqueInscription(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetData(inputBuffer, inscription, payload.inscriptionLength);
 
-	struct dbh *dbh = DB_PeekHandle(task->desk->db.plaque);
+	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
 		free(inscription);
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
