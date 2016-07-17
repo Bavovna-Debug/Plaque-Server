@@ -3,10 +3,12 @@
 #include <poll.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 
 #include "chalkboard.h"
 #include "paquet.h"
@@ -36,8 +38,14 @@ extern struct Chalkboard *chalkboard;
 //#define TIMEOUT_ON_WAIT_FOR_TRANSMIT_4KB		 1		    // Seconds per 4 KB
 //#define TIMEOUT_ON_WAIT_FOR_TRANSMIT_MAX		10		    // Seconds maximal
 
+/**
+ * FillPaquetWithPilotData()
+ *
+ * @paquet:
+ * @pilot:
+ */
 inline void
-fillPaquetWithPilotData(struct paquet *paquet, struct paquetPilot *pilot)
+FillPaquetWithPilotData(struct paquet *paquet, struct PaquetPilot *pilot)
 {
 	paquet->paquetId = be32toh(pilot->paquetId);
 	paquet->commandCode = be32toh(pilot->commandCode);
@@ -195,7 +203,8 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 	pollFD->events = POLLIN;
 
 	int pollRC = poll(pollFD, 1, TIMEOUT_ON_POLL_FOR_PAQUET);
-	if (pollFD->revents & (POLLERR | POLLHUP | POLLNVAL)) {
+	if (pollFD->revents & (POLLERR | POLLHUP | POLLNVAL))
+	{
         pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 		reportError("Poll error on receive: revents=0x%04X", pollFD->revents);
@@ -203,13 +212,16 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 		return -1;
 	}
 
-	if (pollRC == 0) {
+	if (pollRC == 0)
+	{
         pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 		reportInfo("Wait for receive timed out");
 		setTaskStatus(task, TaskStatusPollForReceiveTimeout);
 		return -1;
-	} else if (pollRC != 1) {
+	}
+	else if (pollRC != 1)
+	{
         pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 		reportError("Poll error on receive");
@@ -217,7 +229,7 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 		return -1;
 	}
 
-	struct paquetPilot *pilot = NULL;
+	struct PaquetPilot *pilot = NULL;
 
 	struct MMPS_Buffer *buffer = receiveBuffer;
 
@@ -238,13 +250,16 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 			receivedPerStep = read(sockFD,
 				buffer->data + receivedPerBuffer,
 				toReceivePerBuffer - receivedPerBuffer);
-			if (receivedPerStep == 0) {
+			if (receivedPerStep == 0)
+			{
                 pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 				reportError("Nothing read from socket");
 				setTaskStatus(task, TaskStatusNoDataReceived);
 				return -1;
-			} else if (receivedPerStep == -1) {
+			}
+			else if (receivedPerStep == -1)
+			{
                 pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 				reportError("Error reading from socket for paquet: errno=%d", errno);
@@ -254,21 +269,23 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 
 			receivedPerBuffer += receivedPerStep;
 
-			if ((pilot == NULL) && (toReceivePerBuffer >= sizeof(struct paquetPilot))) {
-				pilot = (struct paquetPilot *)buffer->data;
+			if ((pilot == NULL) && (toReceivePerBuffer >= sizeof(struct PaquetPilot)))
+			{
+				pilot = (struct PaquetPilot *)buffer->data;
 
-				fillPaquetWithPilotData(paquet, pilot);
+				FillPaquetWithPilotData(paquet, pilot);
 
 				uint64 signature = be64toh(pilot->signature);
-				if (signature != PaquetSignature) {
+				if (signature != API_PaquetSignature)
+				{
                     pthread_mutex_unlock(&task->xmit.receiveMutex);
 
-					reportError("No valid paquet signature: 0x%016X", signature);
+					reportError("No valid paquet signature: 0x%016lX", signature);
 					setTaskStatus(task, TaskStatusMissingPaquetSignature);
 					return -1;
 				}
 
-				toReceiveTotal = sizeof(struct paquetPilot) + paquet->payloadSize;
+				toReceiveTotal = sizeof(struct PaquetPilot) + paquet->payloadSize;
 
 				if (paquet->payloadSize < buffer->bufferSize)
 					toReceivePerBuffer = paquet->payloadSize;
@@ -279,10 +296,12 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 
 		receivedTotal += receivedPerBuffer;
 
-		if (receivedTotal < toReceiveTotal) {
+		if (receivedTotal < toReceiveTotal)
+		{
 		    struct MMPS_Pool *pool = chalkboard->pools.dynamic;
 			struct MMPS_Buffer *nextBuffer = MMPS_PeekBufferOfSize(pool, toReceiveTotal - receivedTotal, BUFFER_XMIT);
-			if (nextBuffer == NULL) {
+			if (nextBuffer == NULL)
+			{
                 pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 				reportError("Cannot extend buffer");
@@ -299,7 +318,8 @@ receivePaquet(struct paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 		receivedPerBuffer = 0;
 	}
 
-	if (receivedTotal < sizeof(struct paquetPilot)) {
+	if (receivedTotal < sizeof(struct PaquetPilot))
+	{
         pthread_mutex_unlock(&task->xmit.receiveMutex);
 
 		reportError("Missing paquet pilot (received %d bytes only)", (int)receivedTotal);
@@ -359,11 +379,11 @@ sendPaquet(struct paquet *paquet)
 		return -1;
 	}
 
-	struct paquetPilot *pilot = (struct paquetPilot *)buffer->data;
-	pilot->signature = htobe64(PaquetSignature);
+	struct PaquetPilot *pilot = (struct PaquetPilot *) buffer->data;
+	pilot->signature = htobe64(API_PaquetSignature);
 	pilot->paquetId = htobe32(paquet->paquetId);
 	pilot->commandCode = htobe32(paquet->commandCode);
-	pilot->payloadSize = htobe32(MMPS_TotalDataSize(buffer) - sizeof(struct paquetPilot));
+	pilot->payloadSize = htobe32(MMPS_TotalDataSize(buffer) - sizeof(struct PaquetPilot));
 
 	do {
 		toSendPerBuffer = buffer->dataSize;

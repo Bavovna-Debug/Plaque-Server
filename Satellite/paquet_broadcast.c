@@ -8,6 +8,7 @@
 #include "paquet.h"
 #include "paquet_broadcast.h"
 #include "report.h"
+#include "session.h"
 #include "tasks.h"
 
 // Take a pointer to chalkboard. Chalkboard must be initialized
@@ -16,16 +17,16 @@
 extern struct Chalkboard *chalkboard;
 
 static int
-paquetBroadcastPlaquesOnRadar(struct paquet *paquet);
+HandleBroadcastPlaquesOnRadar(struct paquet *paquet);
 
 static int
-paquetBroadcastPlaquesInSight(struct paquet *paquet);
+HandleBroadcastPlaquesInSight(struct paquet *paquet);
 
 static int
-paquetBroadcastPlaquesOnMap(struct paquet *paquet);
+HandleBroadcastPlaquesOnMap(struct paquet *paquet);
 
 int
-paquetBroadcast(struct paquet *paquet)
+HandleBroadcast(struct paquet *paquet)
 {
     struct task         *task;
     struct revisions    *lastKnownRevision;
@@ -38,14 +39,14 @@ paquetBroadcast(struct paquet *paquet)
     lastKnownRevision = &task->broadcast.lastKnownRevision;
     currentRevision = &task->broadcast.currentRevision;
 
-	if (!expectedPayloadSize(paquet, sizeof(struct paquetBroadcast))) {
+	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetBroadcast))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
 	MMPS_ResetCursor(paquet->inputBuffer, 1);
 
-	struct paquetBroadcast *broadcast = (struct paquetBroadcast *)paquet->inputBuffer->cursor;
+	struct PaquetBroadcast *broadcast = (struct PaquetBroadcast *) paquet->inputBuffer->cursor;
 
 	lastKnownRevision->onRadar = be32toh(broadcast->lastKnownOnRadarRevision);
 	lastKnownRevision->inSight = be32toh(broadcast->lastKnownInSightRevision);
@@ -132,17 +133,17 @@ paquetBroadcast(struct paquet *paquet)
         reportInfo("Fetch 'on radar' for broadcast from revision %u to %u",
             lastKnownRevision->onRadar,
             currentRevision->onRadar);
-        rc = paquetBroadcastPlaquesOnRadar(paquet);
+        rc = HandleBroadcastPlaquesOnRadar(paquet);
     } else if (currentRevision->inSight > lastKnownRevision->inSight) {
         reportInfo("Fetch 'in sight' for broadcast from revision %u to %u",
             lastKnownRevision->inSight,
             currentRevision->inSight);
-        rc = paquetBroadcastPlaquesInSight(paquet);
+        rc = HandleBroadcastPlaquesInSight(paquet);
     } else if (currentRevision->onMap > lastKnownRevision->onMap) {
         reportInfo("Fetch 'on map' for broadcast from revision %u to %u",
             lastKnownRevision->onMap,
             currentRevision->onMap);
-        rc = paquetBroadcastPlaquesOnMap(paquet);
+        rc = HandleBroadcastPlaquesOnMap(paquet);
     } else {
         reportInfo("Nothing to fetch for broadcast");
         rc = -1;
@@ -180,7 +181,7 @@ WHERE session_id = $1 \
   AND on_map_revision > $2"
 
 static int
-paquetBroadcastPlaquesOnRadar(struct paquet *paquet)
+HandleBroadcastPlaquesOnRadar(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
@@ -245,7 +246,7 @@ paquetBroadcastPlaquesOnRadar(struct paquet *paquet)
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-    uint32 broadcastDestination = BroadcastDestinationOnRadar;
+    uint32 broadcastDestination = API_BroadcastDestinationOnRadar;
 	outputBuffer = MMPS_PutInt32(outputBuffer, &broadcastDestination);
 
 	outputBuffer = MMPS_PutInt32(outputBuffer, &currentRevision);
@@ -272,7 +273,7 @@ paquetBroadcastPlaquesOnRadar(struct paquet *paquet)
 			return -1;
 		}
 
-		outputBuffer = MMPS_PutData(outputBuffer, plaqueToken, TokenBinarySize);
+		outputBuffer = MMPS_PutData(outputBuffer, plaqueToken, API_TokenBinarySize);
 		outputBuffer = MMPS_PutData(outputBuffer, plaqueRevision, sizeof(uint32));
 		outputBuffer = MMPS_PutData(outputBuffer, &disappeared, sizeof(disappeared));
 	}
@@ -283,7 +284,7 @@ paquetBroadcastPlaquesOnRadar(struct paquet *paquet)
 }
 
 static int
-paquetBroadcastPlaquesInSight(struct paquet *paquet)
+HandleBroadcastPlaquesInSight(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
@@ -348,7 +349,7 @@ paquetBroadcastPlaquesInSight(struct paquet *paquet)
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-    uint32 broadcastDestination = BroadcastDestinationInSight;
+    uint32 broadcastDestination = API_BroadcastDestinationInSight;
 	outputBuffer = MMPS_PutInt32(outputBuffer, &broadcastDestination);
 
 	outputBuffer = MMPS_PutInt32(outputBuffer, &currentRevision);
@@ -375,7 +376,7 @@ paquetBroadcastPlaquesInSight(struct paquet *paquet)
 			return -1;
 		}
 
-		outputBuffer = MMPS_PutData(outputBuffer, plaqueToken, TokenBinarySize);
+		outputBuffer = MMPS_PutData(outputBuffer, plaqueToken, API_TokenBinarySize);
 		outputBuffer = MMPS_PutData(outputBuffer, plaqueRevision, sizeof(uint32));
 		outputBuffer = MMPS_PutData(outputBuffer, &disappeared, sizeof(disappeared));
 	}
@@ -386,7 +387,7 @@ paquetBroadcastPlaquesInSight(struct paquet *paquet)
 }
 
 static int
-paquetBroadcastPlaquesOnMap(struct paquet *paquet)
+HandleBroadcastPlaquesOnMap(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
@@ -449,7 +450,7 @@ paquetBroadcastPlaquesOnMap(struct paquet *paquet)
 		return -1;
 	}
 
-    uint32 broadcastDestination = BroadcastDestinationOnMap;
+    uint32 broadcastDestination = API_BroadcastDestinationOnMap;
 	outputBuffer = MMPS_PutInt32(outputBuffer, &broadcastDestination);
 
 	outputBuffer = MMPS_PutInt32(outputBuffer, &currentRevision);
@@ -476,7 +477,7 @@ paquetBroadcastPlaquesOnMap(struct paquet *paquet)
 			return -1;
 		}
 
-		outputBuffer = MMPS_PutData(outputBuffer, plaqueToken, TokenBinarySize);
+		outputBuffer = MMPS_PutData(outputBuffer, plaqueToken, API_TokenBinarySize);
 		outputBuffer = MMPS_PutData(outputBuffer, plaqueRevision, sizeof(uint32));
 		outputBuffer = MMPS_PutData(outputBuffer, &disappeared, sizeof(disappeared));
 	}

@@ -4,6 +4,6 @@
 #include "paquet.h"
 
 int
-paquetBroadcast(struct paquet *paquet);
+HandleBroadcast(struct paquet *paquet);
 
 #endif

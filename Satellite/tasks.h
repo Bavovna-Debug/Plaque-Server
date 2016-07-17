@@ -8,45 +8,45 @@
 #include "mmps.h"
 #include "report.h"
 
-#define TaskStatusGood							0x0000000000000000
-#define TaskStatusOutOfMemory					0x0000000000000001
-#define TaskStatusCannotCreatePaquetThread		0x0000000000000002
-#define TaskStatusNoDatabaseHandlers			0x0000000000000100
-#define TaskStatusUnexpectedDatabaseResult		0x0000000000000200
+#define TaskStatusGood							0x0000000000000000l
+#define TaskStatusOutOfMemory					0x0000000000000001l
+#define TaskStatusCannotCreatePaquetThread		0x0000000000000002l
+#define TaskStatusNoDatabaseHandlers			0x0000000000000100l
+#define TaskStatusUnexpectedDatabaseResult		0x0000000000000200l
 
-#define TaskStatusCannotAllocateBufferForInput	0x0000000000000010
-#define TaskStatusCannotAllocateBufferForOutput	0x0000000000000020
-#define TaskStatusCannotExtendBufferForInput	0x0000000000000040
+#define TaskStatusCannotAllocateBufferForInput	0x0000000000000010l
+#define TaskStatusCannotAllocateBufferForOutput	0x0000000000000020l
+#define TaskStatusCannotExtendBufferForInput	0x0000000000000040l
 
-#define TaskStatusDeviceAuthenticationFailed	0x0000000000010000
-#define TaskStatusProfileAuthenticationFailed	0x0000000000020000
-#define TaskStatusCannotGetSession				0x0000000000100000
-#define TaskStatusCannotCreateSession			0x0000000000200000
-#define TaskStatusCannotSetSessionOnline		0x0000000000400000
-#define TaskStatusCannotSetSessionOffline		0x0000000000800000
+#define TaskStatusDeviceAuthenticationFailed	0x0000000000010000l
+#define TaskStatusProfileAuthenticationFailed	0x0000000000020000l
+#define TaskStatusCannotGetSession				0x0000000000100000l
+#define TaskStatusCannotCreateSession			0x0000000000200000l
+#define TaskStatusCannotSetSessionOnline		0x0000000000400000l
+#define TaskStatusCannotSetSessionOffline		0x0000000000800000l
 
-#define TaskStatusPollForReceiveError			0x0000000100000000
-#define TaskStatusPollForReceiveFailed			0x0000000200000000
-#define TaskStatusPollForReceiveTimeout			0x0000000400000000
-#define TaskStatusNoDataReceived				0x0000000800000000
-#define TaskStatusReadFromSocketFailed			0x0000001000000000
-#define TaskStatusMissingPaquetPilot			0x0000002000000000
-#define TaskStatusMissingPaquetSignature		0x0000004000000000
-#define TaskStatusReceivedDataIncomplete		0x0000008000000000
+#define TaskStatusPollForReceiveError			0x0000000100000000l
+#define TaskStatusPollForReceiveFailed			0x0000000200000000l
+#define TaskStatusPollForReceiveTimeout			0x0000000400000000l
+#define TaskStatusNoDataReceived				0x0000000800000000l
+#define TaskStatusReadFromSocketFailed			0x0000001000000000l
+#define TaskStatusMissingPaquetPilot			0x0000002000000000l
+#define TaskStatusMissingPaquetSignature		0x0000004000000000l
+#define TaskStatusReceivedDataIncomplete		0x0000008000000000l
 
-#define TaskStatusPollForSendError				0x0000010000000000
-#define TaskStatusPollForSendFailed				0x0000020000000000
-#define TaskStatusPollForSendTimeout			0x0000040000000000
-#define TaskStatusNoDataSent					0x0000080000000000
-#define TaskStatusWriteToSocketFailed			0x0000100000000000
-#define TaskStatusWrongPayloadSize				0x0000200000000000
-#define TaskStatusNoOutputDataProvided			0x0000400000000000
+#define TaskStatusPollForSendError				0x0000010000000000l
+#define TaskStatusPollForSendFailed				0x0000020000000000l
+#define TaskStatusPollForSendTimeout			0x0000040000000000l
+#define TaskStatusNoDataSent					0x0000080000000000l
+#define TaskStatusWriteToSocketFailed			0x0000100000000000l
+#define TaskStatusWrongPayloadSize				0x0000200000000000l
+#define TaskStatusNoOutputDataProvided			0x0000400000000000l
 
-#define TaskStatusMissingDialogueDemande		0x0100000000000000
-#define TaskStatusMissingAnticipantRecord		0x0200000000000000
-#define TaskStatusCannotSendDialogueVerdict		0x0400000000000000
+#define TaskStatusMissingDialogueDemande		0x0100000000000000l
+#define TaskStatusMissingAnticipantRecord		0x0200000000000000l
+#define TaskStatusCannotSendDialogueVerdict		0x0400000000000000l
 
-#define TaskStatusOtherError					0x8000000000000000
+#define TaskStatusOtherError					0x8000000000000000l
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
@@ -61,9 +61,9 @@ struct dialogueDemande
 	uint16  		applicationRelease;
 	uint16  		deviceType;
 	char			applicationBuild[6];
-	char			deviceToken[TokenBinarySize];
-	char			profileToken[TokenBinarySize];
-	char			sessionToken[TokenBinarySize];
+	char			deviceToken[API_TokenBinarySize];
+	char			profileToken[API_TokenBinarySize];
+	char			sessionToken[API_TokenBinarySize];
 };
 #pragma pack(pop)
 
@@ -72,7 +72,7 @@ struct dialogueVerdict
 {
 	uint64  		dialogueSignature;
 	uint32  		verdictCode;
-	char			sessionToken[TokenBinarySize];
+	char			sessionToken[API_TokenBinarySize];
 };
 #pragma pack(pop)
 
@@ -92,7 +92,7 @@ struct task
 	uint64  			profileId;
 	uint64  			sessionId;
 	pthread_spinlock_t	statusLock;
-	long				status;
+	uint64				status;
 	char				clientIP[MAX(INET_ADDRSTRLEN, INET6_ADDRSTRLEN)];
 
 	struct
@@ -146,13 +146,18 @@ startTask(
 	int				sockFD,
 	char			*clientIP);
 
-#define setTaskStatus(task, statusMask) \
-do { reportDebug("Task (%s) set status 0x%016lX", __FUNCTION__, statusMask); __setTaskStatus(task, statusMask); } while (0)
-
 inline void
-__setTaskStatus(struct task *task, long statusMask);
+__setTaskStatus(struct task *task, uint64 statusMask);
 
-inline long
+#define setTaskStatus(task, statusMask) \
+do { \
+	reportDebug("Task (%s) set status 0x%016luX", \
+		__FUNCTION__, \
+		statusMask); \
+	__setTaskStatus(task, statusMask); \
+} while (0)
+
+inline uint64
 getTaskStatus(struct task *task);
 
 void

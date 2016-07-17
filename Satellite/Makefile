@@ -36,10 +36,10 @@ db.o: db.c db.h
 listener.o: listener.c chalkboard.h listener.h tasks.h
 	$(CC) -c $(CFLAGS) $(INCLUDE) $(DEFINES) $< -o $@
 
-paquet.o: paquet.c api.h db.h paquet.h paquet_broadcast.h paquet_displacement.h plaques_edit.h plaques_query.h reports.h tasks.h ../lib/mmps.h
+paquet.o: paquet.c anticipant.h api.h db.h paquet.h paquet_broadcast.h paquet_displacement.h plaques_edit.h plaques_query.h profiles.h reports.h tasks.h task_xmit.h ../lib/mmps.h
 	$(CC) -c $(CFLAGS) $(INCLUDE) $(DEFINES) $< -o $@
 
-paquet_broadcast.o: paquet_broadcast.c api.h chalkboard.h db.h paquet.h paquet_broadcast.h tasks.h ../lib/mmps.h
+paquet_broadcast.o: paquet_broadcast.c api.h chalkboard.h db.h paquet.h paquet_broadcast.h session.h tasks.h ../lib/mmps.h
 	$(CC) -c $(CFLAGS) $(INCLUDE) $(DEFINES) $< -o $@
 
 paquet_displacement.o: paquet_displacement.c chalkboard.h db.h paquet.h paquet_displacement.h tasks.h ../lib/mmps.h

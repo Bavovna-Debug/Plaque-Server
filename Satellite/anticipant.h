@@ -9,28 +9,28 @@
 #pragma pack(push, 1)
 struct DialogueAnticipant
 {
-        char                    vendorToken[TokenBinarySize];
-        char                    deviceName[AnticipantDeviceNameLength];
-        char                    deviceModel[AnticipantDeviceModelLength];
-        char                    systemName[AnticipantSystemNamelLength];
-        char                    systemVersion[AnticipantSystemVersionlLength];
+        char                    vendorToken[API_TokenBinarySize];
+        char                    deviceName[API_AnticipantDeviceNameLength];
+        char                    deviceModel[API_AnticipantDeviceModelLength];
+        char                    systemName[API_AnticipantSystemNamelLength];
+        char                    systemVersion[API_AnticipantSystemVersionlLength];
 };
 #pragma pack(pop)
 
 #pragma pack(push, 1)
 struct BonjourProfileNameValidation
 {
-        char                    profileName[BonjourProfileNameLength];
+        char                    profileName[API_BonjourProfileNameLength];
 };
 #pragma pack(pop)
 
 #pragma pack(push, 1)
 struct BonjourCreateProfile
 {
-        char                    profileName[BonjourProfileNameLength];
-        char                    userName[BonjourUserNameLength];
-        char                    passwordMD5[BonjourMD5Length];
-        char                    emailAddress[BonjourEmailAddressLength];
+        char                    profileName[API_BonjourProfileNameLength];
+        char                    userName[API_BonjourUserNameLength];
+        char                    passwordMD5[API_BonjourMD5Length];
+        char                    emailAddress[API_BonjourEmailAddressLength];
 };
 #pragma pack(pop)
 

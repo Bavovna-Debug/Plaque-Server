@@ -27,19 +27,19 @@ reportMessage(struct paquet *paquet)
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
-	if (!minimumPayloadSize(paquet, sizeof(struct paquetReport))) {
+	if (!MinimumPayloadSize(paquet, sizeof(struct PaquetReport))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
 	MMPS_ResetCursor(inputBuffer, 1);
 
-	struct paquetReport payload;
+	struct PaquetReport payload;
 
-	inputBuffer = MMPS_GetData(inputBuffer, (char *)&payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload));
 
 	int expectedSize = sizeof(payload) + be32toh(payload.messageLength);
-	if (!expectedPayloadSize(paquet, expectedSize)) {
+	if (!ExpectedPayloadSize(paquet, expectedSize)) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}

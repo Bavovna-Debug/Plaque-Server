@@ -24,7 +24,7 @@ JOIN auth.profiles USING (profile_id) \
 WHERE plaque_token = $1"
 
 int
-paquetDownloadPlaques(struct paquet *paquet)
+HandleDownloadPlaques(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
@@ -33,7 +33,7 @@ paquetDownloadPlaques(struct paquet *paquet)
 
 	uint32 numberOfPlaques;
 
-	if (!minimumPayloadSize(paquet, sizeof(numberOfPlaques))) {
+	if (!MinimumPayloadSize(paquet, sizeof(numberOfPlaques))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
@@ -42,7 +42,8 @@ paquetDownloadPlaques(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetInt32(inputBuffer, &numberOfPlaques);
 
-	if (!expectedPayloadSize(paquet, sizeof(numberOfPlaques) + numberOfPlaques * TokenBinarySize)) {
+	if (!ExpectedPayloadSize(paquet, sizeof(numberOfPlaques) + numberOfPlaques * API_TokenBinarySize))
+	{
 		reportError("Wrong payload for %d plaques", numberOfPlaques);
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
@@ -64,11 +65,11 @@ paquetDownloadPlaques(struct paquet *paquet)
 		return -1;
 	}
 
-	char plaqueToken[TokenBinarySize];
+	char plaqueToken[API_TokenBinarySize];
 	int i;
 	for (i = 0; i < numberOfPlaques; i++)
 	{
-		inputBuffer = MMPS_GetData(inputBuffer, plaqueToken, TokenBinarySize);
+		inputBuffer = MMPS_GetData(inputBuffer, plaqueToken, API_TokenBinarySize);
 
         DB_PushUUID(dbh, plaqueToken);
 
@@ -120,9 +121,9 @@ paquetDownloadPlaques(struct paquet *paquet)
 		char *latitude			= PQgetvalue(dbh->result, 0, 3);
 		char *longitude			= PQgetvalue(dbh->result, 0, 4);
 		char *altitude			= PQgetvalue(dbh->result, 0, 5);
-		char directed			= PQgetisnull(dbh->result, 0, 6) ? 0 : 1;
+		uint8 directed			= PQgetisnull(dbh->result, 0, 6) ? 0 : 1;
 		char *direction			= PQgetvalue(dbh->result, 0, 6);
-		char tilted				= PQgetisnull(dbh->result, 0, 7) ? 0 : 1;
+		uint8 tilted			= PQgetisnull(dbh->result, 0, 7) ? 0 : 1;
 		char *tilt				= PQgetvalue(dbh->result, 0, 7);
 		char *width				= PQgetvalue(dbh->result, 0, 8);
 		char *height			= PQgetvalue(dbh->result, 0, 9);
@@ -143,12 +144,12 @@ paquetDownloadPlaques(struct paquet *paquet)
 			return -1;
 		}
 
-        uint32 plaqueStrobe = PaquetPlaqueStrobe;
+        uint32 plaqueStrobe = API_PaquetPlaqueStrobe;
 		outputBuffer = MMPS_PutInt32(outputBuffer, &plaqueStrobe);
 
-		outputBuffer = MMPS_PutData(outputBuffer, plaqueToken, TokenBinarySize);
+		outputBuffer = MMPS_PutData(outputBuffer, plaqueToken, API_TokenBinarySize);
 		outputBuffer = MMPS_PutData(outputBuffer, plaqueRevision, sizeof(uint32));
-		outputBuffer = MMPS_PutData(outputBuffer, profileToken, TokenBinarySize);
+		outputBuffer = MMPS_PutData(outputBuffer, profileToken, API_TokenBinarySize);
 		outputBuffer = MMPS_PutData(outputBuffer, dimension, 2 * sizeof(char));
 		outputBuffer = MMPS_PutData(outputBuffer, latitude, sizeof(double));
 		outputBuffer = MMPS_PutData(outputBuffer, longitude, sizeof(double));

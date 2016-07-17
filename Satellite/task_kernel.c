@@ -28,7 +28,8 @@ authentifyDialogue(struct task *task)
 	int rc = 0;
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.auth);
-	if (dbh == NULL) {
+	if (dbh == NULL)
+	{
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
@@ -40,8 +41,9 @@ authentifyDialogue(struct task *task)
 	uint64 profileId = 0;
 	uint64 sessionId;
 
-	deviceId = deviceIdByToken(dbh, (char *)&task->dialogue.demande.deviceToken);
-	if (deviceId == 0) {
+	deviceId = DeviceIdByToken(dbh, (char *) &task->dialogue.demande.deviceToken);
+	if (deviceId == 0)
+	{
 		reportInfo("Cannot authenticate device by token");
 
 		setTaskStatus(task, TaskStatusDeviceAuthenticationFailed);
@@ -49,10 +51,11 @@ authentifyDialogue(struct task *task)
 		invalidDeviceId = 1;
 	}
 
-	if (deviceId != 0) {
+	if (deviceId != 0)
+	{
 		int i;
 
-		for (i = 0; i < TokenBinarySize; i++)
+		for (i = 0; i < API_TokenBinarySize; i++)
 			if (task->dialogue.demande.profileToken[i] != '\0')
 				break;
 
@@ -60,7 +63,7 @@ authentifyDialogue(struct task *task)
 		// Empty profile token means that user did not create profile yet.
 		// If a non-empty profile token provided then verify it.
 		//
-		if (i < TokenBinarySize) {
+		if (i < API_TokenBinarySize) {
 			profileId = profileIdByToken(dbh, (char *)&task->dialogue.demande.profileToken);
 			if (profileId == 0) {
 				reportInfo("Cannot authenticate profile by token");
@@ -70,14 +73,15 @@ authentifyDialogue(struct task *task)
 				invalidProfileId = 1;
 			}
 		} else {
-			bzero(&task->dialogue.demande.profileToken, TokenBinarySize);
+			bzero(&task->dialogue.demande.profileToken, API_TokenBinarySize);
 		}
 	}
 
 	rc = getSessionForDevice(task, dbh, deviceId, &sessionId,
 		(char *)&task->dialogue.demande.sessionToken,
 		(char *)&task->dialogue.verdict.sessionToken);
-	if (rc < 0) {
+	if (rc < 0)
+	{
 		reportInfo("Cannot get session");
 		setTaskStatus(task, TaskStatusCannotGetSession);
 	}
@@ -95,26 +99,35 @@ authentifyDialogue(struct task *task)
 	task->profileId = profileId;
 	task->sessionId = sessionId;
 
-	task->dialogue.verdict.dialogueSignature = DialogueSignature;
+	task->dialogue.verdict.dialogueSignature = API_DialogueSignature;
 
-	if (invalidDeviceId != 0) {
-		task->dialogue.verdict.verdictCode = DialogueVerdictInvalidDevice;
+	if (invalidDeviceId != 0)
+	{
+		task->dialogue.verdict.verdictCode = API_DialogueVerdictInvalidDevice;
 		rc = -1;
-	} else if (invalidProfileId != 0) {
-		task->dialogue.verdict.verdictCode = DialogueVerdictInvalidProfile;
+	}
+	else if (invalidProfileId != 0)
+	{
+		task->dialogue.verdict.verdictCode = API_DialogueVerdictInvalidProfile;
 		rc = -1;
-	} else if (memcmp(task->dialogue.demande.sessionToken, task->dialogue.verdict.sessionToken, TokenBinarySize) != 0) {
-		task->dialogue.verdict.verdictCode = DialogueVerdictNewSession;
+	}
+	else if (memcmp(task->dialogue.demande.sessionToken, task->dialogue.verdict.sessionToken, API_TokenBinarySize) != 0)
+	{
+		task->dialogue.verdict.verdictCode = API_DialogueVerdictNewSession;
 		rc = 0;
-	} else {
-		task->dialogue.verdict.verdictCode = DialogueVerdictWelcome;
+	}
+	else
+	{
+		task->dialogue.verdict.verdictCode = API_DialogueVerdictWelcome;
 		rc = 0;
 	}
 
 	task->dialogue.verdict.dialogueSignature = htobe64(task->dialogue.verdict.dialogueSignature);
 	task->dialogue.verdict.verdictCode = htobe32(task->dialogue.verdict.verdictCode);
 
-	if (sendFixed(task, (char *)&task->dialogue.verdict, sizeof(task->dialogue.verdict)) != 0) {
+	rc = sendFixed(task, (char *)&task->dialogue.verdict, sizeof(task->dialogue.verdict));
+	if (rc != 0)
+	{
 		setTaskStatus(task, TaskStatusCannotSendDialogueVerdict);
 		rc = -1;
 	}
@@ -133,12 +146,13 @@ dialogueAnticipant(struct task *task)
 
 	struct DialogueAnticipant anticipant;
 	rc = receiveFixed(task, (char *) &anticipant, sizeof(anticipant));
-	if (rc != 0) {
+	if (rc != 0)
+	{
 		setTaskStatus(task, TaskStatusMissingAnticipantRecord);
 		return;
 	}
 
-	char deviceToken[TokenBinarySize];
+	char deviceToken[API_TokenBinarySize];
 	rc = RegisterDevice(task, &anticipant, (char *) &deviceToken);
 	if (rc != 0)
 		return;
@@ -160,7 +174,8 @@ dialogueRegular(struct task *task)
 	struct MMPS_Buffer *receiveBuffer = NULL;
 
 	rc = setSessionOnline(task);
-	if (rc < 0) {
+	if (rc < 0)
+	{
 #ifdef ANTICIPANT_DIALOGUE_REGULAR
 		reportError("Cannot set session online");
 #endif
@@ -177,7 +192,8 @@ dialogueRegular(struct task *task)
 		// Get a buffer for new paquet.
 		//
     	paquetBuffer = MMPS_PeekBuffer(chalkboard->pools.paquet, BUFFER_DIALOGUE_PAQUET);
-    	if (paquetBuffer == NULL) {
+    	if (paquetBuffer == NULL)
+    	{
             reportError("Out of memory");
 			setTaskStatus(task, TaskStatusOutOfMemory);
 			break;
@@ -195,46 +211,56 @@ dialogueRegular(struct task *task)
 
 		// If there is no rest data from previous receive then allocate a new buffer and start receive.
 		//
-		if (receiveBuffer == NULL) {
+		if (receiveBuffer == NULL)
+		{
 			receiveBuffer = MMPS_PeekBufferOfSize(chalkboard->pools.dynamic,
 			    KB,
 			    BUFFER_DIALOGUE_FIRST);
 
-			if (receiveBuffer == NULL) {
+			if (receiveBuffer == NULL)
+			{
 				setTaskStatus(task, TaskStatusOutOfMemory);
 				break;
 			}
 
 			receiveNeeded = 1;
-		} else {
-			//
+		}
+		else
+		{
 			// If there is rest of data from previous receive available then check
 			// whether a complete paquet content is already available.
 
 			// Receive is needed if rest of data does not contain even a paquet pilot.
 			//
-			if (receiveBuffer->dataSize < sizeof(struct paquetPilot)) {
+			if (receiveBuffer->dataSize < sizeof(struct PaquetPilot))
+			{
 				receiveNeeded = 1;
-			} else {
-				struct paquetPilot *pilot = (struct paquetPilot *)receiveBuffer->data;
+			}
+			else
+			{
+				struct PaquetPilot *pilot = (struct PaquetPilot *)receiveBuffer->data;
 				uint32 payloadSize = be32toh(pilot->payloadSize);
 
 				// Receive is needed if rest of data contains only a part of paquet.
 				//
-				if (MMPS_TotalDataSize(receiveBuffer) < sizeof(struct paquetPilot) + payloadSize) {
+				if (MMPS_TotalDataSize(receiveBuffer) < sizeof(struct PaquetPilot) + payloadSize)
+				{
 					receiveNeeded = 1;
-				} else {
+				}
+				else
+				{
 					//
 					// Otherwise complete paquet is available already from previous receive.
 					// In such case receive should be skipped.
 					//
 					receiveNeeded = 0;
-					fillPaquetWithPilotData(paquet, pilot);
+					FillPaquetWithPilotData(paquet, pilot);
 				}
 			}
 		}
 
-		if (receiveNeeded != 0) {
+		if (receiveNeeded != 0)
+		{
 			rc = receivePaquet(paquet, receiveBuffer);
 			if (rc != 0)
 				break;
@@ -243,7 +269,6 @@ dialogueRegular(struct task *task)
 		int totalReceivedData = MMPS_TotalDataSize(receiveBuffer);
 
 #ifdef ANTICIPANT_DIALOGUE_REGULAR
-		struct paquetPilot *pilot = (struct paquetPilot *)receiveBuffer->data;
 		reportInfo("Received paquet  %u with command 0x%08X with %d bytes (payload %d bytes)",
 			paquet->paquetId,
 			paquet->commandCode,
@@ -251,7 +276,8 @@ dialogueRegular(struct task *task)
 			paquet->payloadSize);
 #endif
 
-		if (totalReceivedData < sizeof(struct paquetPilot) + paquet->payloadSize) {
+		if (totalReceivedData < sizeof(struct PaquetPilot) + paquet->payloadSize)
+		{
 			//
 			// If amount of data in receive buffer is less then necessary for current paquet
 			// then quit with error.
@@ -263,7 +289,9 @@ dialogueRegular(struct task *task)
 			MMPS_PokeBuffer(receiveBuffer);
 			receiveBuffer = NULL;
         	break;
-		} else if (totalReceivedData == paquet->payloadSize) {
+		}
+		else if (totalReceivedData == paquet->payloadSize)
+		{
 			//
 			// If amount of data in receive buffer is exactly what is necessary for current paquet
 			// associate receive buffer to paquet and reset pointer to receive buffer so
@@ -271,7 +299,9 @@ dialogueRegular(struct task *task)
 			//
 			paquet->inputBuffer = receiveBuffer;
 			receiveBuffer = NULL;
-		} else {
+		}
+		else
+		{
 			//
 			// If amount of received data is greater than necessary for current paquet
 			// then cut off the rest of data from current paquet and move if
@@ -284,7 +314,7 @@ dialogueRegular(struct task *task)
 			// Then truncate the buffer.
 			//
 			struct MMPS_Buffer *sliceDataBuffer = receiveBuffer;
-			int paquetDataRest = sizeof(struct paquetPilot) + paquet->payloadSize;
+			int paquetDataRest = sizeof(struct PaquetPilot) + paquet->payloadSize;
 			while (sliceDataBuffer->next != NULL)
 			{
 				paquetDataRest -= sliceDataBuffer->dataSize;
@@ -296,7 +326,8 @@ dialogueRegular(struct task *task)
 			receiveBuffer = MMPS_PeekBufferOfSize(chalkboard->pools.dynamic,
 			    KB,
 			    BUFFER_DIALOGUE_FOLLOWING);
-			if (receiveBuffer == NULL) {
+			if (receiveBuffer == NULL)
+			{
 				setTaskStatus(task, TaskStatusOutOfMemory);
 				break;
 			}
@@ -316,10 +347,13 @@ dialogueRegular(struct task *task)
 
 		// Start new thread to process current paquet.
 		//
-	    rc = pthread_create(&paquet->thread, NULL, &paquetThread, paquet);
-    	if (rc == 0) {
+	    rc = pthread_create(&paquet->thread, NULL, &PaquetThread, paquet);
+    	if (rc == 0)
+    	{
     	    paquet = NULL;
-    	} else {
+    	}
+    	else
+    	{
 #ifdef ANTICIPANT_DIALOGUE_REGULAR
         	reportError("Cannot create paquet thread: errno=%d", errno);
 #endif
@@ -335,7 +369,8 @@ dialogueRegular(struct task *task)
 
     // Release ressources of paquet in case something went wrong.
     //
-    if (paquet != NULL) {
+    if (paquet != NULL)
+    {
         if (paquet->inputBuffer != NULL)
             MMPS_PokeBuffer(paquet->inputBuffer);
 
@@ -348,7 +383,8 @@ dialogueRegular(struct task *task)
 		MMPS_PokeBuffer(receiveBuffer);
 
 	rc = setSessionOffline(task);
-	if (rc < 0) {
+	if (rc < 0)
+    {
 #ifdef ANTICIPANT_DIALOGUE_REGULAR
 		reportError("Cannot set session offline");
 #endif

@@ -45,8 +45,6 @@ DestructDB(void);
 void *
 statisticsThread(void *arg)
 {
-	struct desk *desk = (struct desk *)arg;
-
 	while (1)
 	{
 		reportDebug("STATISTICS  DBH: %-4d%-4d%-4d  TASK: %-4d  PAQUET: %-4d  256: %-4d  512: %-4d  1K: %-4d  4K: %-4d  1M: %-4d",

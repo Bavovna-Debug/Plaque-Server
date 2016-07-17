@@ -91,23 +91,23 @@ SELECT auth.register_device($1, $2, $3, $4, $5)"
 		return -1;
 	}
 
-	DB_PushArgument(dbh, (char *) &anticipant->vendorToken, UUIDOID, TokenBinarySize, 1);
+	DB_PushArgument(dbh, (char *) &anticipant->vendorToken, UUIDOID, API_TokenBinarySize, 1);
 
 	DB_PushVARCHAR(dbh,
 		(char *) &anticipant->deviceName,
-		strnlen(anticipant->deviceName, AnticipantDeviceNameLength));
+		strnlen(anticipant->deviceName, API_AnticipantDeviceNameLength));
 
 	DB_PushVARCHAR(dbh,
 		(char *) &anticipant->deviceModel,
-		strnlen(anticipant->deviceModel, AnticipantDeviceModelLength));
+		strnlen(anticipant->deviceModel, API_AnticipantDeviceModelLength));
 
 	DB_PushVARCHAR(dbh,
 		(char *) &anticipant->systemName,
-		strnlen(anticipant->systemName, AnticipantSystemNamelLength));
+		strnlen(anticipant->systemName, API_AnticipantSystemNamelLength));
 
 	DB_PushVARCHAR(dbh,
 		(char *) &anticipant->systemVersion,
-		strnlen(anticipant->systemVersion, AnticipantSystemVersionlLength));
+		strnlen(anticipant->systemVersion, API_AnticipantSystemVersionlLength));
 
 	DB_Execute(dbh, QUERY_REGISTER_DEVICE);
 
@@ -141,7 +141,7 @@ SELECT auth.register_device($1, $2, $3, $4, $5)"
 
 	char *queryResult = PQgetvalue(dbh->result, 0, 0);
 
-	memcpy(deviceToken, queryResult, TokenBinarySize);
+	memcpy(deviceToken, queryResult, API_TokenBinarySize);
 
 	DB_PokeHandle(dbh);
 
@@ -167,7 +167,7 @@ SELECT auth.is_profile_name_free($1)"
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
-	if (!expectedPayloadSize(paquet, sizeof(struct BonjourProfileNameValidation)))
+	if (!ExpectedPayloadSize(paquet, sizeof(struct BonjourProfileNameValidation)))
 	{
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
@@ -188,7 +188,7 @@ SELECT auth.is_profile_name_free($1)"
 
 	DB_PushVARCHAR(dbh,
 		(char *) &validation.profileName,
-		strnlen(validation.profileName, BonjourProfileNameLength));
+		strnlen(validation.profileName, API_BonjourProfileNameLength));
 
 	DB_Execute(dbh, QUERY_VALIDATE_PROFILE_NAME);
 
@@ -222,8 +222,8 @@ SELECT auth.is_profile_name_free($1)"
 	MMPS_ResetBufferData(outputBuffer, 1);
 
 	uint32 status = (*PQgetvalue(dbh->result, 0, 0) == 1)
-		? PaquetProfileNameAvailable
-		: PaquetProfileNameAlreadyInUse;
+		? API_PaquetProfileNameAvailable
+		: API_PaquetProfileNameAlreadyInUse;
 
 	outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
@@ -262,7 +262,7 @@ RETURNING profile_token"
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
-	if (!expectedPayloadSize(paquet, sizeof(struct BonjourCreateProfile)))
+	if (!ExpectedPayloadSize(paquet, sizeof(struct BonjourCreateProfile)))
 	{
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
@@ -282,7 +282,7 @@ RETURNING profile_token"
 
     DB_PushVARCHAR(dbh,
     	(char *) &profile->profileName,
-    	strnlen(profile->profileName, BonjourProfileNameLength));
+    	strnlen(profile->profileName, API_BonjourProfileNameLength));
 
 	DB_Execute(dbh, QUERY_CREATE_PROFILE);
 
@@ -292,7 +292,7 @@ RETURNING profile_token"
 
 		MMPS_ResetBufferData(outputBuffer, 1);
 
-		uint32 status = BonjourCreateProfileNameConstraint;
+		uint32 status = API_BonjourCreateProfileNameConstraint;
 		outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
 		paquet->outputBuffer = paquet->inputBuffer;
@@ -306,7 +306,7 @@ RETURNING profile_token"
 
 		MMPS_ResetBufferData(outputBuffer, 1);
 
-		uint32 status = BonjourCreateProfileNameAlreadyInUse;
+		uint32 status = API_BonjourCreateProfileNameAlreadyInUse;
 		outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
 		paquet->outputBuffer = paquet->inputBuffer;
@@ -349,22 +349,22 @@ RETURNING profile_token"
     DB_PushBIGINT(dbh, &profileIdBigEndian);
     DB_PushVARCHAR(dbh,
     	(char *) &profile->userName,
-    	strnlen(profile->userName, BonjourUserNameLength));
+    	strnlen(profile->userName, API_BonjourUserNameLength));
 
-	if (strnlen(profile->passwordMD5, BonjourMD5Length) == 0) {
+	if (strnlen(profile->passwordMD5, API_BonjourMD5Length) == 0) {
 	    DB_PushCHAR(dbh, NULL, 0);
 	} else {
 	    DB_PushCHAR(dbh,
 	    	(char *) &profile->passwordMD5,
-	    	strnlen(profile->passwordMD5, BonjourMD5Length));
+	    	strnlen(profile->passwordMD5, API_BonjourMD5Length));
 	}
 
-	if (strnlen(profile->emailAddress, BonjourEmailAddressLength) == 0) {
+	if (strnlen(profile->emailAddress, API_BonjourEmailAddressLength) == 0) {
 	    DB_PushVARCHAR(dbh, NULL, 0);
 	} else {
 	    DB_PushVARCHAR(dbh,
 	    	(char *) &profile->emailAddress,
-	    	strnlen(profile->emailAddress, BonjourEmailAddressLength));
+	    	strnlen(profile->emailAddress, API_BonjourEmailAddressLength));
 	}
 
 	DB_Execute(dbh, QUERY_UPDATE_PROFILE);
@@ -375,7 +375,7 @@ RETURNING profile_token"
 
 		MMPS_ResetBufferData(outputBuffer, 1);
 
-		uint32 status = BonjourCreateProfileEmailConstraint;
+		uint32 status = API_BonjourCreateProfileEmailConstraint;
 		outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
 		paquet->outputBuffer = paquet->inputBuffer;
@@ -389,7 +389,7 @@ RETURNING profile_token"
 
 		MMPS_ResetBufferData(outputBuffer, 1);
 
-		uint32 status = BonjourCreateProfileEmailAlreadyInUse;
+		uint32 status = API_BonjourCreateProfileEmailAlreadyInUse;
 		outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
 		paquet->outputBuffer = paquet->inputBuffer;
@@ -435,11 +435,11 @@ RETURNING profile_token"
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-	uint32 status = BonjourCreateSucceeded;
+	uint32 status = API_BonjourCreateSucceeded;
 
 	outputBuffer = MMPS_PutInt32(outputBuffer, &status);
 
-	outputBuffer = MMPS_PutData(outputBuffer, profileToken, TokenBinarySize);
+	outputBuffer = MMPS_PutData(outputBuffer, profileToken, API_TokenBinarySize);
 
 	DB_PokeHandle(dbh);
 
@@ -464,7 +464,7 @@ SELECT journal.set_apns_token($1, $2)"
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
-	if (!expectedPayloadSize(paquet, sizeof(struct paquetNotificationsToken)))
+	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetNotificationsToken)))
 	{
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
@@ -472,7 +472,7 @@ SELECT journal.set_apns_token($1, $2)"
 
 	MMPS_ResetCursor(inputBuffer, 1);
 
-	struct paquetNotificationsToken payload;
+	struct PaquetNotificationsToken payload;
 
 	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload));
 
@@ -497,7 +497,7 @@ SELECT journal.set_apns_token($1, $2)"
     DB_PushBIGINT(dbh, &task->deviceId);
     DB_PushBYTEA(dbh,
     	(char *) &payload.notificationsToken,
-    	NotificationsTokenBinarySize);
+    	API_NotificationsTokenBinarySize);
 
 	DB_Execute(dbh, QUERY_SET_APNS_TOKEN);
 
@@ -535,9 +535,9 @@ SELECT journal.set_apns_token($1, $2)"
 
 	char answer = *PQgetvalue(dbh->result, 0, 0);
 	if (answer == 1) {
-		status = PaquetNotificationsTokenAccepted;
+		status = API_PaquetNotificationsTokenAccepted;
 	} else {
-		status = PaquetNotificationsTokenDeclined;
+		status = API_PaquetNotificationsTokenDeclined;
 	}
 
 	outputBuffer = MMPS_PutInt32(outputBuffer, &status);

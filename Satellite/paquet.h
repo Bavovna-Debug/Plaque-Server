@@ -8,7 +8,7 @@
 #include "tasks.h"
 
 #pragma pack(push, 1)
-struct paquetPilot
+struct PaquetPilot
 {
 	uint64  		signature;
 	uint32  		paquetId;
@@ -20,7 +20,7 @@ struct paquetPilot
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct paquetBroadcast
+struct PaquetBroadcast
 {
 	uint32  		lastKnownOnRadarRevision;
 	uint32  		lastKnownInSightRevision;
@@ -29,7 +29,7 @@ struct paquetBroadcast
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct paquetDisplacement
+struct PaquetDisplacement
 {
 	double			latitude;
 	double			longitude;
@@ -37,13 +37,13 @@ struct paquetDisplacement
 	char			courseAvailable;
 	float			course;
 	char			floorLevelAvailable;
-	int32  			floorLevel;
+	uint32  		floorLevel;
 	float			range;
 };
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct paquetPostPlaque
+struct PaquetPostPlaque
 {
 	//char[2]			dimension;
 	double			latitude;
@@ -64,9 +64,9 @@ struct paquetPostPlaque
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct paquetPlaqueLocation
+struct PaquetPlaqueLocation
 {
-	char			plaqueToken[TokenBinarySize];
+	char			plaqueToken[API_TokenBinarySize];
 	double			latitude;
 	double			longitude;
 	float			altitude;
@@ -74,9 +74,9 @@ struct paquetPlaqueLocation
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct paquetPlaqueOrientation
+struct PaquetPlaqueOrientation
 {
-	char			plaqueToken[TokenBinarySize];
+	char			plaqueToken[API_TokenBinarySize];
 	char			directed;
 	float			direction;
 	char			tilted;
@@ -85,49 +85,49 @@ struct paquetPlaqueOrientation
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct paquetPlaqueSize
+struct PaquetPlaqueSize
 {
-	char			plaqueToken[TokenBinarySize];
+	char			plaqueToken[API_TokenBinarySize];
 	float			width;
 	float			height;
 };
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct paquetPlaqueColors
+struct PaquetPlaqueColors
 {
-	char			plaqueToken[TokenBinarySize];
+	char			plaqueToken[API_TokenBinarySize];
 	uint32  		backgroundColor;
 	uint32  		foregroundColor;
 };
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct paquetPlaqueFont
+struct PaquetPlaqueFont
 {
-	char			plaqueToken[TokenBinarySize];
+	char			plaqueToken[API_TokenBinarySize];
 	float			fontSize;
 };
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct paquetPlaqueInscription
+struct PaquetPlaqueInscription
 {
-	char			plaqueToken[TokenBinarySize];
+	char			plaqueToken[API_TokenBinarySize];
 	uint32  		inscriptionLength;
 	char			inscription[];
 };
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct paquetNotificationsToken
+struct PaquetNotificationsToken
 {
-	char			notificationsToken[NotificationsTokenBinarySize];
+	char			notificationsToken[API_NotificationsTokenBinarySize];
 };
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct paquetReport
+struct PaquetReport
 {
 	uint32  		messageLength;
 	char			message[];
@@ -135,18 +135,18 @@ struct paquetReport
 #pragma pack(pop)
 
 void *
-paquetThread(void *arg);
+PaquetThread(void *arg);
 
 void
-paquetCancel(struct paquet *paquet);
+PaquetCancel(struct paquet *paquet);
 
 int
-minimumPayloadSize(struct paquet *paquet, int minimumSize);
+MinimumPayloadSize(struct paquet *paquet, int minimumSize);
 
 int
-expectedPayloadSize(struct paquet *paquet, int expectedSize);
+ExpectedPayloadSize(struct paquet *paquet, int expectedSize);
 
 uint64
-deviceIdByToken(struct dbh *dbh, char *deviceToken);
+DeviceIdByToken(struct dbh *dbh, char *deviceToken);
 
 #endif

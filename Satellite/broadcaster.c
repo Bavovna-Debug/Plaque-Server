@@ -103,7 +103,6 @@ BroadcasterThread(void *arg)
 static void
 BroadcasterDialog(int sockFD)
 {
-	int             sessionNumber;
 	struct session  *session;
     uint64          satelliteTaskId;
     struct task     *task;
@@ -121,7 +120,7 @@ BroadcasterDialog(int sockFD)
 
         task = taskListTaskById(satelliteTaskId);
         if (task == NULL) {
-            reportInfo("Task %u is already closed", satelliteTaskId);
+            reportInfo("Task %lu is already closed", satelliteTaskId);
         } else {
             //
             // Changing broadcast values has to be done inside of the broadcast lock.
@@ -136,7 +135,7 @@ BroadcasterDialog(int sockFD)
             task->broadcast.currentRevision.inSight = be32toh(session->inSightRevision);
             task->broadcast.currentRevision.onMap = be32toh(session->onMapRevision);
 
-            reportInfo("Received revised session: receiptId=%lu sessionId=%lu, revisions=%u/%u/%u, taskId=%u",
+            reportInfo("Received revised session: receiptId=%lu sessionId=%lu, revisions=%u/%u/%u, taskId=%lu",
                 be64toh(session->receiptId),
                 be64toh(session->sessionId),
                 task->broadcast.currentRevision.onRadar,

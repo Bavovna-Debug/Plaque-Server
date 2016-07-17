@@ -15,10 +15,10 @@
 extern struct Chalkboard *chalkboard;
 
 static void
-journalUserLocation(
+JournalUserLocation(
     struct task *task,
     struct dbh *dbh,
-    struct paquetDisplacement *displacement);
+    struct PaquetDisplacement *displacement);
 
 #define QUERY_DISPLACEMENT_ON_RADAR "\
 UPDATE journal.device_displacements \
@@ -44,21 +44,21 @@ INSERT INTO journal.movements \
 VALUES ($1, $2, $3, $4, $5, $6)"
 
 int
-paquetDisplacementOnRadar(struct paquet *paquet)
+HandleDisplacementOnRadar(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
-	if (!expectedPayloadSize(paquet, sizeof(struct paquetDisplacement))) {
+	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetDisplacement))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
 	MMPS_ResetCursor(inputBuffer, 1);
 
-	struct paquetDisplacement *displacement = (struct paquetDisplacement *)inputBuffer->cursor;
+	struct PaquetDisplacement *displacement = (struct PaquetDisplacement *) inputBuffer->cursor;
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
@@ -66,7 +66,7 @@ paquetDisplacementOnRadar(struct paquet *paquet)
 		return -1;
 	}
 
-    journalUserLocation(task, dbh, displacement);
+    JournalUserLocation(task, dbh, displacement);
 
     DB_PushBIGINT(dbh, &task->deviceId);
     DB_PushDOUBLE(dbh, &displacement->latitude);
@@ -83,7 +83,7 @@ paquetDisplacementOnRadar(struct paquet *paquet)
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-    uint32 result = PaquetCreatePlaqueSucceeded;
+    uint32 result = API_PaquetCreatePlaqueSucceeded;
     outputBuffer = MMPS_PutInt32(outputBuffer, &result);
 
 	DB_PokeHandle(dbh);
@@ -94,21 +94,21 @@ paquetDisplacementOnRadar(struct paquet *paquet)
 }
 
 int
-paquetDisplacementInSight(struct paquet *paquet)
+HandleDisplacementInSight(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
-	if (!expectedPayloadSize(paquet, sizeof(struct paquetDisplacement))) {
+	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetDisplacement))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
 	MMPS_ResetCursor(inputBuffer, 1);
 
-	struct paquetDisplacement *displacement = (struct paquetDisplacement *)inputBuffer->cursor;
+	struct PaquetDisplacement *displacement = (struct PaquetDisplacement *) inputBuffer->cursor;
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
@@ -116,7 +116,7 @@ paquetDisplacementInSight(struct paquet *paquet)
 		return -1;
 	}
 
-    journalUserLocation(task, dbh, displacement);
+    JournalUserLocation(task, dbh, displacement);
 
     DB_PushBIGINT(dbh, &task->deviceId);
     DB_PushDOUBLE(dbh, &displacement->latitude);
@@ -133,7 +133,7 @@ paquetDisplacementInSight(struct paquet *paquet)
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-    uint32 result = PaquetCreatePlaqueSucceeded;
+    uint32 result = API_PaquetCreatePlaqueSucceeded;
     outputBuffer = MMPS_PutInt32(outputBuffer, &result);
 
 	DB_PokeHandle(dbh);
@@ -144,21 +144,21 @@ paquetDisplacementInSight(struct paquet *paquet)
 }
 
 int
-paquetDisplacementOnMap(struct paquet *paquet)
+HandleDisplacementOnMap(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
 	struct MMPS_Buffer *outputBuffer = paquet->inputBuffer;
 
-	if (!expectedPayloadSize(paquet, sizeof(struct paquetDisplacement))) {
+	if (!ExpectedPayloadSize(paquet, sizeof(struct PaquetDisplacement))) {
 		setTaskStatus(task, TaskStatusWrongPayloadSize);
 		return -1;
 	}
 
 	MMPS_ResetCursor(inputBuffer, 1);
 
-	struct paquetDisplacement *displacement = (struct paquetDisplacement *)inputBuffer->cursor;
+	struct PaquetDisplacement *displacement = (struct PaquetDisplacement *) inputBuffer->cursor;
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
@@ -166,7 +166,7 @@ paquetDisplacementOnMap(struct paquet *paquet)
 		return -1;
 	}
 
-    journalUserLocation(task, dbh, displacement);
+    JournalUserLocation(task, dbh, displacement);
 
     DB_PushBIGINT(dbh, &task->deviceId);
     DB_PushDOUBLE(dbh, &displacement->latitude);
@@ -183,7 +183,7 @@ paquetDisplacementOnMap(struct paquet *paquet)
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-    uint32 result = PaquetCreatePlaqueSucceeded;
+    uint32 result = API_PaquetCreatePlaqueSucceeded;
     outputBuffer = MMPS_PutInt32(outputBuffer, &result);
 
 	DB_PokeHandle(dbh);
@@ -194,23 +194,23 @@ paquetDisplacementOnMap(struct paquet *paquet)
 }
 
 static void
-journalUserLocation(
+JournalUserLocation(
     struct task *task,
     struct dbh *dbh,
-    struct paquetDisplacement *displacement)
+    struct PaquetDisplacement *displacement)
 {
     DB_PushBIGINT(dbh, &task->deviceId);
     DB_PushDOUBLE(dbh, &displacement->latitude);
     DB_PushDOUBLE(dbh, &displacement->longitude);
     DB_PushREAL(dbh, &displacement->altitude);
 
-	if (displacement->courseAvailable == DeviceBooleanFalse) {
+	if (displacement->courseAvailable == API_DeviceBooleanFalse) {
         DB_PushREAL(dbh, NULL);
 	} else {
         DB_PushREAL(dbh, &displacement->course);
 	}
 
-	if (displacement->floorLevelAvailable == DeviceBooleanFalse) {
+	if (displacement->floorLevelAvailable == API_DeviceBooleanFalse) {
         DB_PushINTEGER(dbh, NULL);
 	} else {
         DB_PushINTEGER(dbh, &displacement->floorLevel);

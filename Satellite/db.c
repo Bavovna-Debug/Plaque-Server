@@ -3,12 +3,16 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "db.h"
 #include "report.h"
 
 #define PEEK_DBH_RETRIES				5
-#define PEEK_DBH_RETRY_SLEEP			1500000
+
+// Sleep time in milliseconds.
+//
+#define PEEK_DBH_RETRY_SLEEP			1500
 
 const unsigned int NODBH = 0xFFFF0000;
 
@@ -161,7 +165,7 @@ DB_PeekHandle(struct DB_Chain *chain)
 		pthread_spin_unlock(&chain->lock);
 
 		if (dbh == NULL) {
-			usleep(PEEK_DBH_RETRY_SLEEP);
+			usleep(PEEK_DBH_RETRY_SLEEP * 1000);
 		} else {
 			break;
 		}

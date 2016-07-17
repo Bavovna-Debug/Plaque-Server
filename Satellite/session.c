@@ -11,10 +11,6 @@
 //
 extern struct Chalkboard *chalkboard;
 
-#define QUERY_GET_SESSION "\
-SELECT session_id, session_token \
-FROM journal.get_session($1, $2)"
-
 int
 getSessionForDevice(
     struct task *task,
@@ -24,6 +20,10 @@ getSessionForDevice(
     char *knownSessionToken,
     char *givenSessionToken)
 {
+#define QUERY_GET_SESSION "\
+SELECT session_id, session_token \
+FROM journal.get_session($1, $2)"
+
     DB_PushBIGINT(dbh, &deviceId);
     DB_PushUUID(dbh, knownSessionToken);
 
@@ -55,19 +55,19 @@ getSessionForDevice(
 	}
 
 	memcpy(sessionId, PQgetvalue(dbh->result, 0, 0), sizeof(uint64));
-	memcpy(givenSessionToken, PQgetvalue(dbh->result, 0, 1), TokenBinarySize);
+	memcpy(givenSessionToken, PQgetvalue(dbh->result, 0, 1), API_TokenBinarySize);
 
 	return 0;
 }
 
+int
+setAllSessionsOffline(void)
+{
 #define QUERY_SET_ALL_SESSIONS_OFFLINE "\
 UPDATE journal.sessions \
 SET satellite_task_id = NULL \
 WHERE satellite_task_id IS NOT NULL"
 
-int
-setAllSessionsOffline(void)
-{
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.auth);
 	if (dbh == NULL)
 		return -1;
@@ -85,6 +85,9 @@ setAllSessionsOffline(void)
 	return 0;
 }
 
+int
+setSessionOnline(struct task *task)
+{
 #define QUERY_SET_SESSION_ONLINE "\
 UPDATE journal.sessions \
 SET satellite_task_id = $2 \
@@ -96,9 +99,6 @@ SET need_on_radar_revision = TRUE, \
     need_in_sight_revision = TRUE \
 WHERE device_id = $1"
 
-int
-setSessionOnline(struct task *task)
-{
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.auth);
 	if (dbh == NULL)
 	{
@@ -136,6 +136,9 @@ setSessionOnline(struct task *task)
 	return 0;
 }
 
+int
+setSessionOffline(struct task *task)
+{
 #define QUERY_SET_SESSION_OFFLINE "\
 UPDATE journal.sessions \
 SET satellite_task_id = NULL \
@@ -147,9 +150,6 @@ SET need_on_radar_revision = FALSE, \
     need_in_sight_revision = FALSE \
 WHERE device_id = $1"
 
-int
-setSessionOffline(struct task *task)
-{
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.auth);
 	if (dbh == NULL)
 	{

@@ -1,6 +1,7 @@
 #include <c.h>
 #include <string.h>
 
+#include "anticipant.h"
 #include "api.h"
 #include "db.h"
 #include "mmps.h"
@@ -9,104 +10,106 @@
 #include "paquet_displacement.h"
 #include "plaques_edit.h"
 #include "plaques_query.h"
+#include "profiles.h"
 #include "report.h"
 #include "reports.h"
 #include "tasks.h"
+#include "task_xmit.h"
 
 static void
-rejectPaquetAsBusy(struct paquet *paquet);
+RejectPaquetAsBusy(struct paquet *paquet);
 
 static void
-rejectPaquetAsError(struct paquet *paquet);
+RejectPaquetAsError(struct paquet *paquet);
+
+void
+PaquetCleanup(void *arg);
 
 void *
-paquetCleanup(void *arg);
-
-void *
-paquetThread(void *arg)
+PaquetThread(void *arg)
 {
 	struct paquet *paquet = (struct paquet *)arg;
 	struct task *task = paquet->task;
 	int rc;
 
-    pthread_cleanup_push(&paquetCleanup, paquet);
+    pthread_cleanup_push(&PaquetCleanup, paquet);
 
 	appentPaquetToTask(task, paquet);
 
 	switch (paquet->commandCode)
 	{
-		case PaquetBroadcast:
-			rc = paquetBroadcast(paquet);
+		case API_PaquetBroadcast:
+			rc = HandleBroadcast(paquet);
 			break;
 
-		case PaquetDisplacementOnRadar:
-			rc = paquetDisplacementOnRadar(paquet);
+		case API_PaquetDisplacementOnRadar:
+			rc = HandleDisplacementOnRadar(paquet);
 			break;
 
-		case PaquetDisplacementInSight:
-			rc = paquetDisplacementInSight(paquet);
+		case API_PaquetDisplacementInSight:
+			rc = HandleDisplacementInSight(paquet);
 			break;
 
-		case PaquetDisplacementOnMap:
-			rc = paquetDisplacementOnMap(paquet);
+		case API_PaquetDisplacementOnMap:
+			rc = HandleDisplacementOnMap(paquet);
 			break;
 
-		case PaquetDownloadPlaquesOnRadar:
-		case PaquetDownloadPlaquesInSight:
-		case PaquetDownloadPlaquesOnMap:
+		case API_PaquetDownloadPlaquesOnRadar:
+		case API_PaquetDownloadPlaquesInSight:
+		case API_PaquetDownloadPlaquesOnMap:
 			if (pthread_mutex_trylock(&task->paquet.downloadMutex) == 0) {
-				rc = paquetDownloadPlaques(paquet);
+				rc = HandleDownloadPlaques(paquet);
 				pthread_mutex_unlock(&task->paquet.downloadMutex);
 			} else {
-				rejectPaquetAsBusy(paquet);
+				RejectPaquetAsBusy(paquet);
 			}
 			break;
 
-		case PaquetPostNewPlaque:
-			rc = paquetPostNewPlaque(paquet);
+		case API_PaquetPostNewPlaque:
+			rc = HandlePostNewPlaque(paquet);
 			break;
 
-		case PaquetPlaqueModifiedLocation:
-			rc = paquetChangePlaqueLocation(paquet);
+		case API_PaquetPlaqueModifiedLocation:
+			rc = HandleChangePlaqueLocation(paquet);
 			break;
 
-		case PaquetPlaqueModifiedOrientation:
-			rc = paquetChangePlaqueOrientation(paquet);
+		case API_PaquetPlaqueModifiedOrientation:
+			rc = HandleChangePlaqueOrientation(paquet);
 			break;
 
-		case PaquetPlaqueModifiedSize:
-			rc = paquetChangePlaqueSize(paquet);
+		case API_PaquetPlaqueModifiedSize:
+			rc = HandleChangePlaqueSize(paquet);
 			break;
 
-		case PaquetPlaqueModifiedColors:
-			rc = paquetChangePlaqueColors(paquet);
+		case API_PaquetPlaqueModifiedColors:
+			rc = HandleChangePlaqueColors(paquet);
 			break;
 
-		case PaquetPlaqueModifiedFont:
-			rc = paquetChangePlaqueFont(paquet);
+		case API_PaquetPlaqueModifiedFont:
+			rc = HandleChangePlaqueFont(paquet);
 			break;
 
-		case PaquetPlaqueModifiedInscription:
-			rc = paquetChangePlaqueInscription(paquet);
+		case API_PaquetPlaqueModifiedInscription:
+			rc = HandleChangePlaqueInscription(paquet);
 			break;
 
-		case PaquetDownloadProfiles:
+		case API_PaquetDownloadProfiles:
 			rc = getProfiles(paquet);
 			break;
 
-		case PaquetNotificationsToken:
+		case API_PaquetNotificationsToken:
 			rc = NotificationsToken(paquet);
 			break;
 
-		case PaquetValidateProfileName:
+		case API_PaquetValidateProfileName:
 			rc = ValidateProfileName(paquet);
 			break;
 
-		case PaquetCreateProfile:
+		case API_PaquetCreateProfile:
 			rc = CreateProfile(paquet);
 			break;
 
-		case PaquetReportMessage:
+		case API_PaquetReportMessage:
 			rc = reportMessage(paquet);
 			break;
 
@@ -116,7 +119,7 @@ paquetThread(void *arg)
 	}
 
 	if (rc != 0)
-		rejectPaquetAsError(paquet);
+		RejectPaquetAsError(paquet);
 
 	sendPaquet(paquet);
 
@@ -125,8 +128,8 @@ paquetThread(void *arg)
 	pthread_exit(NULL);
 }
 
-void *
-paquetCleanup(void *arg)
+void
+PaquetCleanup(void *arg)
 {
 	struct paquet *paquet = (struct paquet *)arg;
 
@@ -146,7 +149,7 @@ paquetCleanup(void *arg)
 }
 
 void
-paquetCancel(struct paquet *paquet)
+PaquetCancel(struct paquet *paquet)
 {
 	int rc;
 
@@ -163,7 +166,7 @@ paquetCancel(struct paquet *paquet)
 }
 
 int
-minimumPayloadSize(struct paquet *paquet, int minimumSize)
+MinimumPayloadSize(struct paquet *paquet, int minimumSize)
 {
 	if (paquet->payloadSize < minimumSize) {
 #ifdef DEBUG
@@ -178,7 +181,7 @@ minimumPayloadSize(struct paquet *paquet, int minimumSize)
 }
 
 int
-expectedPayloadSize(struct paquet *paquet, int expectedSize)
+ExpectedPayloadSize(struct paquet *paquet, int expectedSize)
 {
 	if (paquet->payloadSize != expectedSize) {
 #ifdef DEBUG
@@ -198,7 +201,7 @@ FROM auth.devices \
 WHERE device_token = $1"
 
 uint64
-deviceIdByToken(struct dbh *dbh, char *deviceToken)
+DeviceIdByToken(struct dbh *dbh, char *deviceToken)
 {
     DB_PushUUID(dbh, deviceToken);
 
@@ -223,27 +226,27 @@ deviceIdByToken(struct dbh *dbh, char *deviceToken)
 }
 
 static void
-rejectPaquetAsBusy(struct paquet *paquet)
+RejectPaquetAsBusy(struct paquet *paquet)
 {
 	if (paquet->outputBuffer == NULL)
 		paquet->outputBuffer = paquet->inputBuffer;
 
 	MMPS_ResetBufferData(paquet->outputBuffer, 1);
 
-	struct paquetPilot *pilot = (struct paquetPilot *)paquet->outputBuffer;
-	pilot->commandSubcode = PaquetRejectBusy;
+	struct PaquetPilot *pilot = (struct PaquetPilot *) paquet->outputBuffer;
+	pilot->commandSubcode = API_PaquetRejectBusy;
 	pilot->payloadSize = 0;
 }
 
 static void
-rejectPaquetAsError(struct paquet *paquet)
+RejectPaquetAsError(struct paquet *paquet)
 {
 	if (paquet->outputBuffer == NULL)
 		paquet->outputBuffer = paquet->inputBuffer;
 
 	MMPS_ResetBufferData(paquet->outputBuffer, 1);
 
-	struct paquetPilot *pilot = (struct paquetPilot *)paquet->outputBuffer;
-	pilot->commandSubcode = PaquetRejectError;
+	struct PaquetPilot *pilot = (struct PaquetPilot *)paquet->outputBuffer;
+	pilot->commandSubcode = API_PaquetRejectError;
 	pilot->payloadSize = 0;
 }

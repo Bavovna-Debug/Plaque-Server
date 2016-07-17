@@ -1,7 +1,8 @@
 #include <errno.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
+#include <unistd.h>
 
 #include "chalkboard.h"
 #include "mmps.h"
@@ -9,6 +10,7 @@
 #include "report.h"
 #include "tasks.h"
 #include "task_kernel.h"
+#include "task_list.h"
 #include "task_xmit.h"
 
 // Take a pointer to chalkboard. Chalkboard must be initialized
@@ -70,25 +72,27 @@ startTask(
     }
 
 #ifdef TASKS
-	reportInfo("... created thread for task 0x%08X to serve %s", task, task->clientIP);
+	reportInfo("... created thread for task 0x%08luX to serve %s",
+		(unsigned long) task,
+		task->clientIP);
 #endif
 
 	return task;
 }
 
 inline void
-__setTaskStatus(struct task *task, long statusMask)
+__setTaskStatus(struct task *task, uint64 statusMask)
 {
 	pthread_spin_lock(&task->statusLock);
 	task->status |= statusMask;
 	pthread_spin_unlock(&task->statusLock);
 }
 
-inline long
+inline uint64
 getTaskStatus(struct task *task)
 {
 	pthread_spin_lock(&task->statusLock);
-	long status = task->status;
+	uint64 status = task->status;
 	pthread_spin_unlock(&task->statusLock);
 	return status;
 }
@@ -162,14 +166,14 @@ taskThread(void *arg)
 		uint32 dialogueType = be32toh(task->dialogue.demande.dialogueType);
 		switch (dialogueType)
 		{
-			case DialogueTypeAnticipant:
+			case API_DialogueTypeAnticipant:
 #ifdef TASK_THREAD
 		       	reportInfo("Start anticipant dialogue");
 #endif
 				dialogueAnticipant(task);
 				break;
 
-			case DialogueTypeRegular:
+			case API_DialogueTypeRegular:
 				authentifyDialogue(task);
 #ifdef TASK_THREAD
 		       	reportInfo("Start regular dialogue");
@@ -289,7 +293,7 @@ taskCleanup(void *arg)
 		pthread_spin_unlock(&task->paquet.chainLock);
 
 		if (paquetToCancel != NULL)
-			paquetCancel(paquetToCancel);
+			PaquetCancel(paquetToCancel);
 
 	} while (paquetToCancel != NULL);
 

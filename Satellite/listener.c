@@ -16,7 +16,7 @@
 //
 extern struct Chalkboard *chalkboard;
 
-void *
+void
 ListenerCleanup(void *arg);
 
 /**
@@ -152,7 +152,7 @@ ListenerThread(void *arg)
  *
  * @arg:
  */
-void *
+void
 ListenerCleanup(void *arg)
 {
 	int         listenSockFD;

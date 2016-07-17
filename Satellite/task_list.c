@@ -96,14 +96,11 @@ initTaskList(void)
 void
 taskListPushTask(int taskId, struct task *task)
 {
-	size_t		    maxListPageSize;
     int			    tasksPerPage;
     int				pageId;
     int				taskIdInPage;
 	void			*page;
 	struct task		**taskInList;
-
-	maxListPageSize = MAX_TASK_LIST_PAGE_SIZE;
 
 	tasksPerPage = MAX_TASK_LIST_PAGE_SIZE / sizeof(struct task *);
 
@@ -118,14 +115,11 @@ taskListPushTask(int taskId, struct task *task)
 struct task *
 taskListTaskById(int taskId)
 {
-	size_t		    maxListPageSize;
     int			    tasksPerPage;
     int				pageId;
     int				taskIdInPage;
 	void			*page;
 	struct task		**taskInList;
-
-	maxListPageSize = MAX_TASK_LIST_PAGE_SIZE;
 
 	tasksPerPage = MAX_TASK_LIST_PAGE_SIZE / sizeof(struct task *);
 

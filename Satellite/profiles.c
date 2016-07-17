@@ -14,14 +14,14 @@
 //
 extern struct Chalkboard *chalkboard;
 
+int
+getProfiles(struct paquet *paquet)
+{
 #define QUERY_SELECT_PROFILES "\
 SELECT profile_revision, profile_name, user_name \
 FROM auth.profiles \
 WHERE profile_token = $1"
 
-int
-getProfiles(struct paquet *paquet)
-{
 	struct task	*task = paquet->task;
 
 	struct MMPS_Buffer *inputBuffer = paquet->inputBuffer;
@@ -29,7 +29,8 @@ getProfiles(struct paquet *paquet)
 
 	uint32 numberOfProfiles;
 
-	if (paquet->payloadSize < sizeof(numberOfProfiles)) {
+	if (paquet->payloadSize < sizeof(numberOfProfiles))
+	{
 #ifdef DEBUG
 		reportInfo("Wrong payload size %d", paquet->payloadSize);
 #endif
@@ -41,7 +42,8 @@ getProfiles(struct paquet *paquet)
 
 	inputBuffer = MMPS_GetInt32(inputBuffer, &numberOfProfiles);
 
-	if (paquet->payloadSize != sizeof(numberOfProfiles) + numberOfProfiles * TokenBinarySize) {
+	if (paquet->payloadSize != sizeof(numberOfProfiles) + numberOfProfiles * API_TokenBinarySize)
+	{
 #ifdef DEBUG
 		reportInfo("Wrong payload size %d for %d profiles", paquet->payloadSize, numberOfProfiles);
 #endif
@@ -50,7 +52,8 @@ getProfiles(struct paquet *paquet)
 	}
 
 	outputBuffer = MMPS_PeekBufferOfSize(chalkboard->pools.dynamic, KB, BUFFER_PROFILES);
-	if (outputBuffer == NULL) {
+	if (outputBuffer == NULL)
+	{
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
 	}
@@ -60,7 +63,8 @@ getProfiles(struct paquet *paquet)
 	MMPS_ResetBufferData(outputBuffer, 1);
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
-	if (dbh == NULL) {
+	if (dbh == NULL)
+	{
 		setTaskStatus(task, TaskStatusNoDatabaseHandlers);
 		return -1;
 	}
@@ -68,27 +72,30 @@ getProfiles(struct paquet *paquet)
 	int i;
 	for (i = 0; i < numberOfProfiles; i++)
 	{
-		char profileToken[TokenBinarySize];
+		char profileToken[API_TokenBinarySize];
 
-		inputBuffer = MMPS_GetData(inputBuffer, profileToken, TokenBinarySize);
+		inputBuffer = MMPS_GetData(inputBuffer, profileToken, API_TokenBinarySize);
 
         DB_PushUUID(dbh, (char *)&profileToken);
 
     	DB_Execute(dbh, QUERY_SELECT_PROFILES);
 
-		if (!DB_TuplesOK(dbh, dbh->result)) {
+		if (!DB_TuplesOK(dbh, dbh->result))
+		{
 			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
-		if (!DB_CorrectNumberOfColumns(dbh->result, 3)) {
+		if (!DB_CorrectNumberOfColumns(dbh->result, 3))
+		{
 			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
 		}
 
-		if (!DB_CorrectNumberOfRows(dbh->result, 1)) {
+		if (!DB_CorrectNumberOfRows(dbh->result, 1))
+		{
 			DB_PokeHandle(dbh);
 			setTaskStatus(task, TaskStatusUnexpectedDatabaseResult);
 			return -1;
@@ -109,7 +116,8 @@ getProfiles(struct paquet *paquet)
 		char *userName = PQgetvalue(dbh->result, 0, 2);
 		int userNameSize = PQgetlength(dbh->result, 0, 2);
 
-		if ((profileRevision == NULL) || (profileName == NULL) || (userName == NULL)) {
+		if ((profileRevision == NULL) || (profileName == NULL) || (userName == NULL))
+		{
 #ifdef DEBUG
 			reportInfo("No results");
 #endif
@@ -118,7 +126,7 @@ getProfiles(struct paquet *paquet)
 			return -1;
 		}
 
-		outputBuffer = MMPS_PutData(outputBuffer, profileToken, TokenBinarySize);
+		outputBuffer = MMPS_PutData(outputBuffer, profileToken, API_TokenBinarySize);
 		outputBuffer = MMPS_PutData(outputBuffer, profileRevision, sizeof(uint32));
 		outputBuffer = MMPS_PutString(outputBuffer, profileName, profileNameSize);
 		outputBuffer = MMPS_PutString(outputBuffer, userName, userNameSize);
@@ -129,14 +137,14 @@ getProfiles(struct paquet *paquet)
 	return 0;
 }
 
+uint64
+profileIdByToken(struct dbh *dbh, char *profileToken)
+{
 #define QUERY_SEARCH_PROFILE_BY_TOKEN "\
 SELECT profile_id \
 FROM auth.profiles \
 WHERE profile_token = $1"
 
-uint64
-profileIdByToken(struct dbh *dbh, char *profileToken)
-{
     DB_PushUUID(dbh, profileToken);
 
 	DB_Execute(dbh, QUERY_SEARCH_PROFILE_BY_TOKEN);

@@ -88,7 +88,7 @@ InitializeMMPS(void)
 
 	rc = MMPS_InitBank(chalkboard->pools.dynamic, 0,
 		256,
-		sizeof(struct paquetPilot),
+		sizeof(struct PaquetPilot),
 		NUMBER_OF_BUFFERS_256);
 	if (rc != 0) {
 		reportError("Cannot create buffer bank: rc=%d", rc);
@@ -97,7 +97,7 @@ InitializeMMPS(void)
 
 	rc = MMPS_InitBank(chalkboard->pools.dynamic, 1,
 		512,
-		sizeof(struct paquetPilot),
+		sizeof(struct PaquetPilot),
 		NUMBER_OF_BUFFERS_512);
 	if (rc != 0) {
 		reportError("Cannot create buffer bank: rc=%d", rc);
@@ -106,7 +106,7 @@ InitializeMMPS(void)
 
 	rc = MMPS_InitBank(chalkboard->pools.dynamic, 2,
 		KB,
-		sizeof(struct paquetPilot),
+		sizeof(struct PaquetPilot),
 		NUMBER_OF_BUFFERS_1K);
 	if (rc != 0) {
 		reportError("Cannot create buffer bank: rc=%d", rc);
@@ -115,7 +115,7 @@ InitializeMMPS(void)
 
 	rc = MMPS_InitBank(chalkboard->pools.dynamic, 3,
 		4 * KB,
-		sizeof(struct paquetPilot),
+		sizeof(struct PaquetPilot),
 		NUMBER_OF_BUFFERS_4K);
 	if (rc != 0) {
 		reportError("Cannot create buffer bank: rc=%d", rc);
@@ -124,7 +124,7 @@ InitializeMMPS(void)
 
 	rc = MMPS_InitBank(chalkboard->pools.dynamic, 4,
 		MB,
-		sizeof(struct paquetPilot),
+		sizeof(struct PaquetPilot),
 		NUMBER_OF_BUFFERS_1M);
 	if (rc != 0) {
 		reportError("Cannot create buffer bank: rc=%d", rc);

@@ -3,6 +3,15 @@
 
 #include "mmps.h"
 
+/**
+ * FillPaquetWithPilotData()
+ *
+ * @paquet:
+ * @pilot:
+ */
+inline void
+FillPaquetWithPilotData(struct paquet *paquet, struct PaquetPilot *pilot);
+
 int
 receiveFixed(
 	struct task *task,
