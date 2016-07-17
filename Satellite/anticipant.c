@@ -8,6 +8,9 @@
 #include "report.h"
 #include "tasks.h"
 
+#define QUERY_VERIFY_GUEST "\
+SELECT pool.verify_ip($1)"
+
 int
 verifyGuest(struct task *task)
 {
@@ -20,7 +23,7 @@ verifyGuest(struct task *task)
 
 	DB_PushArgument(dbh, (char *)&task->clientIP, INETOID, strlen(task->clientIP), 0);
 
-	DB_Execute(dbh, "SELECT pool.verify_ip($1)");
+	DB_Execute(dbh, QUERY_VERIFY_GUEST);
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
@@ -46,6 +49,9 @@ verifyGuest(struct task *task)
 
 	return ipOK;
 }
+
+#define QUERY_REGISTER_DEVICE "\
+SELECT auth.register_device($1, $2, $3, $4, $5)"
 
 int
 registerDevice(
@@ -80,7 +86,7 @@ registerDevice(
 		(char *)&anticipant->systemVersion,
 		strnlen(anticipant->systemVersion, AnticipantSystemVersionlLength));
 
-	DB_Execute(dbh, "SELECT auth.register_device($1, $2, $3, $4, $5)");
+	DB_Execute(dbh, QUERY_REGISTER_DEVICE);
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
@@ -115,6 +121,9 @@ registerDevice(
 	return 0;
 }
 
+#define QUERY_VALIDATE_PROFILE_NAME "\
+SELECT auth.is_profile_name_free($1)"
+
 int
 validateProfileName(struct paquet *paquet)
 {
@@ -147,7 +156,7 @@ validateProfileName(struct paquet *paquet)
 		(char *)&validation.profileName,
 		strnlen(validation.profileName, BonjourProfileNameLength));
 
-	DB_Execute(dbh, "SELECT auth.is_profile_name_free($1)");
+	DB_Execute(dbh, QUERY_VALIDATE_PROFILE_NAME);
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
@@ -188,6 +197,18 @@ validateProfileName(struct paquet *paquet)
 	return 0;
 }
 
+#define QUERY_CREATE_PROFILE "\
+INSERT INTO auth.profiles (profile_name) \
+VALUES (TRIM($1)) RETURNING profile_id"
+
+#define QUERY_UPDATE_PROFILE "\
+UPDATE auth.profiles \
+SET user_name = TRIM($2), \
+	password_md5 = $3, \
+	email_address = TRIM($4) \
+WHERE profile_id = $1 \
+RETURNING profile_token"
+
 int
 createProfile(struct paquet *paquet)
 {
@@ -218,8 +239,7 @@ createProfile(struct paquet *paquet)
     	(char *)&profile->profileName,
     	strnlen(profile->profileName, BonjourProfileNameLength));
 
-	DB_Execute(dbh, "\
-INSERT INTO auth.profiles (profile_name) VALUES (TRIM($1)) RETURNING profile_id");
+	DB_Execute(dbh, QUERY_CREATE_PROFILE);
 
 	if (DB_HasState(dbh->result, CHECK_VIOLATION)) {
 		DB_PokeHandle(dbh);
@@ -296,13 +316,7 @@ INSERT INTO auth.profiles (profile_name) VALUES (TRIM($1)) RETURNING profile_id"
 	    	strnlen(profile->emailAddress, BonjourEmailAddressLength));
 	}
 
-	DB_Execute(dbh, "\
-UPDATE auth.profiles \
-SET user_name = TRIM($2), \
-	password_md5 = $3, \
-	email_address = TRIM($4) \
-WHERE profile_id = $1 \
-RETURNING profile_token");
+	DB_Execute(dbh, QUERY_UPDATE_PROFILE);
 
 	if (DB_HasState(dbh->result, CHECK_VIOLATION)) {
 		DB_PokeHandle(dbh);
@@ -377,6 +391,9 @@ RETURNING profile_token");
 	return 0;
 }
 
+#define QUERY_SET_APNS_TOKEN "\
+SELECT journal.set_apns_token($1, $2)"
+
 int
 notificationsToken(struct paquet *paquet)
 {
@@ -418,8 +435,7 @@ notificationsToken(struct paquet *paquet)
     	(char *)&payload.notificationsToken,
     	NotificationsTokenBinarySize);
 
-	DB_Execute(dbh, "\
-SELECT journal.set_apns_token($1, $2)");
+	DB_Execute(dbh, QUERY_SET_APNS_TOKEN);
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);

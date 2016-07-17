@@ -14,6 +14,29 @@ journalUserLocation(
     struct dbh *dbh,
     struct paquetDisplacement *displacement);
 
+#define QUERY_DISPLACEMENT_ON_RADAR "\
+UPDATE journal.device_displacements \
+SET on_radar_coordinate = LL_TO_EARTH($2, $3), \
+    on_radar_range = $4 \
+WHERE device_id = $1"
+
+#define QUERY_DISPLACEMENT_IN_SIGHT "\
+UPDATE journal.device_displacements \
+SET in_sight_coordinate = LL_TO_EARTH($2, $3), \
+    in_sight_range = $4 \
+WHERE device_id = $1"
+
+#define QUERY_DISPLACEMENT_ON_MAP "\
+UPDATE journal.device_displacements \
+SET on_map_coordinate = LL_TO_EARTH($2, $3), \
+    on_map_range = $4 \
+WHERE device_id = $1"
+
+#define QUERY_REGISTER_MOVEMENT "\
+INSERT INTO journal.movements \
+(device_id, latitude, longitude, altitude, course, floor_level) \
+VALUES ($1, $2, $3, $4, $5, $6)"
+
 int
 paquetDisplacementOnRadar(struct paquet *paquet)
 {
@@ -44,11 +67,7 @@ paquetDisplacementOnRadar(struct paquet *paquet)
     DB_PushDOUBLE(dbh, &displacement->longitude);
     DB_PushREAL(dbh, &displacement->range);
 
-	DB_Execute(dbh, "\
-UPDATE journal.device_displacements \
-SET on_radar_coordinate = LL_TO_EARTH($2, $3), \
-    on_radar_range = $4 \
-WHERE device_id = $1");
+	DB_Execute(dbh, QUERY_DISPLACEMENT_ON_RADAR);
 
 	if (!DB_CommandOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
@@ -98,11 +117,7 @@ paquetDisplacementInSight(struct paquet *paquet)
     DB_PushDOUBLE(dbh, &displacement->longitude);
     DB_PushREAL(dbh, &displacement->range);
 
-	DB_Execute(dbh, "\
-UPDATE journal.device_displacements \
-SET in_sight_coordinate = LL_TO_EARTH($2, $3), \
-    in_sight_range = $4 \
-WHERE device_id = $1");
+	DB_Execute(dbh, QUERY_DISPLACEMENT_IN_SIGHT);
 
 	if (!DB_CommandOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
@@ -152,11 +167,7 @@ paquetDisplacementOnMap(struct paquet *paquet)
     DB_PushDOUBLE(dbh, &displacement->longitude);
     DB_PushREAL(dbh, &displacement->range);
 
-	DB_Execute(dbh, "\
-UPDATE journal.device_displacements \
-SET on_map_coordinate = LL_TO_EARTH($2, $3), \
-    on_map_range = $4 \
-WHERE device_id = $1");
+	DB_Execute(dbh, QUERY_DISPLACEMENT_ON_MAP);
 
 	if (!DB_CommandOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
@@ -199,8 +210,5 @@ journalUserLocation(
         DB_PushINTEGER(dbh, &displacement->floorLevel);
 	}
 
-	DB_Execute(dbh, "\
-INSERT INTO journal.movements \
-(device_id, latitude, longitude, altitude, course, floor_level) \
-VALUES ($1, $2, $3, $4, $5, $6)");
+	DB_Execute(dbh, QUERY_REGISTER_MOVEMENT);
 }

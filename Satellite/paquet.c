@@ -192,15 +192,17 @@ expectedPayloadSize(struct paquet *paquet, int expectedSize)
 	}
 }
 
+#define QUERY_DEVICE_ID_BY_TOKEN "\
+SELECT device_id \
+FROM auth.devices \
+WHERE device_token = $1"
+
 uint64
 deviceIdByToken(struct dbh *dbh, char *deviceToken)
 {
     DB_PushUUID(dbh, deviceToken);
 
-	DB_Execute(dbh, "\
-SELECT device_id \
-FROM auth.devices \
-WHERE device_token = $1");
+	DB_Execute(dbh, QUERY_DEVICE_ID_BY_TOKEN);
 
 	if (!DB_TuplesOK(dbh, dbh->result))
 		return 0;

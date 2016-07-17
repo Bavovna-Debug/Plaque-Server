@@ -10,6 +10,14 @@
 #include "report.h"
 #include "tasks.h"
 
+#define QUERY_SELECT_PLAQUES "\
+SELECT plaque_revision, profile_token, dimension, latitude, longitude, altitude, \
+    direction, tilt, width, height, \
+    background_color, foreground_color, font_size, inscription \
+FROM surrounding.plaques \
+JOIN auth.profiles USING (profile_id) \
+WHERE plaque_token = $1"
+
 int
 paquetDownloadPlaques(struct paquet *paquet)
 {
@@ -59,11 +67,7 @@ paquetDownloadPlaques(struct paquet *paquet)
 
         DB_PushUUID(dbh, plaqueToken);
 
-	    DB_Execute(dbh, "\
-SELECT plaque_revision, profile_token, dimension, latitude, longitude, altitude, direction, tilt, width, height, background_color, foreground_color, font_size, inscription \
-FROM surrounding.plaques \
-JOIN auth.profiles USING (profile_id) \
-WHERE plaque_token = $1");
+	    DB_Execute(dbh, QUERY_SELECT_PLAQUES);
 
 		if (!DB_TuplesOK(dbh, dbh->result)) {
 			DB_PokeHandle(dbh);

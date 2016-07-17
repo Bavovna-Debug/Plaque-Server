@@ -149,12 +149,37 @@ paquetBroadcast(struct paquet *paquet)
     return rc;
 }
 
+#define QUERY_SELECT_PLAQUES_ON_RADAR "\
+SELECT plaque_token, plaque_revision, disappeared \
+FROM journal.session_on_radar_plaques \
+JOIN surrounding.plaques \
+    USING (plaque_id) \
+WHERE session_id = $1 \
+  AND on_radar_revision > $2"
+
+#define QUERY_SELECT_PLAQUES_IN_SIGHT "\
+SELECT plaque_token, plaque_revision, disappeared \
+FROM journal.session_in_sight_plaques \
+JOIN surrounding.plaques \
+    USING (plaque_id) \
+WHERE session_id = $1 \
+  AND in_sight_revision > $2"
+
+#define QUERY_SELECT_PLAQUES_ON_MAP "\
+SELECT plaque_token, plaque_revision, disappeared \
+FROM journal.session_on_map_plaques \
+JOIN surrounding.plaques \
+    USING (plaque_id) \
+WHERE session_id = $1 \
+  AND on_map_revision > $2"
+
 static int
 paquetBroadcastPlaquesOnRadar(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-    struct MMPS_Buffer *outputBuffer = MMPS_PeekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
+    struct MMPS_Buffer *outputBuffer =
+        MMPS_PeekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
@@ -180,13 +205,7 @@ paquetBroadcastPlaquesOnRadar(struct paquet *paquet)
     DB_PushBIGINT(dbh, &task->sessionId);
     DB_PushINTEGER(dbh, &lastKnownRevision);
 
-	DB_Execute(dbh, "\
-SELECT plaque_token, plaque_revision, disappeared \
-FROM journal.session_on_radar_plaques \
-JOIN surrounding.plaques \
-    USING (plaque_id) \
-WHERE session_id = $1 \
-  AND on_radar_revision > $2");
+	DB_Execute(dbh, QUERY_SELECT_PLAQUES_ON_RADAR);
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
@@ -262,7 +281,8 @@ paquetBroadcastPlaquesInSight(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-    struct MMPS_Buffer *outputBuffer = MMPS_PeekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
+    struct MMPS_Buffer *outputBuffer =
+        MMPS_PeekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
@@ -288,13 +308,7 @@ paquetBroadcastPlaquesInSight(struct paquet *paquet)
     DB_PushBIGINT(dbh, &task->sessionId);
     DB_PushINTEGER(dbh, &lastKnownRevision);
 
-	DB_Execute(dbh, "\
-SELECT plaque_token, plaque_revision, disappeared \
-FROM journal.session_in_sight_plaques \
-JOIN surrounding.plaques \
-    USING (plaque_id) \
-WHERE session_id = $1 \
-  AND in_sight_revision > $2");
+	DB_Execute(dbh, QUERY_SELECT_PLAQUES_IN_SIGHT);
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);
@@ -370,7 +384,8 @@ paquetBroadcastPlaquesOnMap(struct paquet *paquet)
 {
 	struct task	*task = paquet->task;
 
-    struct MMPS_Buffer *outputBuffer = MMPS_PeekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
+    struct MMPS_Buffer *outputBuffer =
+        MMPS_PeekBufferOfSize(task->desk->pools.dynamic, 512, BUFFER_BROADCAST);
 	if (outputBuffer == NULL) {
 		setTaskStatus(task, TaskStatusCannotAllocateBufferForOutput);
 		return -1;
@@ -396,13 +411,7 @@ paquetBroadcastPlaquesOnMap(struct paquet *paquet)
     DB_PushBIGINT(dbh, &task->sessionId);
     DB_PushINTEGER(dbh, &lastKnownRevision);
 
-	DB_Execute(dbh, "\
-SELECT plaque_token, plaque_revision, disappeared \
-FROM journal.session_on_map_plaques \
-JOIN surrounding.plaques \
-    USING (plaque_id) \
-WHERE session_id = $1 \
-  AND on_map_revision > $2");
+	DB_Execute(dbh, QUERY_SELECT_PLAQUES_ON_MAP);
 
 	if (!DB_TuplesOK(dbh, dbh->result)) {
 		DB_PokeHandle(dbh);

@@ -9,6 +9,11 @@
 #include "report.h"
 #include "tasks.h"
 
+#define QUERY_SELECT_PROFILES "\
+SELECT profile_revision, profile_name, user_name \
+FROM auth.profiles \
+WHERE profile_token = $1"
+
 int
 getProfiles(struct paquet *paquet)
 {
@@ -64,10 +69,7 @@ getProfiles(struct paquet *paquet)
 
         DB_PushUUID(dbh, (char *)&profileToken);
 
-    	DB_Execute(dbh, "\
-SELECT profile_revision, profile_name, user_name \
-FROM auth.profiles \
-WHERE profile_token = $1");
+    	DB_Execute(dbh, QUERY_SELECT_PROFILES);
 
 		if (!DB_TuplesOK(dbh, dbh->result)) {
 			DB_PokeHandle(dbh);
@@ -122,12 +124,17 @@ WHERE profile_token = $1");
 	return 0;
 }
 
+#define QUERY_SEARCH_PROFILE_BY_TOKEN "\
+SELECT profile_id \
+FROM auth.profiles \
+WHERE profile_token = $1"
+
 uint64
 profileIdByToken(struct dbh *dbh, char *profileToken)
 {
     DB_PushUUID(dbh, profileToken);
 
-	DB_Execute(dbh, "SELECT profile_id FROM auth.profiles WHERE profile_token = $1");
+	DB_Execute(dbh, QUERY_SEARCH_PROFILE_BY_TOKEN);
 
 	if (!DB_TuplesOK(dbh, dbh->result))
 		return 0;
