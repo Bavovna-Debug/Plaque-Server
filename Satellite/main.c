@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <unistd.h>
 #include <sys/types.h>
 
@@ -71,6 +72,15 @@ main(int argc, char *argv[])
 
 	if (PQisthreadsafe() != 1)
 		exit(-1);
+
+#ifdef SYSLOG
+	//
+    // Prepare logging facilities.
+    //
+    openlog("vp", LOG_PID | LOG_CONS | LOG_NDELAY, LOG_DAEMON);
+    //
+    setlogmask(LOG_UPTO(LOG_DEBUG));
+#endif
 
 	rc = CreateChalkboard();
     if (rc != 0)

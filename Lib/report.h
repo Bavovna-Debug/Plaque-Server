@@ -1,11 +1,15 @@
 #ifndef __REPORT__
 #define __REPORT__
 
+#ifdef SYSLOG
+#include <syslog.h>
+#else
 #ifdef PGBGW
 #include <postgres.h>
 #else
 #include <stdio.h>
 #include <time.h>
+#endif
 #endif
 
 // ReportPanic:
@@ -29,6 +33,30 @@
 // ReportDebug:
 // Debug message that may be reported if the code is compiled with debug option.
 
+#ifdef SYSLOG
+
+#define ReportPanic(...) \
+    syslog(LOG_EMERG, __VA_ARGS__)
+
+#define ReportSoftAlert(...) \
+    syslog(LOG_ALERT, __VA_ARGS__)
+
+#define ReportHardAlert(...) \
+    syslog(LOG_CRIT, __VA_ARGS__)
+
+#define ReportError(...) \
+    syslog(LOG_ERR, __VA_ARGS__)
+
+#define ReportWarning(...) \
+    syslog(LOG_WARNING, __VA_ARGS__)
+
+#define ReportInfo(...) \
+    syslog(LOG_INFO, __VA_ARGS__)
+
+#define ReportDebug(...) \
+    syslog(LOG_DEBUG, __VA_ARGS__)
+
+#else
 #ifdef PGBGW
 
 #define ReportPanic(...) \
@@ -117,6 +145,7 @@
         fprintf(stdout, "\n"); \
     } while (0)
 
+#endif
 #endif
 
 #endif
