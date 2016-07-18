@@ -217,6 +217,7 @@ TaskInit(struct Task *task)
         return -1;
     }
 
+#ifdef DUPLEX
     rc = pthread_mutex_init(&task->xmit.receiveMutex, &mutexAttr);
 	if (rc != 0) {
 		ReportError("Cannot initialize mutex: rc=%d", rc);
@@ -228,6 +229,13 @@ TaskInit(struct Task *task)
 		ReportError("Cannot initialize mutex: rc=%d", rc);
         return -1;
     }
+#else
+    rc = pthread_mutex_init(&task->xmit.xmitMutex, &mutexAttr);
+	if (rc != 0) {
+		ReportError("Cannot initialize mutex: rc=%d", rc);
+        return -1;
+    }
+#endif
 
 	rc = pthread_spin_init(&task->paquet.chainLock, PTHREAD_PROCESS_PRIVATE);
 	if (rc != 0) {
@@ -299,34 +307,58 @@ TaskCleanup(void *arg)
 
 	close(task->xmit.sockFD);
 
+	pthread_spin_lock(&task->statusLock);
+	pthread_spin_unlock(&task->statusLock);
 	rc = pthread_spin_destroy(&task->statusLock);
 	if (rc != 0)
 		ReportError("Cannot destroy spinlock: errno=%d", errno);
 
+#ifdef DUPLEX
+	pthread_mutex_lock(&task->xmit.receiveMutex);
+	pthread_mutex_unlock(&task->xmit.receiveMutex);
 	rc = pthread_mutex_destroy(&task->xmit.receiveMutex);
 	if (rc != 0)
 		ReportError("Cannot destroy mutex: rc=%d", rc);
 
+	pthread_mutex_lock(&task->xmit.sendMutex);
+	pthread_mutex_unlock(&task->xmit.sendMutex);
 	rc = pthread_mutex_destroy(&task->xmit.sendMutex);
 	if (rc != 0)
 		ReportError("Cannot destroy mutex: rc=%d", rc);
+#else
+	pthread_mutex_lock(&task->xmit.xmitMutex);
+	pthread_mutex_unlock(&task->xmit.xmitMutex);
+	rc = pthread_mutex_destroy(&task->xmit.xmitMutex);
+	if (rc != 0)
+		ReportError("Cannot destroy mutex: rc=%d", rc);
+#endif
 
+	pthread_mutex_lock(&task->paquet.chainLock);
+	pthread_mutex_unlock(&task->paquet.chainLock);
 	rc = pthread_spin_destroy(&task->paquet.chainLock);
 	if (rc != 0)
 		ReportError("Cannot destroy spinlock: errno=%d", errno);
 
+	pthread_mutex_lock(&task->paquet.heavyJobLock);
+	pthread_mutex_unlock(&task->paquet.heavyJobLock);
 	rc = pthread_spin_destroy(&task->paquet.heavyJobLock);
 	if (rc != 0)
 		ReportError("Cannot destroy spinlock: errno=%d", errno);
 
+	pthread_mutex_lock(&task->paquet.downloadMutex);
+	pthread_mutex_unlock(&task->paquet.downloadMutex);
 	rc = pthread_mutex_destroy(&task->paquet.downloadMutex);
 	if (rc != 0)
 		ReportError("Cannot destroy mutex: rc=%d", rc);
 
+	pthread_mutex_lock(&task->broadcast.editMutex);
+	pthread_mutex_unlock(&task->broadcast.editMutex);
 	rc = pthread_mutex_destroy(&task->broadcast.editMutex);
 	if (rc != 0)
 		ReportError("Cannot destroy mutex: rc=%d", rc);
 
+	pthread_mutex_lock(&task->broadcast.waitMutex);
+	pthread_mutex_unlock(&task->broadcast.waitMutex);
 	rc = pthread_mutex_destroy(&task->broadcast.waitMutex);
 	if (rc != 0)
 		ReportError("Cannot destroy mutex: rc=%d", rc);

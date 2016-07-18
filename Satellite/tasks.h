@@ -104,8 +104,12 @@ struct Task
 	struct
 	{
 		int					sockFD;
+#ifdef DUPLEX
 		pthread_mutex_t		receiveMutex;
 		pthread_mutex_t		sendMutex;
+#else
+		pthread_mutex_t		xmitMutex;
+#endif
 	} xmit;
 
 	struct
