@@ -33,7 +33,8 @@
 #define APNS_CERT                   "/opt/vp/apns/apns-dev.pem"
 #endif
 
-typedef struct connection {
+struct connection
+{
     X509        *cert;
     SSL_CTX     *ctx;
     SSL         *ssl;
@@ -41,60 +42,67 @@ typedef struct connection {
 } deskAPNS_t;
 
 #pragma pack(push, 1)
-typedef struct apnsMessage {
+struct apnsMessage
+{
     uint8       commandCode;
     uint16      deviceTokenLength;
     uint8       deviceToken[DEVICE_TOKEN_SIZE];
     uint16      payloadLength;
     char        payload[];
-} apnsMessage_t;
+};
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-typedef struct apnsFrame {
+struct apnsFrame
+{
     uint8       commandCode;
     uint32      frameLength;
     uint8       frameData[];
-} apnsFrame_t;
+};
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-typedef struct apnsFrameItem {
+struct apnsFrameItem
+{
     uint8       itemId;
     uint16      itemDataLength;
     uint8       itemData[];
-} apnsFrameItem_t;
+};
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-typedef struct apnsFrameNotification {
+struct apnsFrameNotification
+{
     uint8       deviceToken[DEVICE_TOKEN_SIZE];
     uint8       payload[];
-} apnsFrameNotification_t;
+};
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-typedef struct apnsFrameNotificationFooter {
+struct apnsFrameNotificationFooter
+{
     uint32      notificationId;
     uint32      expirationDate;
     uint8       priority;
-} apnsFrameNotificationFooter_t;
+};
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-typedef struct apnsResponse {
+struct apnsResponse
+{
     uint8       commandCode;
     uint8       status;
     uint32      notificationId;
-} apnsResponse_t;
+};
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-typedef struct apnsFeedbackTuple {
+struct apnsFeedbackTuple
+{
     uint32      timestamp;
     uint16      deviceTokenLength;
     uint8       deviceToken[DEVICE_TOKEN_SIZE];
-} apnsFeedbackTuple_t;
+};
 #pragma pack(pop)
 
 #define APNS_RESPONSE_COMMAND_CODE                  8
@@ -144,11 +152,13 @@ apnsSendAsFrame(struct desk *desk, struct connection *connection);
 void *
 apnsThread(void *arg)
 {
-	struct desk *desk = (struct desk *)arg;
+	struct desk         *desk;
 	struct connection   connection;
 	struct timespec     ts;
 	int                 timedout;
 	int                 rc;
+
+	desk = (struct desk *) arg;
 
     bzero(&connection, sizeof(connection));
 
@@ -158,12 +168,13 @@ apnsThread(void *arg)
     {
         // Wait for condition only if this is the first run or if the previous run was successful.
         //
-        if (rc == RC_OK) {
-            //
+        if (rc == RC_OK)
+        {
             // Prepare timer for timed condition wait.
             //
             rc = clock_gettime(CLOCK_REALTIME_COARSE, &ts);
-            if (rc == -1) {
+            if (rc == -1)
+            {
                 ReportError("Cannot get system time: errno=%d", errno);
                 rc = RC_ERROR;
                 break;
@@ -177,7 +188,8 @@ apnsThread(void *arg)
                 APNS_DISCONNECT_IF_IDLE);
 
             rc = pthread_mutex_lock(&desk->apns.readyToGoMutex);
-            if (rc != 0) {
+            if (rc != 0)
+            {
                 ReportError("Error has occurred on mutex lock: rc=%d", rc);
                 rc = RC_ERROR;
                 break;
@@ -185,7 +197,8 @@ apnsThread(void *arg)
 
             rc = pthread_cond_timedwait(&desk->apns.readyToGoCond, &desk->apns.readyToGoMutex, &ts);
             timedout = (rc == ETIMEDOUT) ? 1 : 0;
-            if ((rc != 0) && (timedout == 0)) {
+            if ((rc != 0) && (timedout == 0))
+            {
                 pthread_mutex_unlock(&desk->apns.readyToGoMutex);
                 ReportError("Error has occurred while whaiting for condition: rc=%d", rc);
                 rc = RC_ERROR;
@@ -193,14 +206,15 @@ apnsThread(void *arg)
             }
 
             rc = pthread_mutex_unlock(&desk->apns.readyToGoMutex);
-            if (rc != 0) {
+            if (rc != 0)
+            {
                 ReportError("Error has occurred on mutex unlock: rc=%d", rc);
                 rc = RC_ERROR;
                 break;
             }
 
-            if (timedout == 1) {
-                //
+            if (timedout == 1)
+            {
                 // Condition wait has timed out.
                 // Disconnect from APNS and start waiting for condition without timer.
                 //
@@ -211,14 +225,16 @@ apnsThread(void *arg)
                 ReportInfo("APNS thread waiting for pending notifications");
 
                 rc = pthread_mutex_lock(&desk->apns.readyToGoMutex);
-                if (rc != 0) {
+                if (rc != 0)
+                {
                     ReportError("Error has occurred on mutex lock: rc=%d", rc);
                     rc = RC_ERROR;
                     break;
                 }
 
                 rc = pthread_cond_wait(&desk->apns.readyToGoCond, &desk->apns.readyToGoMutex);
-                if (rc != 0) {
+                if (rc != 0)
+                {
                     pthread_mutex_unlock(&desk->apns.readyToGoMutex);
                     ReportError("Error has occurred while whaiting for condition: rc=%d", rc);
                     rc = RC_ERROR;
@@ -226,7 +242,8 @@ apnsThread(void *arg)
                 }
 
                 rc = pthread_mutex_unlock(&desk->apns.readyToGoMutex);
-                if (rc != 0) {
+                if (rc != 0)
+                {
                     ReportError("Error has occurred on mutex unlock: rc=%d", rc);
                     rc = RC_ERROR;
                     break;
@@ -242,8 +259,8 @@ apnsThread(void *arg)
             //
             rc = connectToAPNS(&connection);
             if (rc != RC_OK) {
-                if (rc != RC_ALREADY_CONNECTED) {
-                    //
+                if (rc != RC_ALREADY_CONNECTED)
+                {
                     // If any kind of connection error has occurred,
                     // then wait a bit before retrying to connect.
                     //
@@ -254,21 +271,27 @@ apnsThread(void *arg)
 
             rc = apnsSendOneByOne(desk, &connection);
             //rc = apnsSendAsFrame(desk, &connection);
-            if (rc != RC_OK) {
-                if (rc == RC_RESOURCES_BUSY) {
+            if (rc != RC_OK)
+            {
+                if (rc == RC_RESOURCES_BUSY)
+                {
                     //
                     // If some resources are busy,
                     // then wait a bit before retrying to connect.
                     //
                     sleep(SLEEP_ON_BUSY_RESOURCES);
-                } else if (rc == RC_XMIT_ERROR) {
+                }
+                else if (rc == RC_XMIT_ERROR)
+                {
                     //
                     // In case of send/receive error disconnect
                     // and wait a bit before retrying to connect.
                     //
                     disconnectFromAPNS(&connection);
                     sleep(SLEEP_ON_XMIT_ERROR);
-                } else {
+                }
+                else
+                {
                     break;
                 }
             }
@@ -276,7 +299,8 @@ apnsThread(void *arg)
 
         // In case of any I/O error disconnect and wait a bit.
         //
-        if (rc != RC_OK) {
+        if (rc != RC_OK)
+        {
             disconnectFromAPNS(&connection);
             sleep(SLEEP_ON_OTHER_ERROR);
         }
@@ -293,20 +317,23 @@ apnsKnockKnock(struct desk *desk)
     ReportInfo("Messenger knock... knock...");
 
     rc = pthread_mutex_lock(&desk->apns.readyToGoMutex);
-    if (rc != 0) {
+    if (rc != 0)
+    {
         ReportError("Error has occurred on mutex lock: rc=%d", rc);
         return;
     }
 
     rc = pthread_cond_signal(&desk->apns.readyToGoCond);
-    if (rc != 0) {
+    if (rc != 0)
+    {
         pthread_mutex_unlock(&desk->apns.readyToGoMutex);
         ReportError("Error has occurred on condition signal: rc=%d", rc);
         return;
     }
 
     rc = pthread_mutex_unlock(&desk->apns.readyToGoMutex);
-    if (rc != 0) {
+    if (rc != 0)
+    {
         ReportError("Error has occurred on mutex unlock: rc=%d", rc);
         return;
     }
@@ -320,12 +347,12 @@ hexDump(char *message, int size)
 
 	bzero(decoded, sizeof(decoded));
 
-    	for (i = 0; i < size; i++)
-	    {
+    for (i = 0; i < size; i++)
+	{
 		char *destination = (char *)&decoded + i * 3;
-    		unsigned char source = (unsigned char)message[i];
-	    	sprintf(destination, "%02X ", source);
-	    }
+    	unsigned char source = (unsigned char)message[i];
+	    sprintf(destination, "%02X ", source);
+	}
 
     ReportInfo("DUMP: %s", (char *)&decoded);
 }
@@ -364,10 +391,12 @@ prepareMessage(struct notification *notification, struct apnsMessage *message)
     message->deviceTokenLength = be16toh(DEVICE_TOKEN_SIZE);
     memcpy(&message->deviceToken, notification->deviceToken, DEVICE_TOKEN_SIZE);
 
-    sprintf((char *)&message->payload, "{\"aps\":{\"alert\":{\"loc-key\":\"%s\",\"loc-args\":[%s]},\"sound\":\"default\"}}",
+    sprintf((char *) &message->payload,
+        "{\"aps\":{\"alert\":{\"loc-key\":\"%s\",\"loc-args\":[%s]},\"sound\":\"default\"}}",
         notification->messageKey,
         notification->messageArguments);
-ReportInfo("%s", message->payload);
+
+    ReportInfo("%s", message->payload);
 
     payloadLength = strlen(message->payload);
 
@@ -398,7 +427,8 @@ connectToAPNS(struct connection *connection)
 
     // Initialize SSL library and register algorithms.
     //
-    if (SSL_library_init() < 0) {
+    if (SSL_library_init() < 0)
+    {
         ReportError("Could not initialize OpenSSL library.");
         return RC_CANNOT_CONNECT;
     }
@@ -410,7 +440,8 @@ connectToAPNS(struct connection *connection)
     // Create a new SSL context.
     //
     connection->ctx = SSL_CTX_new(method);
-    if (connection->ctx == NULL) {
+    if (connection->ctx == NULL)
+    {
         ReportError("Unable to create a new SSL context structure.");
         return RC_CANNOT_CONNECT;
     }
@@ -424,7 +455,8 @@ connectToAPNS(struct connection *connection)
     // Create new SSL connection state object.
     //
     connection->ssl = SSL_new(connection->ctx);
-	if (connection->ssl == NULL) {
+	if (connection->ssl == NULL)
+	{
 		ReportError("Cannot create a new SSL structure");
 		return RC_CANNOT_CONNECT;
 	}
@@ -432,7 +464,8 @@ connectToAPNS(struct connection *connection)
     // Make the underlying TCP socket connection.
     //
 	connection->sockFD = socket(AF_INET, SOCK_STREAM, 0);
-	if (connection->sockFD < 0) {
+	if (connection->sockFD < 0)
+	{
 		ReportError("Cannot open a socket: errno=%d", errno);
 		return RC_CANNOT_CONNECT;
 	}
@@ -442,12 +475,14 @@ connectToAPNS(struct connection *connection)
 	apnsAddress.sin_family = AF_INET;
 	apnsAddress.sin_port = htons(APNS_GATEWAY_PORT);
 
-	if (resolveAddress(APNS_GATEWAY_HOST, &apnsAddress.sin_addr.s_addr) != RC_OK) {
+	if (resolveAddress(APNS_GATEWAY_HOST, &apnsAddress.sin_addr.s_addr) != RC_OK)
+	{
 		ReportError("Cannot resolve server address");
 		return RC_CANNOT_CONNECT;
 	}
 
-	if (connect(connection->sockFD, (struct sockaddr *)&apnsAddress, sizeof(apnsAddress)) < 0) {
+	if (connect(connection->sockFD, (struct sockaddr *)&apnsAddress, sizeof(apnsAddress)) < 0)
+	{
 		ReportError("Cannot connect to socket: errno=%d", errno);
 		return RC_CANNOT_CONNECT;
 	}
@@ -458,7 +493,8 @@ connectToAPNS(struct connection *connection)
 
     // Try to SSL-connect here, returns 1 for success             *
     //
-    if (SSL_connect(connection->ssl) != 1) {
+    if (SSL_connect(connection->ssl) != 1)
+    {
         ReportError("Could not build SSL session.");
         return RC_CANNOT_CONNECT;
     }
@@ -466,7 +502,8 @@ connectToAPNS(struct connection *connection)
     // Get the remote certificate into the X509 structure.
     //
     connection->cert = SSL_get_peer_certificate(connection->ssl);
-    if (connection->cert == NULL) {
+    if (connection->cert == NULL)
+    {
         ReportError("Could not get a certificate");
         return RC_CANNOT_CONNECT;
     }
@@ -481,22 +518,26 @@ disconnectFromAPNS(struct connection *connection)
 {
     // Release resources.
     //
-    if (connection->ssl != NULL) {
+    if (connection->ssl != NULL)
+    {
         SSL_free(connection->ssl);
         connection->ssl = NULL;
     }
 
-    if (connection->sockFD > 0) {
+    if (connection->sockFD > 0)
+    {
         close(connection->sockFD);
         connection->sockFD = 0;
     }
 
-    if (connection->cert != NULL) {
+    if (connection->cert != NULL)
+    {
         X509_free(connection->cert);
         connection->cert = NULL;
     }
 
-    if (connection->ctx != NULL) {
+    if (connection->ctx != NULL)
+    {
         SSL_CTX_free(connection->ctx);
         connection->ctx = NULL;
     }
@@ -508,22 +549,24 @@ disconnectFromAPNS(struct connection *connection)
 static int
 apnsSendOneByOne(struct desk *desk, struct connection *connection)
 {
-	struct MMPS_Buffer       *notificationBuffer;
-    struct notification *notification;
-	struct MMPS_Buffer       *messageBuffer;
-    struct apnsMessage  *message;
-    int                 messageSize;
-    int                 bytesSent;
+	struct MMPS_Buffer      *notificationBuffer;
+    struct notification     *notification;
+	struct MMPS_Buffer      *messageBuffer;
+    struct apnsMessage      *message;
+    int                     messageSize;
+    int                     bytesSent;
 
     messageBuffer = MMPS_PeekBuffer(desk->pools.apns, BUFFER_XMIT);
-    if (messageBuffer == NULL) {
+    if (messageBuffer == NULL)
+    {
         ReportInfo("APNS thread cannot get a buffer");
         return RC_RESOURCES_BUSY;
     }
 
-    message = (struct apnsMessage *)messageBuffer->data;
+    message = (struct apnsMessage *) messageBuffer->data;
 
-    if (pthread_mutex_trylock(&desk->inTheAirNotifications.mutex) != 0) {
+    if (pthread_mutex_trylock(&desk->inTheAirNotifications.mutex) != 0)
+    {
         ReportInfo("APNS thread cannot begin transmit because queue is locked");
         return RC_RESOURCES_BUSY;
     }
@@ -532,15 +575,18 @@ apnsSendOneByOne(struct desk *desk, struct connection *connection)
 
     while ((notificationBuffer = desk->inTheAirNotifications.buffers) != NULL)
     {
-        notification = (struct notification *)notificationBuffer->data;
+        notification = (struct notification *) notificationBuffer->data;
 
         messageSize = prepareMessage(notification, message);
         bytesSent = SSL_write(connection->ssl, message, messageSize);
-        if (bytesSent != messageSize) {
+        if (bytesSent != messageSize)
+        {
             ReportInfo("Cannot send message: sent %d of %d bytes.",
                 bytesSent, messageSize);
 
             pthread_mutex_unlock(&desk->inTheAirNotifications.mutex);
+
+            MMPS_PokeBuffer(messageBuffer);
 
             return RC_XMIT_ERROR;
         }
@@ -552,7 +598,8 @@ apnsSendOneByOne(struct desk *desk, struct connection *connection)
         notificationBuffer->next = NULL;
 
         pthread_mutex_lock(&desk->sentNotifications.mutex);
-        desk->sentNotifications.buffers = MMPS_AppendBuffer(desk->sentNotifications.buffers, notificationBuffer);
+        desk->sentNotifications.buffers =
+            MMPS_AppendBuffer(desk->sentNotifications.buffers, notificationBuffer);
         pthread_mutex_unlock(&desk->sentNotifications.mutex);
     }
 
@@ -568,9 +615,9 @@ apnsSendOneByOne(struct desk *desk, struct connection *connection)
 static int
 apnsSendAsFrame(struct desk *desk, struct connection *connection)
 {
-    struct MMPS_Buffer                       *notificationBuffer;
+    struct MMPS_Buffer                  *notificationBuffer;
     struct notification                 *notification;
-    struct MMPS_Buffer                       *messageBuffer;
+    struct MMPS_Buffer                  *messageBuffer;
     struct apnsFrame                    *frame;
     struct apnsFrameItem                *frameItem;
     struct apnsFrameNotification        *frameNotification;
@@ -583,19 +630,21 @@ apnsSendAsFrame(struct desk *desk, struct connection *connection)
     int                                 bytesRead;
 
     messageBuffer = MMPS_PeekBuffer(desk->pools.apns, BUFFER_XMIT);
-    if (messageBuffer == NULL) {
+    if (messageBuffer == NULL)
+    {
         ReportInfo("APNS thread cannot get a buffer");
         return RC_RESOURCES_BUSY;
     }
 
-    if (pthread_mutex_trylock(&desk->inTheAirNotifications.mutex) != 0) {
+    if (pthread_mutex_trylock(&desk->inTheAirNotifications.mutex) != 0)
+    {
         ReportInfo("APNS thread cannot begin transmit because queue is locked");
         return RC_RESOURCES_BUSY;
     }
 
     ReportInfo("APNS thread has begun transmit");
 
-    frame = (struct apnsFrame *)messageBuffer->data;
+    frame = (struct apnsFrame *) messageBuffer->data;
 
     frame->commandCode = 2;
 
@@ -605,7 +654,7 @@ apnsSendAsFrame(struct desk *desk, struct connection *connection)
     {
         notification = (struct notification *)notificationBuffer->data;
 
-        frameItem = (void *)((unsigned long)&frame->frameData + (unsigned long)frameLength);
+        frameItem = (void *) ((unsigned long) &frame->frameData + (unsigned long) frameLength);
 
         frameItem->itemId = 2;
 
@@ -613,15 +662,15 @@ apnsSendAsFrame(struct desk *desk, struct connection *connection)
 
         memcpy(&frameNotification->deviceToken, notification->deviceToken, DEVICE_TOKEN_SIZE);
 
-        sprintf((char *)&frameNotification->payload,
+        sprintf((char *) &frameNotification->payload,
             "{\"aps\":{\"alert\":{\"loc-key\":\"%s\",\"loc-args\":[%s]},\"sound\":\"default\"}}",
             notification->messageKey,
             notification->messageArguments);
 
         itemDataLength = sizeof(struct apnsFrameNotification);
-        itemDataLength += strlen((char *)&frameNotification->payload);
+        itemDataLength += strlen((char *) &frameNotification->payload);
 
-        frameNotificationFooter = (void *)((unsigned long)frameNotification + (unsigned long)itemDataLength);
+        frameNotificationFooter = (void *) ((unsigned long) frameNotification + (unsigned long) itemDataLength);
         frameNotificationFooter->notificationId = be32toh(2);
         frameNotificationFooter->expirationDate = 0;
         frameNotificationFooter->priority = 10;
@@ -653,7 +702,8 @@ apnsSendAsFrame(struct desk *desk, struct connection *connection)
     bytesToSend = sizeof(struct apnsFrame) + frameLength;
 
     bytesSent = SSL_write(connection->ssl, frame, bytesToSend);
-    if (bytesSent != bytesToSend) {
+    if (bytesSent != bytesToSend)
+    {
         ReportError("Error has occurred by send: sent %d of %d bytes, errno=%d",
             bytesSent, bytesToSend, errno);
         return RC_XMIT_ERROR;
@@ -670,12 +720,17 @@ apnsSendAsFrame(struct desk *desk, struct connection *connection)
 #ifdef APNS_XMIT
         ReportInfo("Read %d bytes", bytesRead);
 #endif
-        if (bytesRead == 0) {
+        if (bytesRead == 0)
+        {
             break;
-        } else if ((bytesRead % sizeof(struct apnsResponse)) == 0) {
+        }
+        else if ((bytesRead % sizeof(struct apnsResponse)) == 0)
+        {
             ReportInfo("Response %d %d 0x%08X",
                 response->commandCode, response->status, response->notificationId);
-        } else {
+        }
+        else
+        {
             ReportError("Error has occurred by read from socket: read %d bytes, errno=%d",
                 bytesRead, errno);
             return RC_XMIT_ERROR;
