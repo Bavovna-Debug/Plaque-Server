@@ -1,40 +1,38 @@
-#ifndef _NOTIFICATION_
-#define _NOTIFICATION_
-
-#include "desk.h"
+#ifndef __NOTIFICATION__
+#define __NOTIFICATION__
 
 #define MAX_NOTIFICATIONS           5
 #define DEVICE_TOKEN_SIZE           32
 #define MESSAGE_KEY_SIZE            64
 #define MESSAGE_ARGUMENTS_SIZE      1024
 
-typedef struct notification {
+struct Notification {
     uint64              notificationId;
 	uint64              deviceId;
 	char                deviceToken[DEVICE_TOKEN_SIZE];
 	char                messageKey[MESSAGE_KEY_SIZE];
 	char                messageArguments[MESSAGE_ARGUMENTS_SIZE];
-} notification_t;
+};
 
 int
-resetInMessangerFlag(void);
+ResetInMessangerFlag(void);
 
 int
-numberOfOutstandingNotifications(void);
+NumberOfOutstandingNotifications(void);
 
 int
-fetchListOfOutstandingNotifications(struct desk *desk);
+FetchListOfOutstandingNotifications(void);
 
 int
-fetchNotificationsToMessanger(struct desk *desk);
+FetchNotificationsToMessanger(void);
 
 int
-moveOutstandingToInTheAir(struct desk *desk);
+MoveOutstandingToInTheAir(void);
 
 int
-flagSentNotification(struct desk *desk);
+FlagSentNotification(void);
 
 int
-releaseProcessedNotificationsFromMessanger(struct desk *desk);
+ReleaseProcessedNotificationsFromMessanger(void);
 
 #endif

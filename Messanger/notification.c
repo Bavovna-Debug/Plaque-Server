@@ -21,17 +21,22 @@
 #include <utils/snapmgr.h>
 #include <tcop/utility.h>
 
-#include "desk.h"
+#include "chalkboard.h"
 #include "mmps.h"
 #include "notification.h"
 #include "pgbgw.h"
 #include "report.h"
 
+// Take a pointer to chalkboard. Chalkboard must be initialized
+// before any routine of this module could be called.
+//
+extern struct Chalkboard *chalkboard;
+
 static void
-deviceTokenCharToBin(char *charToken, char *binToken);
+DeviceTokenCharToBin(char *charToken, char *binToken);
 
 int
-resetInMessangerFlag(void)
+ResetInMessangerFlag(void)
 {
 	StringInfoData  infoData;
 	uint32          numberOfNotifications;
@@ -49,7 +54,8 @@ WHERE in_messanger IS TRUE"
 
     SetCurrentStatementStartTimestamp();
     rc = SPI_exec(infoData.data, 0);
-	if (rc != SPI_OK_UPDATE) {
+	if (rc != SPI_OK_UPDATE)
+	{
 		ReportError("Cannot execute statement, rc=%d", rc);
    	    PGBGW_ROLLBACK;
 		return -1;
@@ -69,7 +75,7 @@ WHERE in_messanger IS TRUE"
 }
 
 int
-numberOfOutstandingNotifications(void)
+NumberOfOutstandingNotifications(void)
 {
 	StringInfoData  infoData;
     TupleDesc       tupdesc;
@@ -90,13 +96,15 @@ WHERE in_messanger IS FALSE \
 	);
 
     rc = SPI_exec(infoData.data, 1);
-	if (rc != SPI_OK_SELECT) {
+	if (rc != SPI_OK_SELECT)
+	{
 		ReportError("Cannot execute statement, rc=%d", rc);
    	    PGBGW_ROLLBACK;
 		return -1;
     }
 
-	if (SPI_processed != 1) {
+	if (SPI_processed != 1)
+	{
 	    ReportError("Unexpected number of tuples");
    	    PGBGW_ROLLBACK;
 		return -1;
@@ -115,15 +123,15 @@ WHERE in_messanger IS FALSE \
 }
 
 int
-fetchListOfOutstandingNotifications(struct desk *desk)
+FetchListOfOutstandingNotifications(void)
 {
 	StringInfoData      infoData;
     TupleDesc           tupdesc;
 	HeapTuple           tuple;
 	bool                isNull;
 	int                 notificationNumber;
-	struct MMPS_Buffer       *buffer;
-	struct notification *notification;
+	struct MMPS_Buffer  *buffer;
+	struct Notification *notification;
 	int                 rc;
 
 	PGBGW_BEGIN;
@@ -139,34 +147,36 @@ ORDER BY notification_id"
 	);
 
     rc = SPI_exec(infoData.data, MAX_NOTIFICATIONS);
-	if (rc != SPI_OK_SELECT) {
+	if (rc != SPI_OK_SELECT)
+	{
 		ReportError("Cannot execute statement, rc=%d", rc);
    	    PGBGW_ROLLBACK;
 		return -1;
     }
 
-	if (SPI_processed > 0) {
+	if (SPI_processed > 0)
+	{
         tupdesc = SPI_tuptable->tupdesc;
 
-        pthread_mutex_lock(&desk->outstandingNotifications.mutex);
+        pthread_mutex_lock(&chalkboard->outstandingNotifications.mutex);
 
 	    for (notificationNumber = 0; notificationNumber < SPI_processed; notificationNumber++)
 	    {
-	        buffer = MMPS_PeekBuffer(desk->pools.notifications, BUFFER_NOTIFICATION);
+	        buffer = MMPS_PeekBuffer(chalkboard->pools.notifications, BUFFER_NOTIFICATION);
 	        if (buffer == NULL)
 	            break;
 
-            notification = (struct notification *)buffer->data;
+            notification = (struct Notification *) buffer->data;
 
         	tuple = SPI_tuptable->vals[notificationNumber];
 
             notification->notificationId = DatumGetInt64(SPI_getbinval(tuple, tupdesc, 1, &isNull));
 
-            desk->outstandingNotifications.buffers =
-                MMPS_AppendBuffer(desk->outstandingNotifications.buffers, buffer);
+            chalkboard->outstandingNotifications.buffers =
+                MMPS_AppendBuffer(chalkboard->outstandingNotifications.buffers, buffer);
         }
 
-        pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
+        pthread_mutex_unlock(&chalkboard->outstandingNotifications.mutex);
 	}
 
     ReportInfo("Fetched a list of %u outstanding notifications", SPI_processed);
@@ -177,33 +187,34 @@ ORDER BY notification_id"
 }
 
 int
-fetchNotificationsToMessanger(struct desk *desk)
+FetchNotificationsToMessanger(void)
 {
 	StringInfoData      infoData;
     TupleDesc           tupdesc;
 	HeapTuple           tuple;
 	bool                isNull;
-	struct MMPS_Buffer       *buffer;
-	struct notification *notification;
+	struct MMPS_Buffer  *buffer;
+	struct Notification *notification;
 	char                *deviceToken;
 	int                 rc;
 
-    pthread_mutex_lock(&desk->outstandingNotifications.mutex);
+    pthread_mutex_lock(&chalkboard->outstandingNotifications.mutex);
 
     // If nothing to do, then quit.
     //
-    if (desk->outstandingNotifications.buffers == NULL) {
-        pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
+    if (chalkboard->outstandingNotifications.buffers == NULL)
+    {
+        pthread_mutex_unlock(&chalkboard->outstandingNotifications.mutex);
         return 0;
     }
 
 	PGBGW_BEGIN;
 
-    buffer = desk->outstandingNotifications.buffers;
+    buffer = chalkboard->outstandingNotifications.buffers;
 
     while (buffer != NULL)
     {
-        notification = (struct notification *)buffer->data;
+        notification = (struct Notification *) buffer->data;
 
     	initStringInfo(&infoData);
 	    appendStringInfo(
@@ -215,16 +226,18 @@ WHERE notification_id = %lu",
 	    );
 
         rc = SPI_exec(infoData.data, 1);
-	    if (rc != SPI_OK_SELECT) {
-            pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
+	    if (rc != SPI_OK_SELECT)
+	    {
+            pthread_mutex_unlock(&chalkboard->outstandingNotifications.mutex);
 
 		    ReportError("Cannot execute statement, rc=%d", rc);
    	        PGBGW_ROLLBACK;
 		    return -1;
         }
 
-    	if (SPI_processed != 1) {
-            pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
+    	if (SPI_processed != 1)
+    	{
+            pthread_mutex_unlock(&chalkboard->outstandingNotifications.mutex);
 
 		    ReportError("Unexpected number of tuples");
    	        PGBGW_ROLLBACK;
@@ -256,16 +269,18 @@ WHERE device_id = %lu",
 	    );
 
         rc = SPI_exec(infoData.data, 1);
-	    if (rc != SPI_OK_SELECT) {
-            pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
+	    if (rc != SPI_OK_SELECT)
+	    {
+            pthread_mutex_unlock(&chalkboard->outstandingNotifications.mutex);
 
 		    ReportError("Cannot execute statement, rc=%d", rc);
    	        PGBGW_ROLLBACK;
 		    return -1;
         }
 
-    	if (SPI_processed != 1) {
-            pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
+    	if (SPI_processed != 1)
+    	{
+            pthread_mutex_unlock(&chalkboard->outstandingNotifications.mutex);
 
 		    ReportError("Unexpected number of tuples");
    	        PGBGW_ROLLBACK;
@@ -276,7 +291,7 @@ WHERE device_id = %lu",
        	tuple = SPI_tuptable->vals[0];
 
         deviceToken = DatumGetCString(SPI_getvalue(tuple, tupdesc, 1));
-        deviceTokenCharToBin(deviceToken, notification->deviceToken);
+        DeviceTokenCharToBin(deviceToken, notification->deviceToken);
 
         ReportInfo("Notification %lu for %lu (%s, %s)",
             notification->notificationId,
@@ -295,8 +310,9 @@ WHERE notification_id = %lu",
 
         SetCurrentStatementStartTimestamp();
         rc = SPI_exec(infoData.data, 0);
-	    if (rc != SPI_OK_UPDATE) {
-            pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
+	    if (rc != SPI_OK_UPDATE)
+	    {
+            pthread_mutex_unlock(&chalkboard->outstandingNotifications.mutex);
 
 		    ReportError("Cannot execute statement, rc=%d", rc);
    	        PGBGW_ROLLBACK;
@@ -308,55 +324,56 @@ WHERE notification_id = %lu",
 
    	PGBGW_COMMIT;
 
-    pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
+    pthread_mutex_unlock(&chalkboard->outstandingNotifications.mutex);
 
 	return 0;
 }
 
 int
-moveOutstandingToInTheAir(struct desk *desk)
+MoveOutstandingToInTheAir(void)
 {
-    pthread_mutex_lock(&desk->outstandingNotifications.mutex);
-    pthread_mutex_lock(&desk->inTheAirNotifications.mutex);
+    pthread_mutex_lock(&chalkboard->outstandingNotifications.mutex);
+    pthread_mutex_lock(&chalkboard->inTheAirNotifications.mutex);
 
-    desk->inTheAirNotifications.buffers =
+    chalkboard->inTheAirNotifications.buffers =
         MMPS_AppendBuffer(
-            desk->inTheAirNotifications.buffers,
-            desk->outstandingNotifications.buffers);
+            chalkboard->inTheAirNotifications.buffers,
+            chalkboard->outstandingNotifications.buffers);
 
-    desk->outstandingNotifications.buffers = NULL;
+    chalkboard->outstandingNotifications.buffers = NULL;
 
-    pthread_mutex_unlock(&desk->inTheAirNotifications.mutex);
-    pthread_mutex_unlock(&desk->outstandingNotifications.mutex);
+    pthread_mutex_unlock(&chalkboard->inTheAirNotifications.mutex);
+    pthread_mutex_unlock(&chalkboard->outstandingNotifications.mutex);
 
     return 0;
 }
 
 int
-flagSentNotification(struct desk *desk)
+FlagSentNotification(void)
 {
 	StringInfoData      infoData;
-	struct MMPS_Buffer       *buffer;
-	struct notification *notification;
+	struct MMPS_Buffer  *buffer;
+	struct Notification *notification;
 	int                 rc;
 
-    if (pthread_mutex_trylock(&desk->sentNotifications.mutex) != 0)
+    if (pthread_mutex_trylock(&chalkboard->sentNotifications.mutex) != 0)
         return 0;
 
     // If nothing to do, then quit.
     //
-    if (desk->sentNotifications.buffers == NULL) {
-        pthread_mutex_unlock(&desk->sentNotifications.mutex);
+    if (chalkboard->sentNotifications.buffers == NULL)
+    {
+        pthread_mutex_unlock(&chalkboard->sentNotifications.mutex);
         return 0;
     }
 
 	PGBGW_BEGIN;
 
-    buffer = desk->sentNotifications.buffers;
+    buffer = chalkboard->sentNotifications.buffers;
 
     while (buffer != NULL)
     {
-        notification = (struct notification *)buffer->data;
+        notification = (struct Notification *) buffer->data;
 
     	initStringInfo(&infoData);
 	    appendStringInfo(
@@ -369,8 +386,9 @@ WHERE notification_id = %lu",
 
         SetCurrentStatementStartTimestamp();
         rc = SPI_exec(infoData.data, 0);
-	    if (rc != SPI_OK_UPDATE) {
-            pthread_mutex_unlock(&desk->sentNotifications.mutex);
+	    if (rc != SPI_OK_UPDATE)
+	    {
+            pthread_mutex_unlock(&chalkboard->sentNotifications.mutex);
 
 		    ReportError("Cannot execute statement, rc=%d", rc);
        	    PGBGW_ROLLBACK;
@@ -382,44 +400,45 @@ WHERE notification_id = %lu",
 
    	PGBGW_COMMIT;
 
-    pthread_mutex_lock(&desk->processedNotifications.mutex);
-    desk->processedNotifications.buffers =
+    pthread_mutex_lock(&chalkboard->processedNotifications.mutex);
+    chalkboard->processedNotifications.buffers =
         MMPS_AppendBuffer(
-            desk->processedNotifications.buffers,
-            desk->sentNotifications.buffers);
-    pthread_mutex_unlock(&desk->processedNotifications.mutex);
+            chalkboard->processedNotifications.buffers,
+            chalkboard->sentNotifications.buffers);
+    pthread_mutex_unlock(&chalkboard->processedNotifications.mutex);
 
-    desk->sentNotifications.buffers = NULL;
+    chalkboard->sentNotifications.buffers = NULL;
 
-    pthread_mutex_unlock(&desk->sentNotifications.mutex);
+    pthread_mutex_unlock(&chalkboard->sentNotifications.mutex);
 
 	return 0;
 }
 
 int
-releaseProcessedNotificationsFromMessanger(struct desk *desk)
+ReleaseProcessedNotificationsFromMessanger(void)
 {
 	StringInfoData      infoData;
-	struct MMPS_Buffer       *buffer;
-	struct notification *notification;
+	struct MMPS_Buffer  *buffer;
+	struct Notification *notification;
 	int                 rc;
 
-    pthread_mutex_lock(&desk->processedNotifications.mutex);
+    pthread_mutex_lock(&chalkboard->processedNotifications.mutex);
 
     // If nothing to do, then quit.
     //
-    if (desk->processedNotifications.buffers == NULL) {
-        pthread_mutex_unlock(&desk->processedNotifications.mutex);
+    if (chalkboard->processedNotifications.buffers == NULL)
+    {
+        pthread_mutex_unlock(&chalkboard->processedNotifications.mutex);
         return 0;
     }
 
 	PGBGW_BEGIN;
 
-    buffer = desk->processedNotifications.buffers;
+    buffer = chalkboard->processedNotifications.buffers;
 
     while (buffer != NULL)
     {
-        notification = (struct notification *)buffer->data;
+        notification = (struct Notification *) buffer->data;
 
     	initStringInfo(&infoData);
 	    appendStringInfo(
@@ -432,8 +451,9 @@ WHERE notification_id = %lu",
 
         SetCurrentStatementStartTimestamp();
         rc = SPI_exec(infoData.data, 0);
-	    if (rc != SPI_OK_UPDATE) {
-            pthread_mutex_unlock(&desk->processedNotifications.mutex);
+	    if (rc != SPI_OK_UPDATE)
+	    {
+            pthread_mutex_unlock(&chalkboard->processedNotifications.mutex);
 
 		    ReportError("Cannot execute statement, rc=%d", rc);
        	    PGBGW_ROLLBACK;
@@ -445,16 +465,16 @@ WHERE notification_id = %lu",
 
    	PGBGW_COMMIT;
 
-    MMPS_PokeBuffer(desk->processedNotifications.buffers);
-    desk->processedNotifications.buffers = NULL;
+    MMPS_PokeBuffer(chalkboard->processedNotifications.buffers);
+    chalkboard->processedNotifications.buffers = NULL;
 
-    pthread_mutex_unlock(&desk->processedNotifications.mutex);
+    pthread_mutex_unlock(&chalkboard->processedNotifications.mutex);
 
 	return 0;
 }
 
 static void
-deviceTokenCharToBin(char *charToken, char *binToken)
+DeviceTokenCharToBin(char *charToken, char *binToken)
 {
     int position;
 	int scannedValue;
@@ -463,7 +483,7 @@ deviceTokenCharToBin(char *charToken, char *binToken)
 
     for (position = 0; position < DEVICE_TOKEN_SIZE; position++)
     {
-    	strncpy((char *)&byte, (char *)&charToken[position * 2], 2 * sizeof(char));
+    	strncpy((char *) &byte, (char *) &charToken[position * 2], 2 * sizeof(char));
         sscanf(byte, "%x", &scannedValue);
     	binToken[position] = scannedValue;
     }
