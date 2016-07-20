@@ -83,7 +83,7 @@ HandleDisplacementOnRadar(struct Paquet *paquet)
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-    uint32 result = API_PaquetCreatePlaqueSucceeded;
+    uint32 result = API_PaquetDisplacementSucceeded;
     outputBuffer = MMPS_PutInt32(outputBuffer, &result);
 
 	DB_PokeHandle(dbh);
@@ -133,7 +133,7 @@ HandleDisplacementInSight(struct Paquet *paquet)
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-    uint32 result = API_PaquetCreatePlaqueSucceeded;
+    uint32 result = API_PaquetDisplacementSucceeded;
     outputBuffer = MMPS_PutInt32(outputBuffer, &result);
 
 	DB_PokeHandle(dbh);
@@ -183,7 +183,7 @@ HandleDisplacementOnMap(struct Paquet *paquet)
 
 	MMPS_ResetBufferData(outputBuffer, 1);
 
-    uint32 result = API_PaquetCreatePlaqueSucceeded;
+    uint32 result = API_PaquetDisplacementSucceeded;
     outputBuffer = MMPS_PutInt32(outputBuffer, &result);
 
 	DB_PokeHandle(dbh);
