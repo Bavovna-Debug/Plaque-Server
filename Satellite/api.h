@@ -18,8 +18,8 @@
 #define API_DeviceBooleanFalse						0x00
 #define API_DeviceBooleanTrue						0x01
 
-#define API_DialogueTypeAnticipant					0x00000000
-#define API_DialogueTypeRegular						0x00000001
+#define API_DialogueTypeAnticipant					0xD1A0000A
+#define API_DialogueTypeRegular						0xD1A0000B
 
 #define API_DeviceTypeAppleiPhone					0xAE1E
 #define API_DeviceTypeAppleiPad						0xAE1D
@@ -48,7 +48,7 @@
 #define API_PaquetValidateProfileName               0x00040001
 #define API_PaquetCreateProfile                     0x00040002
 
-#define API_PaquetReportMessage                     0x0000FEFE
+#define API_PaquetReportMessage                     0xA1A1A1A1
 
 #define API_PaquetRejectBusy						0xFBFB0000
 #define API_PaquetRejectError			 			0xFEFE0000
@@ -66,26 +66,26 @@
 #define API_BonjourMD5Length                        32
 #define API_BonjourEmailAddressLength               200
 
-#define API_PaquetNotificationsTokenAccepted        0xFEFE0000
-#define API_PaquetNotificationsTokenDeclined        0xFEFE0001
+#define API_PaquetNotificationsTokenAccepted        0xA0A00000
+#define API_PaquetNotificationsTokenDeclined        0xA0A0FEFE
 
-#define API_PaquetProfileNameAvailable              0xFEFE0000
-#define API_PaquetProfileNameAlreadyInUse           0xFEFE0001
+#define API_PaquetProfileNameAvailable              0xA0A10000
+#define API_PaquetProfileNameAlreadyInUse           0xA0A1FEFE
 
-#define API_BonjourCreateSucceeded					0xFEFE0002
-#define API_BonjourCreateProfileNameAlreadyInUse	0xFEFE0003
-#define API_BonjourCreateProfileNameConstraint		0xFEFE0004
-#define API_BonjourCreateProfileEmailAlreadyInUse	0xFEFE0005
-#define API_BonjourCreateProfileEmailConstraint		0xFEFE0006
+#define API_PaquetDisplacementSucceeded             0xA0A20000
+#define API_PaquetDisplacementFailed	            0xA0A2FEFE
 
-#define API_BroadcastDestinationOnRadar				0xABBA0001
-#define API_BroadcastDestinationInSight				0xABBA0002
-#define API_BroadcastDestinationOnMap				0xABBA0004
+#define API_PaquetCreatePlaqueSucceeded             0xA0A40000
+#define API_PaquetCreatePlaqueError                 0xA0A4FEFE
 
-#define API_PaquetDisplacementSucceeded             0xFEFE0008
-#define API_PaquetDisplacementFailed	            0xFEFE0009
+#define API_BroadcastDestinationOnRadar				0xBDBD0001
+#define API_BroadcastDestinationInSight				0xBDBD0002
+#define API_BroadcastDestinationOnMap				0xBDBD0004
 
-#define API_PaquetCreatePlaqueSucceeded             0xFEFE000A
-#define API_PaquetCreatePlaqueError                 0xFEFE000B
+#define API_BonjourCreateSucceeded					0xA1A00000
+#define API_BonjourCreateProfileNameAlreadyInUse	0xA1A0FE03
+#define API_BonjourCreateProfileNameConstraint		0xA1A0FE04
+#define API_BonjourCreateProfileEmailAlreadyInUse	0xA1A0FE05
+#define API_BonjourCreateProfileEmailConstraint		0xA1A0FE06
 
 #endif
