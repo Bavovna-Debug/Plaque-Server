@@ -72,7 +72,7 @@ StartTask(
     }
 
 #ifdef TASKS
-	ReportInfo("... created thread for task 0x%08luX to serve %s",
+	ReportInfo("... created thread for task 0x%08lX to serve %s",
 		(unsigned long) task,
 		task->clientIP);
 #endif
@@ -333,14 +333,14 @@ TaskCleanup(void *arg)
 		ReportError("Cannot destroy mutex: rc=%d", rc);
 #endif
 
-	pthread_mutex_lock(&task->paquet.chainLock);
-	pthread_mutex_unlock(&task->paquet.chainLock);
+	pthread_spin_lock(&task->paquet.chainLock);
+	pthread_spin_unlock(&task->paquet.chainLock);
 	rc = pthread_spin_destroy(&task->paquet.chainLock);
 	if (rc != 0)
 		ReportError("Cannot destroy spinlock: errno=%d", errno);
 
-	pthread_mutex_lock(&task->paquet.heavyJobLock);
-	pthread_mutex_unlock(&task->paquet.heavyJobLock);
+	pthread_spin_lock(&task->paquet.heavyJobLock);
+	pthread_spin_unlock(&task->paquet.heavyJobLock);
 	rc = pthread_spin_destroy(&task->paquet.heavyJobLock);
 	if (rc != 0)
 		ReportError("Cannot destroy spinlock: errno=%d", errno);
