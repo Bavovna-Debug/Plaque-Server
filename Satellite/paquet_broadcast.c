@@ -44,7 +44,7 @@ HandleBroadcast(struct Paquet *paquet)
 		return -1;
 	}
 
-	MMPS_ResetCursor(paquet->inputBuffer, 1);
+	MMPS_ResetCursor(paquet->inputBuffer);
 
 	struct PaquetBroadcast *broadcast = (struct PaquetBroadcast *) paquet->inputBuffer->cursor;
 
@@ -192,7 +192,7 @@ HandleBroadcastPlaquesOnRadar(struct Paquet *paquet)
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
     paquet->outputBuffer = outputBuffer;
 
@@ -244,7 +244,7 @@ HandleBroadcastPlaquesOnRadar(struct Paquet *paquet)
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
     uint32 broadcastDestination = API_BroadcastDestinationOnRadar;
 	outputBuffer = MMPS_PutInt32(outputBuffer, &broadcastDestination);
@@ -295,7 +295,7 @@ HandleBroadcastPlaquesInSight(struct Paquet *paquet)
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
     paquet->outputBuffer = outputBuffer;
 
@@ -347,7 +347,7 @@ HandleBroadcastPlaquesInSight(struct Paquet *paquet)
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
     uint32 broadcastDestination = API_BroadcastDestinationInSight;
 	outputBuffer = MMPS_PutInt32(outputBuffer, &broadcastDestination);
@@ -398,7 +398,7 @@ HandleBroadcastPlaquesOnMap(struct Paquet *paquet)
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
     paquet->outputBuffer = outputBuffer;
 

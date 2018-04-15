@@ -1,5 +1,4 @@
-#ifndef __PROFILES__
-#define __PROFILES__
+#pragma once
 
 #include "paquet.h"
 
@@ -8,5 +7,3 @@ GetProfiles(struct Paquet *paquet);
 
 uint64
 ProfileIdByToken(struct dbh *dbh, char *profileToken);
-
-#endif

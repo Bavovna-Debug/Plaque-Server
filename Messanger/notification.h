@@ -1,5 +1,4 @@
-#ifndef __NOTIFICATION__
-#define __NOTIFICATION__
+#pragma once
 
 #define MAX_NOTIFICATIONS           5
 #define DEVICE_TOKEN_SIZE           32
@@ -34,5 +33,3 @@ FlagSentNotification(void);
 
 int
 ReleaseProcessedNotificationsFromMessanger(void);
-
-#endif

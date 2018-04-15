@@ -25,7 +25,7 @@ CREATE TABLE surrounding.plaques
 	profile_id			BIGINT						NOT NULL,
 	time_slot_id		BIGINT						NULL DEFAULT NULL,
 	dimension			DIMENSION					NOT NULL,
-	coordinate			EARTH						NOT NULL,
+	coordinate			public.EARTH						NOT NULL,
 	latitude			DOUBLE PRECISION			NOT NULL,
 	longitude			DOUBLE PRECISION			NOT NULL,
 	altitude			REAL						NULL DEFAULT NULL,

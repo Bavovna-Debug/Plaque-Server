@@ -1,11 +1,7 @@
-#ifndef __APNS_THREAD__
-#define __APNS_THREAD__
+#pragma once
 
 int
 APNS_Start(void);
 
 int
 APNS_Stop(void);
-
-
-#endif

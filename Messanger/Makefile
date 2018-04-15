@@ -1,3 +1,8 @@
+DEFINES += -D LINUX
+DEFINES += -D PGBGW
+DEFINES += -D BUFFERS_INIT_BANK -D BUFFERS_PEEK_POKE
+DEFINES += -D APNS_XMIT
+
 CFLAGS += -Wall
 
 MODULES = vp_messanger
@@ -7,10 +12,6 @@ PGXS := $(shell $(PG_CONFIG) --pgxs)
 
 INCLUDE += -I/usr/pgsql-9.4/include/ -I/usr/pgsql-9.4/include/server/
 INCLUDE += -I../lib/
-
-DEFINES += -D PGBGW
-DEFINES += -D BUFFERS_INIT_BANK -D BUFFERS_PEEK_POKE
-DEFINES += -D APNS_XMIT
 
 include $(PGXS)
 

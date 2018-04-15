@@ -24,7 +24,7 @@
 #include "report.h"
 
 int
-revisionSessionsForDeviceDisplacementInSight(int *busy)
+revisionSessionsForDeviceDisplacementInSight(unsigned int *busy)
 {
 	StringInfoData  infoData;
     TupleDesc       tupdesc;
@@ -43,13 +43,15 @@ SELECT journal.revision_sessions_for_device_displacement_in_sight()"
 
 	SetCurrentStatementStartTimestamp();
     rc = SPI_exec(infoData.data, 0);
-	if (rc != SPI_OK_SELECT) {
+	if (rc != SPI_OK_SELECT)
+    {
 		ReportError("Cannot execute statement, rc=%d", rc);
    	    PGBGW_ROLLBACK;
 		return -1;
     }
 
-    if (SPI_processed != 1) {
+    if (SPI_processed != 1)
+    {
 	    ReportError("Unexpected number of tuples");
    	    PGBGW_ROLLBACK;
 	    return -1;
@@ -68,7 +70,7 @@ SELECT journal.revision_sessions_for_device_displacement_in_sight()"
 }
 
 int
-revisionSessionsForDeviceDisplacementOnMap(int *busy)
+revisionSessionsForDeviceDisplacementOnMap(unsigned int *busy)
 {
 	StringInfoData  infoData;
     TupleDesc       tupdesc;
@@ -87,13 +89,15 @@ SELECT journal.revision_sessions_for_device_displacement_on_map()"
 
 	SetCurrentStatementStartTimestamp();
     rc = SPI_exec(infoData.data, 0);
-	if (rc != SPI_OK_SELECT) {
+	if (rc != SPI_OK_SELECT)
+    {
 		ReportError("Cannot execute statement, rc=%d", rc);
    	    PGBGW_ROLLBACK;
 		return -1;
     }
 
-    if (SPI_processed != 1) {
+    if (SPI_processed != 1)
+    {
 	    ReportError("Unexpected number of tuples");
    	    PGBGW_ROLLBACK;
 	    return -1;
@@ -112,7 +116,7 @@ SELECT journal.revision_sessions_for_device_displacement_on_map()"
 }
 
 int
-revisionSessionsForModifiedPlaques(int *busy)
+revisionSessionsForModifiedPlaques(unsigned int *busy)
 {
 	StringInfoData  infoData;
     TupleDesc       tupdesc;
@@ -131,13 +135,15 @@ SELECT journal.revision_sessions_for_modified_plaques()"
 
 	SetCurrentStatementStartTimestamp();
     rc = SPI_exec(infoData.data, 0);
-	if (rc != SPI_OK_SELECT) {
+	if (rc != SPI_OK_SELECT)
+    {
 		ReportError("Cannot execute statement, rc=%d", rc);
    	    PGBGW_ROLLBACK;
 		return -1;
     }
 
-    if (SPI_processed != 1) {
+    if (SPI_processed != 1)
+    {
 	    ReportError("Unexpected number of tuples");
    	    PGBGW_ROLLBACK;
 	    return -1;

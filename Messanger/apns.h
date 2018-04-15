@@ -1,5 +1,4 @@
-#ifndef __APNS__
-#define __APNS__
+#pragma once
 
 #include <openssl/ssl.h>
 
@@ -123,5 +122,3 @@ SendOneByOne(struct APNS_Connection *connection);
 
 int
 SendAsFrame(struct APNS_Connection *connection);
-
-#endif

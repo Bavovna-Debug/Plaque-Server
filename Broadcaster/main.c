@@ -134,7 +134,7 @@ broadcasterMain(Datum *arg)
 		// In case of a SIGHUP, just reload the configuration.
 		//
 		if (gotSigHup)
-              gotSigHup = false;
+            gotSigHup = false;
     }
 
     stopListener(desk);

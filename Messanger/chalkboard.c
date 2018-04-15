@@ -93,6 +93,8 @@ InitializeMMPS(void)
         return -1;
     }
 
+    MMPS_AllocateImmediately(chalkboard->pools.notifications, 0);
+
 	chalkboard->pools.apns = MMPS_InitPool(1);
 	if (chalkboard->pools.apns == NULL)
 	{
@@ -109,6 +111,8 @@ InitializeMMPS(void)
 		ReportError("Cannot create buffer bank: rc=%d", rc);
         return -1;
     }
+
+    MMPS_AllocateImmediately(chalkboard->pools.apns, 0);
 
     chalkboard->outstandingNotifications.buffers = NULL;
     chalkboard->inTheAirNotifications.buffers = NULL;

@@ -1,5 +1,4 @@
-#ifndef __TASK_KERNEL__
-#define __TASK_KERNEL__
+#pragma once
 
 int
 AuthentifyDialogue(struct Task *task);
@@ -9,5 +8,3 @@ DialogueAnticipant(struct Task *task);
 
 void
 DialogueRegular(struct Task *task);
-
-#endif

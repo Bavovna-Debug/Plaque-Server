@@ -56,7 +56,7 @@ HandleDisplacementOnRadar(struct Paquet *paquet)
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	struct PaquetDisplacement *displacement = (struct PaquetDisplacement *) inputBuffer->cursor;
 
@@ -81,7 +81,7 @@ HandleDisplacementOnRadar(struct Paquet *paquet)
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
     uint32 result = API_PaquetDisplacementSucceeded;
     outputBuffer = MMPS_PutInt32(outputBuffer, &result);
@@ -106,7 +106,7 @@ HandleDisplacementInSight(struct Paquet *paquet)
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	struct PaquetDisplacement *displacement = (struct PaquetDisplacement *) inputBuffer->cursor;
 
@@ -131,7 +131,7 @@ HandleDisplacementInSight(struct Paquet *paquet)
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
     uint32 result = API_PaquetDisplacementSucceeded;
     outputBuffer = MMPS_PutInt32(outputBuffer, &result);
@@ -156,7 +156,7 @@ HandleDisplacementOnMap(struct Paquet *paquet)
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	struct PaquetDisplacement *displacement = (struct PaquetDisplacement *) inputBuffer->cursor;
 
@@ -181,7 +181,7 @@ HandleDisplacementOnMap(struct Paquet *paquet)
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
     uint32 result = API_PaquetDisplacementSucceeded;
     outputBuffer = MMPS_PutInt32(outputBuffer, &result);

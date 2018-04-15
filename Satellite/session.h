@@ -1,5 +1,4 @@
-#ifndef __SESSION__
-#define __SESSION__
+#pragma once
 
 #include <c.h>
 
@@ -46,5 +45,3 @@ GetSessionOnMapRevision(
     struct Task *task,
     struct dbh  *dbh,
     uint32      *revision);
-
-#endif

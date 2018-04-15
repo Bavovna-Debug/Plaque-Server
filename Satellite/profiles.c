@@ -38,7 +38,7 @@ WHERE profile_token = $1"
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	inputBuffer = MMPS_GetInt32(inputBuffer, &numberOfProfiles);
 
@@ -60,7 +60,7 @@ WHERE profile_token = $1"
 
 	paquet->outputBuffer = outputBuffer;
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL)
@@ -74,7 +74,7 @@ WHERE profile_token = $1"
 	{
 		char profileToken[API_TokenBinarySize];
 
-		inputBuffer = MMPS_GetData(inputBuffer, profileToken, API_TokenBinarySize);
+		inputBuffer = MMPS_GetData(inputBuffer, profileToken, API_TokenBinarySize, NULL);
 
         DB_PushUUID(dbh, (char *)&profileToken);
 

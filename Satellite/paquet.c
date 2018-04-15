@@ -166,11 +166,11 @@ PaquetCancel(struct Paquet *paquet)
 }
 
 int
-MinimumPayloadSize(struct Paquet *paquet, int minimumSize)
+MinimumPayloadSize(struct Paquet *paquet, unsigned int minimumSize)
 {
 	if (paquet->payloadSize < minimumSize) {
 #ifdef DEBUG
-		ReportInfo("Wrong payload size %d, expected minimum %lu",
+		ReportInfo("Wrong payload size %d, expected minimum %u",
 			paquet->payloadSize,
 			minimumSize);
 #endif
@@ -181,11 +181,11 @@ MinimumPayloadSize(struct Paquet *paquet, int minimumSize)
 }
 
 int
-ExpectedPayloadSize(struct Paquet *paquet, int expectedSize)
+ExpectedPayloadSize(struct Paquet *paquet, unsigned int expectedSize)
 {
 	if (paquet->payloadSize != expectedSize) {
 #ifdef DEBUG
-		ReportInfo("Wrong payload size %d, expected %lu",
+		ReportInfo("Wrong payload size %d, expected %u",
 			paquet->payloadSize,
 			expectedSize);
 #endif
@@ -231,10 +231,10 @@ RejectPaquetAsBusy(struct Paquet *paquet)
 	if (paquet->outputBuffer == NULL)
 		paquet->outputBuffer = paquet->inputBuffer;
 
-	MMPS_ResetBufferData(paquet->outputBuffer, 1);
+	MMPS_ResetBufferData(paquet->outputBuffer);
 
-	struct PaquetPilot *pilot = (struct PaquetPilot *) paquet->outputBuffer;
-	pilot->commandSubcode = API_PaquetRejectBusy;
+	struct PaquetPilot *pilot = (struct PaquetPilot *) paquet->pilot;
+	pilot->commandSubcode = htobe32(API_PaquetRejectBusy);
 	pilot->payloadSize = 0;
 }
 
@@ -244,9 +244,9 @@ RejectPaquetAsError(struct Paquet *paquet)
 	if (paquet->outputBuffer == NULL)
 		paquet->outputBuffer = paquet->inputBuffer;
 
-	MMPS_ResetBufferData(paquet->outputBuffer, 1);
+	MMPS_ResetBufferData(paquet->outputBuffer);
 
-	struct PaquetPilot *pilot = (struct PaquetPilot *) paquet->outputBuffer;
-	pilot->commandSubcode = API_PaquetRejectError;
+	struct PaquetPilot *pilot = (struct PaquetPilot *) paquet->pilot;
+	pilot->commandSubcode = htobe32(API_PaquetRejectError);
 	pilot->payloadSize = 0;
 }

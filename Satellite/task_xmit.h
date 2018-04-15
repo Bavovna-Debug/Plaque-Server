@@ -1,7 +1,8 @@
-#ifndef __TASK_XMIT__
-#define __TASK_XMIT__
+#pragma once
 
 #include "mmps.h"
+
+#define XMIT_MAX_NUMBER_OF_VECTORS 1000
 
 /**
  * FillPaquetWithPilotData()
@@ -10,7 +11,7 @@
  * @pilot:
  */
 inline void
-FillPaquetWithPilotData(struct Paquet *paquet, struct PaquetPilot *pilot);
+FillPaquetWithPilotData(struct Paquet *paquet);
 
 int
 ReceiveFixed(
@@ -29,5 +30,3 @@ ReceivePaquet(struct Paquet *paquet, struct MMPS_Buffer *receiveBuffer);
 
 int
 SendPaquet(struct Paquet *paquet);
-
-#endif

@@ -17,7 +17,7 @@
 #include "notification.h"
 #include "report.h"
 
-#define SANDBOX
+#undef SANDBOX
 
 #ifdef SANDBOX
 #define APNS_GATEWAY_HOST           "gateway.sandbox.push.apple.com"

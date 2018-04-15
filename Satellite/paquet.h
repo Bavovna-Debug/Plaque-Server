@@ -1,5 +1,4 @@
-#ifndef __PAQUET__
-#define __PAQUET__
+#pragma once
 
 #include <c.h>
 
@@ -141,12 +140,10 @@ void
 PaquetCancel(struct Paquet *paquet);
 
 int
-MinimumPayloadSize(struct Paquet *paquet, int minimumSize);
+MinimumPayloadSize(struct Paquet *paquet, unsigned int minimumSize);
 
 int
-ExpectedPayloadSize(struct Paquet *paquet, int expectedSize);
+ExpectedPayloadSize(struct Paquet *paquet, unsigned int expectedSize);
 
 uint64
 DeviceIdByToken(struct dbh *dbh, char *deviceToken);
-
-#endif

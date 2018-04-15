@@ -1,34 +1,51 @@
+// System definition files.
+//
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/mman.h>
+#include <sys/types.h>
 
-#include "mmps.h"
+#ifndef LINUX
+#include <atomic.h>
+#endif
+
+// Common definition files.
+//
 #include "report.h"
+#include "Types.h"
+
+// Local definition files.
+//
+#include "mmps.h"
 
 const unsigned int NOTHING = 0xFFFF0000;
 
-/**
- * MMPS_InitPool()
- * Allocate and initialize buffer pool.
+/*
+ * @brief   Allocate and initialize buffer pool.
  *
- * @numberOfBanks: Number of banks to allocate. Each bank has to be initialized
- *                 afterwards using MMPS_InitBank().
+ * @param   numberOfBanks   Number of banks to allocate.
+ *                          Each bank has to be initialized
+ *                          afterwards using MMPS_InitBank().
  *
- * Returns pointer to MMPS pool handler upon successful completion or NULL,
- * if MMPS pool cannot be created.
+ * @return  Pointer to MMPS pool descriptor upon successful completion.
+ * @return  NULL if MMPS pool cannot be created.
  */
 struct MMPS_Pool *
 MMPS_InitPool(const unsigned int numberOfBanks)
 {
-    struct MMPS_Pool *pool;
+    struct MMPS_Pool    *pool;
+    unsigned int        size;
 
-    pool = malloc(sizeof(struct MMPS_Pool) + numberOfBanks * sizeof(struct MMPS_Bank *));
+    size = sizeof(struct MMPS_Pool) + numberOfBanks * sizeof(struct MMPS_Bank *);
+    pool = malloc(size);
     if (pool == NULL)
     {
-        ReportSoftAlert("Out of memory");
+        ReportSoftAlert("[MMPS] Out of memory");
 
         return NULL;
     }
@@ -41,46 +58,45 @@ MMPS_InitPool(const unsigned int numberOfBanks)
 
     // Make sure pointers to buffer banks are set to null.
     //
-    bzero(&pool->banks, numberOfBanks * sizeof(struct MMPS_Bank *));
+    memset(&pool->banks, 0, numberOfBanks * sizeof(struct MMPS_Bank *));
 
     return pool;
 }
 
-/**
- * MMPS_InitBank()
- * Initialize buffer bank - MMPS pool must be already initialized.
+/*
+ * @brief   Initialize buffer bank - MMPS pool must be already initialized.
+ *
  * This routine allocates and initializes memory structures
- * necessary for bank handler and all buffers of the specified bank.
+ * necessary for bank descriptor and all buffers of the specified bank.
  *
- * @pool:               Pointer to MMPS pool handler - already initialized
+ * @param   pool        Pointer to MMPS pool descriptor - already initialized
  *                      with MMPS_InitPool().
- * @bankId:             Bank id of the bank to be initialized.
- * @bufferSize:         Value greater than 0 specifies the size of buffers in a bank.
- *                      All buffers in a bank will be created of the given size.
- *                      Value of 0 specifies that the specified bank will contain
- *                      buffers of different sizes. In such case MMPS will only
- *                      allocate buffer handlers but not data blocks. Data blocks
- *                      could be associated with buffer handlers later.
- * @pilotSize:          Size of pilot data or 0, if data in this bank is not supposed
- *                      to have pilot.
- * @numberOfBuffers:    Number of buffer handlers to be created in the specified bank.
- *                      Different banks in one MMPS pool may have different
- *                      number of buffers.
+ * @param   bankId      Bank id of the bank to be initialized.
+ * @param   bufferSize  Value greater than 0 specifies the size of buffers
+ *                      in a bank. All buffers in a bank will be created
+ *                      of the given size. Value of 0 specifies
+ *                      that the specified bank will contain buffers
+ *                      of different sizes. In such case MMPS will only
+ *                      allocate buffer descriptor but not data blocks.
+ *                      Data blocks could be allocated for buffer descriptors
+ *                      later.
+ * @param   followerSize    Size of the follower or 0 if buffers in this bank
+ *                          are not supposed to have followers.
+ * @param   numberOfBuffers Number of buffer descriptor to be created
+ *                          in the specified bank. Different banks in one
+ *                          MMPS poolmay have different number of buffers.
  *
- * Returns 0 upon successful completion or an error code (negative value),
- * if bank cannot be created.
+ * @return  0 upon successful completion.
+ * @return  Error code (negative value), if bank cannot be created.
  */
 int
 MMPS_InitBank(
     struct MMPS_Pool    *pool,
     unsigned int        bankId,
     unsigned int        bufferSize,
-    unsigned int        pilotSize,
+    unsigned int        followerSize,
     unsigned int        numberOfBuffers)
 {
-#ifdef MMPS_MUTEX
-    pthread_mutexattr_t mutexAttr;
-#endif
     size_t              maxBlockSize;
     long long           totalBlockSize;
     unsigned int        numberOfBlocks;
@@ -99,7 +115,7 @@ MMPS_InitBank(
     unsigned int        bufferIdInBlock;
 
 #ifdef MMPS_INIT_BANK
-    ReportDebug("Create bank %u with %u buffers of size %u",
+    ReportDebug("[MMPS] Create bank %u with %u buffers of size %u",
         bankId,
         numberOfBuffers,
         bufferSize);
@@ -146,12 +162,14 @@ MMPS_InitBank(
     }
 
 #ifdef MMPS_INIT_BANK
-    ReportDebug("... maxBlockSize=%lu buffersPerBlock=%u numberOfBlocks=%u eachBlockSize=%lu lastBlockSize=%lu",
-        maxBlockSize,
-        buffersPerBlock,
-        numberOfBlocks,
-        eachBlockSize,
-        lastBlockSize);
+    ReportDebug("[MMPS] " \
+            "... maxBlockSize=%lu buffersPerBlock=%u numberOfBlocks=%u " \
+            "eachBlockSize=%lu lastBlockSize=%lu",
+            maxBlockSize,
+            buffersPerBlock,
+            numberOfBlocks,
+            eachBlockSize,
+            lastBlockSize);
 #endif
 
     // Calculate amount of memory to be allocated for the bank.
@@ -163,7 +181,7 @@ MMPS_InitBank(
     bank = malloc(bankAllocSize);
     if (bank == NULL)
     {
-        ReportSoftAlert("Out of memory");
+        ReportSoftAlert("[MMPS] Out of memory");
 
         return MMPS_OUT_OF_MEMORY;
     }
@@ -175,26 +193,28 @@ MMPS_InitBank(
     // Initialize bank values.
 
 #ifdef MMPS_MUTEX
-    pthread_mutexattr_init(&mutexAttr);
+    pthread_mutexattr_init(&bank->mutex.attr);
 
-    pthread_mutexattr_setpshared(&mutexAttr, PTHREAD_PROCESS_PRIVATE);
+    pthread_mutexattr_setpshared(&bank->mutex.attr, PTHREAD_PROCESS_PRIVATE);
 
-    pthread_mutex_init(&bank->lock, &mutexAttr);
+    pthread_mutex_init(&bank->mutex.lock, &bank->mutex.attr);
 #else
     pthread_spin_init(&bank->lock, PTHREAD_PROCESS_PRIVATE);
 #endif
 
-    bank->bankId            = bankId;
-    bank->pool              = pool;
-    bank->numberOfBuffers   = numberOfBuffers;
-    bank->bufferSize        = bufferSize;
-    bank->pilotSize         = pilotSize;
-    bank->numberOfBlocks    = numberOfBlocks;
-    bank->eachBlockSize     = eachBlockSize;
-    bank->lastBlockSize     = lastBlockSize;
-    bank->buffersPerBlock   = buffersPerBlock;
-    bank->cursor.peek       = 0;
-    bank->cursor.poke       = 0;
+    bank->bankId              = bankId;
+    bank->allocateOnDemand    = FALSE;
+    bank->pool                = pool;
+    bank->sharedMemoryHandle  = 0;
+    bank->numberOfBuffers     = numberOfBuffers;
+    bank->bufferSize          = bufferSize;
+    bank->followerSize        = followerSize;
+    bank->numberOfBlocks      = numberOfBlocks;
+    bank->eachBlockSize       = eachBlockSize;
+    bank->lastBlockSize       = lastBlockSize;
+    bank->buffersPerBlock     = buffersPerBlock;
+    bank->cursor.peek         = 0;
+    bank->cursor.poke         = 0;
 
     bank->blocks = (void *) (
         (unsigned long) bank +
@@ -202,21 +222,23 @@ MMPS_InitBank(
     );
 
 #ifdef MMPS_INIT_BANK
-    ReportDebug("... bank=0x%08lX (%lu bytes) bank->blocks=0x%08lX",
-        (unsigned long) bank,
-        bankAllocSize,
-        (unsigned long) bank->blocks);
+    ReportDebug("[MMPS] ... bank=0x%016lX (%lu bytes) bank->blocks=0x%016lX",
+            (unsigned long) bank,
+            bankAllocSize,
+            (unsigned long) bank->blocks);
 #endif
 
     blockId = 0;
     bufferIdSequential = 0;
     bufferIdInBlock = buffersPerBlock;
 
-    // Set block to null to omit compiler message 'block may be used uninitialized'.
+    // Set block to null to omit compiler messages like 'block may be used
+    // uninitialized'.
     //
     block = NULL;
 
-    // Allocate all parts of buffer queue, allocate all buffers and put them in a queue.
+    // Allocate all parts of buffer queue, allocate all buffers
+    // and put them in a queue.
     //
     while (bufferIdSequential < bank->numberOfBuffers)
     {
@@ -235,14 +257,14 @@ MMPS_InitBank(
             block = malloc(blockSize);
             if (block == NULL)
             {
-                ReportSoftAlert("Out of memory");
+                ReportSoftAlert("[MMPS] Out of memory");
 
                 return MMPS_OUT_OF_MEMORY;
             }
 
 #ifdef MMPS_INIT_BANK_DEEP
-            ReportDebug("  > allocated block=0x%08lX",
-                (unsigned long) block);
+            ReportDebug("[MMPS]   > allocated block=0x%016lX",
+                    (unsigned long) block);
 #endif
 
             bank->blocks[blockId] = block;
@@ -252,42 +274,33 @@ MMPS_InitBank(
         bank->ids[bufferIdSequential] = bufferIdSequential;
 
         buffer = (void *)
-            ((unsigned long) block + (unsigned long) (bufferIdInBlock * sizeof(struct MMPS_Buffer)));
+            ((unsigned long) block +
+            (unsigned long) (bufferIdInBlock * sizeof(struct MMPS_Buffer)));
 
 #ifdef MMPS_EYECATCHER
         strncpy(buffer->eyeCatcher, EYECATCHER_BUFFER, EYECATCHER_SIZE);
 #endif
 
-        // Allocate memory for a buffer.
-        //
-        buffer->data = malloc(bufferSize);
-        if (buffer->data == NULL)
-        {
-            ReportSoftAlert("Out of memory");
-
-            return MMPS_OUT_OF_MEMORY;
-        }
-
 #ifdef MMPS_INIT_BANK_DEEP
-        ReportDebug("    > buffer=0x%08lX buffer->data=0x%08lX",
-            (unsigned long) buffer,
-            (unsigned long) buffer->data);
+        ReportDebug("[MMPS]     > buffer=0x%016lX bufferId=%u",
+                (unsigned long) buffer,
+                bufferIdSequential);
 #endif
 
         // Initialize buffer values.
 
-        buffer->bufferId    = bufferIdSequential;
-        buffer->bank        = bank;
-        buffer->prev        = NULL;
-        buffer->next        = NULL;
-        buffer->bufferSize  = bufferSize;
-        buffer->pilotSize   = pilotSize;
-        buffer->dataSize    = 0;
-#ifdef MMPS_USE_OWNER_ID
-        buffer->ownerId     = MMPS_NO_OWNER;
-#endif
-        buffer->cursor      = buffer->data;
-        buffer->dmaAddress  = NULL;
+        buffer->bufferId      = bufferIdSequential;
+        buffer->bank          = bank;
+        buffer->prev          = NULL;
+        buffer->next          = NULL;
+        buffer->ownerId       = MMPS_NO_OWNER;
+        buffer->touches       = 0;
+        buffer->bufferSize    = bufferSize;
+        buffer->followerSize  = followerSize;
+        buffer->dataSize      = 0;
+        buffer->data          = NULL;
+        buffer->cursor        = NULL;
+        buffer->dmaAddress    = NULL;
 
         bufferIdSequential++;
         bufferIdInBlock++;
@@ -296,33 +309,308 @@ MMPS_InitBank(
     pool->banks[bankId] = bank;
 
 #ifdef MMPS_INIT_BANK
-    ReportDebug("Created bank %u with %u buffers of size %u, with total bank size %lld MB",
-        bankId,
-        bank->numberOfBuffers,
-        bufferSize,
-        totalBlockSize >> 20);
+    ReportDebug("[MMPS] Created bank %u with %u buffers of size %u, " \
+            "with total bank size %lld MB",
+            bankId,
+            bank->numberOfBuffers,
+            bufferSize,
+            totalBlockSize >> 20);
 
-    ReportDebug("There are %u block(s) of size %lu KB each and %lu KB last",
-        bank->numberOfBlocks,
-        bank->eachBlockSize >> 10,
-        bank->lastBlockSize >> 10);
+    ReportDebug("[MMPS] There are %u block(s) of size %lu KB each and %lu KB last",
+            bank->numberOfBlocks,
+            bank->eachBlockSize >> 10,
+            bank->lastBlockSize >> 10);
 #endif
 
     return MMPS_OK;
 }
 
-#ifdef MMPS_DMA
+/*
+ * @brief   Allocate data memory blocks for all buffers of the specified bank.
+ *
+ * @param   pool        Pointer to MMPS pool descriptor - already initialized
+ *                      with MMPS_InitPool().
+ * @param   bankId      Bank id of the bank those buffers to allocate.
+ *
+ * @return  0 upon successful completion.
+ * @return  Error code (negative value), in case of error.
+ */
+int
+MMPS_AllocateImmediately(
+    struct MMPS_Pool    *pool,
+    unsigned int        bankId)
+{
+    struct MMPS_Bank    *bank;
+    struct MMPS_Buffer  *buffer;
+    unsigned int        bufferId;
+
+    bank = pool->banks[bankId];
+
+    for (bufferId = 0; bufferId < bank->numberOfBuffers; bufferId++)
+    {
+        buffer = MMPS_BufferById(pool, bankId, bufferId);
+        //
+        // Function MMPS_BufferById() delivers trusted value,
+        // therefore, no need for error check.
+
+        buffer->data = malloc(buffer->bufferSize);
+        if (buffer->data == NULL)
+        {
+            ReportSoftAlert("[MMPS] Out of memory");
+
+            return MMPS_OUT_OF_MEMORY;
+        }
+
+        MMPS_ResetCursor(buffer);
+    }
+
+    return MMPS_OK;
+}
+
+/*
+ * @brief   Allocate follower memory blocks for all buffers of the specified bank.
+ *
+ * @param   pool        Pointer to MMPS pool descriptor - already initialized
+ *                      with MMPS_InitPool().
+ * @param   bankId      Bank id of the bank those followers to allocate.
+ *
+ * @return  0 upon successful completion.
+ * @return  Error code (negative value), in case of error.
+ */
+extern int
+MMPS_AllocateFollowers(
+    struct MMPS_Pool    *pool,
+    unsigned int        bankId)
+{
+    struct MMPS_Bank    *bank;
+    struct MMPS_Buffer  *buffer;
+    unsigned int        bufferId;
+
+    bank = pool->banks[bankId];
+
+    for (bufferId = 0; bufferId < bank->numberOfBuffers; bufferId++)
+    {
+        buffer = MMPS_BufferById(pool, bankId, bufferId);
+        //
+        // Function MMPS_BufferById() delivers trusted value,
+        // therefore, no need for error check.
+
+        buffer->follower = malloc(buffer->followerSize);
+        if (buffer->follower == NULL)
+        {
+            ReportSoftAlert("[MMPS] Out of memory");
+
+            return MMPS_OUT_OF_MEMORY;
+        }
+    }
+
+    return MMPS_OK;
+}
+
 /**
- * MMPS_DMAMapBufferBank()
- * Map data blocks of all buffer handlers of the specified bank to DMA.
+ * @brief   Set the 'allocate on demand' flag for the specified bank.
  *
- * @pool:               Pointer to MMPS pool handler.
- * @bankId:             Bank id.
- * @dmaCapabilities:    DMA capabilities bitmask as described by mmap().
- * @dmaFlags:           DMA flags bitmask as described by mmap().
+ * @param   pool        Pointer to MMPS pool descriptor - already initialized
+ *                      with MMPS_InitPool().
+ * @param   bankId      Bank id of the bank set as 'allocate on demand'.
  *
- * Returns 0 upon successful completion or an error code (negative value),
- * if cannot map to DMA.
+ * @return  0 upon successful completion.
+ * @return  Error code (negative value), in case of error.
+ */
+extern int
+MMPS_AllocateOnDemand(
+    struct MMPS_Pool    *pool,
+    unsigned int        bankId)
+{
+    struct MMPS_Bank *bank;
+
+    bank = pool->banks[bankId];
+
+    bank->allocateOnDemand = TRUE;
+
+    return 0;
+}
+
+/*
+ * @brief   Map data blocks to shared memory.
+ *
+ * Map data blocks of all buffer descriptor of the specified bank
+ * to shared memory.
+ *
+ * @param   pool        Pointer to MMPS pool descriptor.
+ * @param   bankId      Bank id.
+ * @param   sharedMemoryName File name to be used for shared memory.
+ *
+ * @return  0 upon successful completion.
+ * @return  Error code (negative value), if cannot map to shared memory.
+ */
+int
+MMPS_MapShMemBufferBank(
+    struct MMPS_Pool    *pool,
+    unsigned int        bankId,
+    const char          *sharedMemoryName)
+{
+    struct MMPS_Bank    *bank;
+    struct MMPS_Buffer  *buffer;
+    int                 sharedMemoryHandle;
+    unsigned int        sharedMemorySize;
+    unsigned int        bufferId;
+    int                 rc;
+
+    rc = MMPS_OK;
+
+    bank = pool->banks[bankId];
+
+    sharedMemoryHandle = shm_open(
+            sharedMemoryName,
+            O_CREAT | O_RDWR,
+            0777);
+    if (sharedMemoryHandle == -1)
+    {
+        ReportError("[MMPS] Cannot open shared memory: errno=%d", errno);
+
+        return MMPS_SHM_ERROR;
+    }
+
+    sharedMemorySize = bank->numberOfBuffers * bank->bufferSize;
+
+    rc = ftruncate(sharedMemoryHandle, sharedMemorySize);
+    if (rc == -1)
+    {
+        ReportError("[MMPS] Cannot set shared memory size to %u: errno=%d",
+                sharedMemorySize,
+                errno);
+
+        return MMPS_SHM_ERROR;
+    }
+
+    bank->sharedMemoryHandle = sharedMemoryHandle;
+
+#ifndef MMPS_USE_64BIT_MMAP
+    bank->sharedMemoryAddress = mmap(
+            NULL,
+            sharedMemorySize,
+            PROT_READ | PROT_WRITE,
+            MAP_SHARED,
+            sharedMemoryHandle,
+            0);
+#else
+    bank->sharedMemoryAddress = mmap64(
+            NULL,
+            sharedMemorySize,
+            PROT_READ | PROT_WRITE,
+            MAP_SHARED,
+            sharedMemoryHandle,
+            0);
+#endif
+
+    if (bank->sharedMemoryAddress == MAP_FAILED)
+    {
+        ReportError("[MMPS] Cannot map buffer to shared memory: errno=%d",
+                errno);
+
+        return MMPS_CANNOT_MAP_TO_SHM;
+    }
+
+    for (bufferId = 0; bufferId < bank->numberOfBuffers; bufferId++)
+    {
+        buffer = MMPS_BufferById(pool, bankId, bufferId);
+        //
+        // Function MMPS_BufferById() delivers trusted value,
+        // therefore, no need for error check.
+
+        rc = MMPS_MapShMemBuffer(buffer);
+        if (rc != 0)
+            break;
+    }
+
+    return rc;
+}
+
+/*
+ * @brief   Map single data block to shared memory.
+ *
+ * Map data block of a single MMPS buffer descriptor to shared memory.
+ *
+ * @param   buffer      Pointer to MMPS buffer descriptor those data block
+ *                      needs to be mapped to shared memory.
+ *
+ * @return  0 upon successful completion.
+ * @return  Error code (negative value), if cannot map to shared memory.
+ */
+int
+MMPS_MapShMemBuffer(struct MMPS_Buffer *buffer)
+{
+    struct MMPS_Bank    *bank;
+    unsigned long       offset;
+
+    bank = buffer->bank;
+
+    if (buffer->data != NULL)
+    {
+        ReportWarning("[MMPS] Buffer already mapped to shared memory");
+
+        return MMPS_ALREADY_MAPPED_TO_SHM;
+    }
+
+    offset = buffer->bufferId * buffer->bufferSize;
+
+    buffer->data = bank->sharedMemoryAddress + offset;
+    buffer->cursor = buffer->data;
+
+    return MMPS_OK;
+}
+
+/*
+ * @brief   Release single data block from shared memory.
+ *
+ * Release data block of a single MMPS buffer descriptor from shared memory.
+ *
+ * @param   buffer      Pointer to MMPS buffer descriptor those data block
+ *                      needs to be unmapped from shared memory.
+ *
+ * @return  0 upon successful completion.
+ * @return  Error code (negative value), if cannot release shared memory mapping.
+ */
+int
+MMPS_UnmapShMemBuffer(struct MMPS_Buffer *buffer)
+{
+    int rc;
+
+    if (buffer->data == NULL)
+    {
+        ReportWarning("[MMPS] " \
+                "Trying to unmap buffer from shared memory that was not mapped");
+
+        return MMPS_NOT_MAPPED_TO_SHM;
+    }
+
+    rc = munmap(buffer->data, buffer->bufferSize);
+    if (rc != 0)
+    {
+        ReportError("[MMPS] Cannot unmap buffer from shared memory: errno=%d",
+                errno);
+
+        return MMPS_CANNOT_UNMAP_FROM_SHM;
+    }
+
+    return MMPS_OK;
+}
+
+#ifdef MMPS_DMA
+
+/*
+ * @brief   Map data blocks to DMA.
+ *
+ * Map data blocks of all buffer descriptor of the specified bank to DMA.
+ *
+ * @param   pool        Pointer to MMPS pool descriptor.
+ * @param   bankId      Bank id.
+ * @param   dmaCapabilities DMA capabilities bitmask as described by mmap().
+ * @param   dmaFlags    DMA flags bitmask as described by mmap().
+ *
+ * @return  0 upon successful completion.
+ * @return  Error code (negative value), if cannot map to DMA.
  */
 int
 MMPS_DMAMapBufferBank(
@@ -336,14 +624,15 @@ MMPS_DMAMapBufferBank(
     unsigned int        bufferId;
     int                 rc;
 
-    rc = 0;
+    rc = MMPS_OK;
 
     bank = pool->banks[bankId];
     for (bufferId = 0; bufferId < bank->numberOfBuffers; bufferId++)
     {
         buffer = MMPS_BufferById(pool, bankId, bufferId);
         //
-        // Function MMPS_BufferById() delivers trusted value - no need for error check.
+        // Function MMPS_BufferById() delivers trusted value,
+        // therefore, no need for error check.
 
         rc = MMPS_DMAMapBuffer(buffer, dmaCapabilities, dmaFlags);
         if (rc != 0)
@@ -353,17 +642,18 @@ MMPS_DMAMapBufferBank(
     return rc;
 }
 
-/**
- * MMPS_DMAMapBuffer()
- * Map data block of a single MMPS buffer handler to DMA.
+/*
+ * @brief   Map single data block to DMA.
  *
- * @buffer:             Pointer to MMPS buffer handler those data block
+ * Map data block of a single MMPS buffer descriptor to DMA.
+ *
+ * @param   buffer      Pointer to MMPS buffer descriptor those data block
  *                      needs to be mapped to DMA.
- * @dmaCapabilities:    DMA capabilities bitmask as described by mmap().
- * @dmaFlags:           DMA flags bitmask as described by mmap().
+ * @param   dmaCapabilities DMA capabilities bitmask as described by mmap().
+ * @param   dmaFlags    DMA flags bitmask as described by mmap().
  *
- * Returns 0 upon successful completion or an error code (negative value),
- * if cannot map to DMA.
+ * @return  0 upon successful completion.
+ * @return  Error code (negative value), if cannot map to DMA.
  */
 int
 MMPS_DMAMapBuffer(
@@ -375,21 +665,21 @@ MMPS_DMAMapBuffer(
 
     if (buffer->dmaAddress != NULL)
     {
-        ReportWarning("Buffer already mapped to DMA");
+        ReportWarning("[MMPS] Buffer already mapped to DMA");
 
-        return MMPS_ALREADY_DMA_MAPPED;
+        return MMPS_ALREADY_MAPPED_TO_DMA;
     }
 
     dmaAddress = mmap(buffer->data,
-        buffer->bufferSize,
-        dmaCapabilities,
-        dmaFlags,
-        NOFD,
-        0);
+            buffer->bufferSize,
+            dmaCapabilities,
+            dmaFlags,
+            NOFD,
+            0);
     if (dmaAddress == MAP_FAILED)
     {
-        ReportError("Cannot map buffer to DMA: errno=%d",
-            errno);
+        ReportError("[MMPS] Cannot map buffer to DMA: errno=%d",
+                errno);
 
         return MMPS_CANNOT_MAP_TO_DMA;
     }
@@ -399,15 +689,16 @@ MMPS_DMAMapBuffer(
     return MMPS_OK;
 }
 
-/**
- * MMPS_DMAUnmapBuffer()
- * Unmap data blocks of a single MMPS buffer handler from DMA.
+/*
+ * @brief   Release single data block from DMA.
  *
- * @buffer: Pointer to MMPS buffer handler those data block
- *          needs to be unmapped from DMA.
+ * Release data block of a single MMPS buffer descriptor from DMA.
  *
- * Returns 0 upon successful completion or an error code (negative value),
- * if cannot unmap from DMA.
+ * @param   buffer      Pointer to MMPS buffer descriptor those data block
+ *                      needs to be unmapped from DMA.
+ *
+ * @return  0 upon successful completion.
+ * @return  Error code (negative value), if cannot release DMA mapping.
  */
 int
 MMPS_DMAUnmapBuffer(struct MMPS_Buffer *buffer)
@@ -416,15 +707,16 @@ MMPS_DMAUnmapBuffer(struct MMPS_Buffer *buffer)
 
     if (buffer->dmaAddress == NULL)
     {
-        ReportWarning("Trying to unmap buffer from DMA that was not mapped");
+        ReportWarning("[MMPS] Trying to unmap buffer from DMA that was not mapped");
 
-        return MMPS_NOT_DMA_MAPPED;
+        return MMPS_NOT_MAPPED_TO_DMA;
     }
 
     rc = munmap(buffer->dmaAddress, buffer->bufferSize);
     if (rc != 0)
     {
-        ReportError("Cannot unmap buffer from DMA: errno=%d", errno);
+        ReportError("[MMPS] Cannot unmap buffer from DMA: errno=%d",
+                errno);
 
         return MMPS_CANNOT_UNMAP_FROM_DMA;
     }
@@ -435,17 +727,17 @@ MMPS_DMAUnmapBuffer(struct MMPS_Buffer *buffer)
 
     return MMPS_OK;
 }
-#endif
 
-/**
- * MMPS_BufferById()
- * Get buffer for specified MMPS pool and specified buffer bank.
+#endif // MMPS_DMA
+
+/*
+ * @brief   Get buffer for specified MMPS pool and specified buffer bank.
  *
- * @pool:               Pointer to MMPS pool handler.
- * @bankId:             Bank id.
- * @bufferId:           Buffer id.
+ * @param   pool        Pointer to MMPS pool descriptor.
+ * @param   bankId      Bank id.
+ * @param   bufferId    Buffer id.
  *
- * Returns pointer to MMPS buffer handler.
+ * @return  Pointer to MMPS buffer descriptor.
  */
 struct MMPS_Buffer *
 MMPS_BufferById(
@@ -466,30 +758,33 @@ MMPS_BufferById(
     block = bank->blocks[blockId];
 
     buffer = (void *)
-        ((unsigned long) block + (unsigned long) (bufferIdInBlock * sizeof(struct MMPS_Buffer)));
+        ((unsigned long) block +
+        (unsigned long) (bufferIdInBlock * sizeof(struct MMPS_Buffer)));
 
 #ifdef MMPS_PEEK_POKE
-    ReportDebug("... bufferId=%u bufferIdInBlock=%u block=0x%08lX buffer=0x%08lX data=0x%08lX",
-        bufferId,
-        bufferIdInBlock,
-        (unsigned long) block,
-        (unsigned long) buffer,
-        (unsigned long) buffer->data);
+    ReportDebug("[MMPS] " \
+            "... bufferId=%u bufferIdInBlock=%u block=0x%016lX " \
+            "buffer=0x%016lX data=0x%016lX",
+            bufferId,
+            bufferIdInBlock,
+            (unsigned long) block,
+            (unsigned long) buffer,
+            (unsigned long) buffer->data);
 #endif
 
     return buffer;
 }
 
-/**
- * MMPS_PeekBuffer()
- * Peek buffer from the first bank of the MMPS pool.
+/*
+ * @brief   Peek buffer from the first bank of the MMPS pool.
  *
- * @pool:               Pointer to MMPS pool handler.
- * @ownerId:            Owner id or application id the buffer will be associated with.
- *                      This value will be stored in a buffer descriptor.
+ * @param   pool        Pointer to MMPS pool descriptor.
+ * @param   ownerId     Owner id or application id the buffer
+ *                      will be associated with.
+ *                      This value will be stored in buffer descriptor.
  *
- * Returns pointer to MMPS buffer handler or NULL, if there are no free buffers
- * available in a specified pool.
+ * @return  Pointer to MMPS buffer descriptor upon successful completion.
+ * @return  NULL if there are no free buffers available in a specified pool.
  */
 inline struct MMPS_Buffer *
 MMPS_PeekBuffer(
@@ -499,19 +794,21 @@ MMPS_PeekBuffer(
     return MMPS_PeekBufferFromBank(pool, 0, ownerId);
 }
 
-/**
- * MMPS_PeekBufferOfSize()
- * Peek a buffer of preferred size from of the specified MMPS pool.
+/*
+ * @brief   Peek a buffer of preferred size from of the specified MMPS pool.
+ *
  * MMPS will go through all banks until unused buffer is found.
- * If no buffer of a preferred size can be found, a smaller buffer can be returned.
+ * If no buffer of a preferred size can be found,
+ * a smaller buffer can be returned.
  *
- * @pool:               Pointer to MMPS pool handler.
- * @preferredSize:      Preferred/minimum size of requested buffer.
- * @ownerId:            Owner id or application id the buffer will be associated with.
- *                      This value will be stored in a buffer descriptor.
+ * @param   pool:       Pointer to MMPS pool descriptor.
+ * @param   preferredSize Preferred/minimum size of requested buffer.
+ * @param   ownerId:    Owner id or application id the buffer
+ *                      will be associated with.
+ *                      This value will be stored in buffer descriptor.
  *
- * Returns pointer to MMPS buffer handler or NULL, if there are no free buffers
- * available in a specified pool.
+ * @return  Pointer to MMPS buffer descriptor upon successful completion.
+ * @return  NULL if there are no free buffers available in a specified pool.
  */
 struct MMPS_Buffer *
 MMPS_PeekBufferOfSize(
@@ -524,9 +821,11 @@ MMPS_PeekBufferOfSize(
     unsigned int        bankId;
 
 #ifdef MMPS_PEEK_POKE
-    ReportDebug("Peek buffer of size %u for 0x%08X",
-        preferredSize,
-        ownerId);
+#ifdef MMPS_USE_OWNER_ID
+    ReportDebug("[MMPS] Peek buffer of size %u for 0x%08X", preferredSize, ownerId);
+#else
+    ReportDebug("[MMPS] Peek buffer of size %u", preferredSize);
+#endif
 #endif
 
     buffer = NULL;
@@ -547,7 +846,8 @@ MMPS_PeekBufferOfSize(
             if (buffer != NULL)
                 break;
 
-            // If there are no free buffers in this bank, then go long with further banks.
+            // If there are no free buffers in this bank,
+            // then go long with further banks.
         }
     }
 
@@ -572,25 +872,47 @@ MMPS_PeekBufferOfSize(
 
     if (buffer == NULL)
     {
-        ReportWarning("No free buffer available (requested preferred size %u for 0x%08X)",
-            preferredSize,
-            ownerId);
+        ReportWarning("[MMPS] " \
+                "No free buffer available " \
+                "(requested preferred size %u for 0x%08X)",
+                preferredSize,
+                ownerId);
+
+        return NULL;
+    }
+
+    // For buffers of the bank with the 'alloc on demand' flag set on,
+    // allocate memory resources for data each time when the buffer is peeked.
+    //
+    if (bank->allocateOnDemand == TRUE)
+    {
+        buffer->data = malloc(buffer->bufferSize);
+        if (buffer->data == NULL)
+        {
+            MMPS_PokeBuffer(buffer);
+
+            ReportSoftAlert("[MMPS] Out of memory");
+
+            return NULL;
+        }
+
+        buffer->cursor = buffer->data;
     }
 
     return buffer;
 }
 
-/**
- * MMPS_PeekBufferFromBank()
- * Peek an unused buffer from the specified MMPS bank.
+/*
+ * @brief   Peek an unused buffer from the specified MMPS bank.
  *
- * @pool:               Pointer to MMPS pool handler.
- * @bankId:             Bank id to search for unused buffer.
- * @ownerId:            Owner id or application id the buffer will be associated with.
- *                      This value will be stored in a buffer handler.
+ * @param   pool        Pointer to MMPS pool descriptor.
+ * @param   bankId      Bank id to search for unused buffer.
+ * @param   ownerId     Owner id or application id the buffer
+ *                      will be associated with.
+ *                      This value will be stored in buffer descriptor.
  *
- * Returns pointer to MMPS buffer handler or NULL, if there are no free buffers
- * available in a specified pool.
+ * @return  Pointer to MMPS buffer descriptor upon successful completion.
+ * @return  NULL if there are no free buffers available in a specified bank.
  */
 struct MMPS_Buffer *
 MMPS_PeekBufferFromBank(
@@ -603,15 +925,17 @@ MMPS_PeekBufferFromBank(
     unsigned int        bufferId;
 
 #ifdef MMPS_PEEK_POKE
-    ReportDebug("Peek buffer from bank %u for 0x%08X",
-        bankId,
-        ownerId);
+#ifdef MMPS_USE_OWNER_ID
+    ReportDebug("[MMPS] Peek buffer from bank %u for 0x%08X", bankId, ownerId);
+#else
+    ReportDebug("[MMPS] Peek buffer from bank %u", bankId);
+#endif
 #endif
 
     bank = pool->banks[bankId];
 
 #ifdef MMPS_MUTEX
-    pthread_mutex_lock(&bank->mutex);
+    pthread_mutex_lock(&bank->mutex.lock);
 #else
     pthread_spin_lock(&bank->lock);
 #endif
@@ -619,10 +943,10 @@ MMPS_PeekBufferFromBank(
     bufferId = bank->ids[bank->cursor.peek];
 
 #ifdef MMPS_PEEK_POKE
-    ReportDebug("... bank->peekCursor=%u bank->pokeCursor=%u bufferId=%u",
-        bank->cursor.peek,
-        bank->cursor.poke,
-        bufferId);
+    ReportDebug("[MMPS] ... bank->peekCursor=%u bank->pokeCursor=%u bufferId=%u",
+            bank->cursor.peek,
+            bank->cursor.poke,
+            bufferId);
 #endif
 
     if (bufferId == NOTHING) {
@@ -638,13 +962,13 @@ MMPS_PeekBufferFromBank(
         if (buffer->ownerId != MMPS_NO_OWNER)
         {
 #ifdef MMPS_MUTEX
-            pthread_mutex_unlock(&bank->mutex);
+            pthread_mutex_unlock(&bank->mutex.lock);
 #else
             pthread_spin_unlock(&bank->lock);
 #endif
 
-            ReportError("Got buffer that already belongs to 0x%08X",
-                ownerId);
+            ReportError("[MMPS] Got buffer that already belongs to 0x%08X",
+                    ownerId);
 
             return NULL;
         }
@@ -660,29 +984,50 @@ MMPS_PeekBufferFromBank(
     }
 
 #ifdef MMPS_MUTEX
-    pthread_mutex_unlock(&bank->mutex);
+    pthread_mutex_unlock(&bank->mutex.lock);
 #else
     pthread_spin_unlock(&bank->lock);
 #endif
 
     if (buffer == NULL)
     {
-        ReportWarning("No free buffer available (requested bank %u for 0x%08X)",
-            bankId,
-            ownerId);
+        ReportWarning("[MMPS] " \
+                "No free buffer available (requested bank %u for 0x%08X)",
+                bankId,
+                ownerId);
+
+        return NULL;
+    }
+
+    // For buffers of the bank with the 'alloc on demand' flag set on,
+    // allocate memory resources for data each time when the buffer is peeked.
+    //
+    if (bank->allocateOnDemand == TRUE)
+    {
+        buffer->data = malloc(buffer->bufferSize);
+        if (buffer->data == NULL)
+        {
+            MMPS_PokeBuffer(buffer);
+
+            ReportSoftAlert("[MMPS] Out of memory");
+
+            return NULL;
+        }
+
+        buffer->cursor = buffer->data;
     }
 
     return buffer;
 }
 
-/**
- * MMPS_PokeBuffer()
- * Poke buffer or buffer chain back to MMPS pool. In case of chain of buffers,
- * the chain will be disassembled and each buffer will be put back
- * to a corresponding bank.
+/*
+ * @brief   Poke buffer or buffer chain back to MMPS pool.
  *
- * @buffer: Pointer to a buffer handler or a chain of buffer handlers
- *          to be put back to MMPS pool.
+ * In case of chain of buffers, the chain will be disassembled and each buffer
+ * will be put back to a corresponding bank.
+ *
+ * @param   buffer      Pointer to a buffer descriptor or a chain
+ *                      of buffer descriptors to be put back to MMPS pool.
  */
 void
 MMPS_PokeBuffer(struct MMPS_Buffer *buffer)
@@ -691,26 +1036,27 @@ MMPS_PokeBuffer(struct MMPS_Buffer *buffer)
     struct MMPS_Buffer  *thisBuffer;
     struct MMPS_Buffer  *nextBuffer;
 
-    thisBuffer = MMPS_FirstBuffer(buffer);
+    thisBuffer = buffer;
     do {
         bank = thisBuffer->bank;
 
 #ifdef MMPS_PEEK_POKE
 #ifdef MMPS_USE_OWNER_ID
-        ReportDebug("Poke buffer %u to bank %u for 0x%08X",
-            thisBuffer->bufferId, bank->bankId, thisBuffer->ownerId);
+        ReportDebug("[MMPS] Poke buffer %u to bank %u for 0x%08X",
+                thisBuffer->bufferId, bank->bankId, thisBuffer->ownerId);
 #else
-        ReportDebug("Poke buffer %u to bank %u",
-            thisBuffer->bufferId, bank->bankId);
+        ReportDebug("[MMPS] Poke buffer %u to bank %u",
+                thisBuffer->bufferId, bank->bankId);
 #endif
 #endif
 
 #ifdef MMPS_USE_OWNER_ID
         if (thisBuffer->ownerId == MMPS_NO_OWNER)
         {
-            ReportError("Trying to poke buffer %u to bank %u that was not peeked",
-                thisBuffer->bufferId,
-                thisBuffer->bank->bankId);
+            ReportError("[MMPS] " \
+                    "Trying to poke buffer %u to bank %u that was not peeked",
+                    thisBuffer->bufferId,
+                    thisBuffer->bank->bankId);
 
             break;
         }
@@ -720,11 +1066,22 @@ MMPS_PokeBuffer(struct MMPS_Buffer *buffer)
 
         if ((nextBuffer != NULL) && (nextBuffer->prev != thisBuffer))
         {
-            ReportError("Detected broken buffer chain for buffers %u and %u",
-                thisBuffer->bufferId,
-                nextBuffer->bufferId);
+            ReportError("[MMPS] " \
+                    "Detected broken buffer chain for buffers %u and %u",
+                    thisBuffer->bufferId,
+                    nextBuffer->bufferId);
 
             nextBuffer = NULL;
+        }
+
+        // For buffers of the bank with the 'alloc on demand' flag set on,
+        // release memory resources used for data.
+        //
+        if (bank->allocateOnDemand == TRUE)
+        {
+            free(thisBuffer->data);
+            thisBuffer->data = NULL;
+            thisBuffer->cursor = NULL;
         }
 
         thisBuffer->prev = NULL;
@@ -736,7 +1093,7 @@ MMPS_PokeBuffer(struct MMPS_Buffer *buffer)
 #endif
 
 #ifdef MMPS_MUTEX
-        pthread_mutex_lock(&bank->mutex);
+        pthread_mutex_lock(&bank->mutex.lock);
 #else
         pthread_spin_lock(&bank->lock);
 #endif
@@ -748,7 +1105,7 @@ MMPS_PokeBuffer(struct MMPS_Buffer *buffer)
             bank->cursor.poke = 0;
 
 #ifdef MMPS_MUTEX
-        pthread_mutex_unlock(&bank->mutex);
+        pthread_mutex_unlock(&bank->mutex.lock);
 #else
         pthread_spin_unlock(&bank->lock);
 #endif
@@ -758,21 +1115,102 @@ MMPS_PokeBuffer(struct MMPS_Buffer *buffer)
 #ifdef MMPS_PEEK_POKE
         if (thisBuffer != NULL)
         {
-            ReportDebug("... next buffer %u",
-                thisBuffer->bufferId);
+            ReportDebug("[MMPS] ... next buffer %u",
+                    thisBuffer->bufferId);
         }
 #endif
     } while (thisBuffer != NULL);
 }
 
-/**
- * MMPS_PreviousBuffer()
- * Get buffer from a chain of buffers which precedes the referencing buffer.
+/*
+ * @brief   Increment the number of touches of MMPS buffer.
  *
- * @buffer: Pointer to the referencing MMPS buffer handler.
+ * As long the number of touches is more than zero the MMPS buffer
+ * could be poked back to the pool.
  *
- * Returns pointer to MMPS buffer handler of the preceding buffer in a chain
- * or NULL, if referencing buffer is the first buffer in a chain.
+ * @param   buffer      Pointer to a buffer descriptor or a chain
+ *                      of buffer descriptors to be touched.
+ */
+void
+MMPS_TouchBuffer(struct MMPS_Buffer *buffer)
+{
+#ifdef LINUX
+
+#ifdef MMPS_MUTEX
+    pthread_mutex_lock(&buffer->bank->mutex.lock);
+#else
+    pthread_spin_lock(&buffer->bank->lock);
+#endif
+
+    buffer->touches++;
+
+#ifdef MMPS_MUTEX
+    pthread_mutex_unlock(&buffer->bank->mutex.lock);
+#else
+    pthread_spin_unlock(&buffer->bank->lock);
+#endif
+
+#else // LINUX
+
+    atomic_add(&buffer->touches, 1);
+
+#endif // LINUX
+}
+
+/*
+ * @brief   Decrement the number of touches of MMPS buffer.
+ *
+ * MMPS buffer could be poked back to the pool only when the number of touches
+ * is equal zero. When last member absolves the MMPS buffer it is automatically
+ * poked back to the pool - in such case there is no need to call
+ * MMPS_PokeBuffer().
+ *
+ * @param   buffer      Pointer to a buffer descriptor or a chain
+ *                      of buffer descriptors to be absolved.
+ */
+void
+MMPS_AbsolveBuffer(struct MMPS_Buffer *buffer)
+{
+#ifdef LINUX
+
+#ifdef MMPS_MUTEX
+    pthread_mutex_lock(&buffer->bank->mutex.lock);
+#else
+    pthread_spin_lock(&buffer->bank->lock);
+#endif
+
+    buffer->touches--;
+
+#ifdef MMPS_MUTEX
+    pthread_mutex_unlock(&buffer->bank->mutex.lock);
+#else
+    pthread_spin_unlock(&buffer->bank->lock);
+#endif
+
+    if (buffer->touches == 0)
+    {
+        MMPS_PokeBuffer(buffer);
+    }
+
+#else // LINUX
+
+    // Poke the buffer if that was the last touch.
+    //
+    if (atomic_sub_value(&buffer->touches, 1) == 1)
+    {
+        MMPS_PokeBuffer(buffer);
+    }
+
+#endif // LINUX
+}
+
+/*
+ * @brief   Get buffer from a chain, which precedes the referencing buffer.
+ *
+ * @param   buffer      Pointer to the referencing MMPS buffer descriptor.
+ *
+ * @return  Pointer to MMPS buffer descriptor of the preceding buffer in a chain.
+ * @return  NULL if referencing buffer is the first buffer in a chain.
  */
 inline struct MMPS_Buffer *
 MMPS_PreviousBuffer(struct MMPS_Buffer *buffer)
@@ -780,14 +1218,13 @@ MMPS_PreviousBuffer(struct MMPS_Buffer *buffer)
     return buffer->prev;
 }
 
-/**
- * MMPS_NextBuffer()
- * Get buffer from a chain of buffers which succeeds the referencing buffer.
+/*
+ * @brief   Get buffer from a chain, which succeeds the referencing buffer.
  *
- * @buffer: Pointer to the referencing MMPS buffer handler.
+ * @param   buffer      Pointer to the referencing MMPS buffer descriptor.
  *
- * Returns pointer to MMPS buffer handler of the succeeding buffer in a chain
- * or NULL, if referencing buffer is the last buffer in a chain.
+ * @return  Pointer to MMPS buffer descriptor of the succeeding buffer in a chain.
+ * @return  NULL if referencing buffer is the last buffer in a chain.
  */
 inline struct MMPS_Buffer *
 MMPS_NextBuffer(struct MMPS_Buffer *buffer)
@@ -795,13 +1232,12 @@ MMPS_NextBuffer(struct MMPS_Buffer *buffer)
     return buffer->next;
 }
 
-/**
- * MMPS_FirstBuffer()
- * Get first buffer of a chain.
+/*
+ * @brief   Get first buffer of a chain.
  *
- * @chain: Pointer to the referencing MMPS buffer handler.
+ * @param   chain       Pointer to the referencing MMPS buffer descriptor.
  *
- * Returns pointer to MMPS buffer handler of the first buffer in a chain.
+ * @return  Pointer to MMPS buffer descriptor of the first buffer in a chain.
  */
 inline struct MMPS_Buffer *
 MMPS_FirstBuffer(struct MMPS_Buffer *chain)
@@ -816,13 +1252,12 @@ MMPS_FirstBuffer(struct MMPS_Buffer *chain)
     return firstBuffer;
 }
 
-/**
- * MMPS_LastBuffer()
- * Get last buffer of a chain.
+/*
+ * @brief   Get last buffer of a chain.
  *
- * @chain: Pointer to the referencing MMPS buffer handler.
+ * @param   chain       Pointer to the referencing MMPS buffer descriptor.
  *
- * Returns pointer to MMPS buffer handler of the last buffer in a chain.
+ * @return  Pointer to MMPS buffer descriptor of the last buffer in a chain.
  */
 inline struct MMPS_Buffer *
 MMPS_LastBuffer(struct MMPS_Buffer *chain)
@@ -837,34 +1272,50 @@ MMPS_LastBuffer(struct MMPS_Buffer *chain)
     return lastBuffer;
 }
 
-/**
- * MMPS_ExtendBuffer()
+/*
+ * @brief   Extend a chain with one more buffer.
+ *
  * Peek one more buffer from the MMPS pool and append it at the end
  * of a specified chain of buffers. MMPS will try to peek a buffer
- * from the same bank, the referencing buffer belongs to. If there no buffers
- * available in that bank, MMPS will search through all other banks for a free buffer.
+ * from the same bank, the referencing buffer belongs to.
+ * If there no buffers available in that bank,
+ * MMPS will search through all other banks for a free buffer.
  *
- * @buffer: Buffer to append a new buffer to.
+ * @param   buffer      Buffer to append a new buffer to.
  *
- * Returns pointer to MMPS buffer handler of the attached buffer or NULL,
- * if MMPS was not able to find any free buffer in a pool.
- * If referenced buffer did already have a succeeding buffer (chain),
- * then the pointer to MMPS buffer handler of the succeeding buffer will be returned
+ * @return  Pointer to MMPS buffer descriptor of the attached buffer.
+ *          If referenced buffer did already have a succeeding buffer (chain),
+ *          then the pointer to MMPS buffer descriptor of the succeeding buffer
+ *          will be returned.
+ * @return  NULL if MMPS was not able to find any free buffer in a pool.
  */
 struct MMPS_Buffer *
 MMPS_ExtendBuffer(struct MMPS_Buffer *origBuffer)
 {
     struct MMPS_Buffer *nextBuffer;
 
-    nextBuffer = MMPS_PeekBufferOfSize(
-        origBuffer->bank->pool,
-        origBuffer->bufferSize,
+    nextBuffer = MMPS_PeekBufferFromBank(
+            origBuffer->bank->pool,
+            origBuffer->bank->bankId,
 #ifdef MMPS_USE_OWNER_ID
-        origBuffer->ownerId
+            origBuffer->ownerId
 #else
-        MMPS_NO_OWNER
+            MMPS_NO_OWNER
 #endif
     );
+
+    if (nextBuffer == NULL)
+    {
+        nextBuffer = MMPS_PeekBufferOfSize(
+                origBuffer->bank->pool,
+                origBuffer->bufferSize,
+#ifdef MMPS_USE_OWNER_ID
+                origBuffer->ownerId
+#else
+                MMPS_NO_OWNER
+#endif
+        );
+    }
 
     origBuffer->next = nextBuffer;
     nextBuffer->prev = origBuffer;
@@ -872,18 +1323,21 @@ MMPS_ExtendBuffer(struct MMPS_Buffer *origBuffer)
     return nextBuffer;
 }
 
-/**
- * MMPS_AppendBuffer()
- * Append buffer or a chain of buffers to another buffer or another chain of buffers.
+/*
+ * @brief   Append a buffer at the end of a chain.
  *
- * @destination:        Pointer to MMPS buffer handler from the chain
+ * Append buffer or a chain of buffers to another buffer
+ * or another chain of buffers.
+ *
+ * @param   destination Pointer to MMPS buffer descriptor from the chain
  *                      to append new buffer to.
- * @appendage:          Pointer to MMPS buffer handler that has to be appended
- *                      at the end of a chain.
+ * @param   appendage   Pointer to MMPS buffer descriptor
+ *                      that has to be appended at the end of a chain.
  *
- * If a valid pointer to MMPS buffer handler is provided as destination reference,
- * then the same pointer is returned.
- * If destination is referenced as NULL, then the appendage reference is returned.
+ * @return  If a valid pointer to MMPS buffer descriptor is provided
+ *          as destination reference, then the same pointer is returned.
+ *          If destination is referenced as NULL, then the appendage reference
+ *          is returned.
  */
 struct MMPS_Buffer *
 MMPS_AppendBuffer(
@@ -905,39 +1359,95 @@ MMPS_AppendBuffer(
     }
 }
 
-/**
- * MMPS_TruncateBuffer()
- * Cut buffers chained on a referenced buffer and give the cut buffers back to the pool.
- * All buffers, succeeding the referenced buffer, will be removed from the chain
- * and put back to the MMPS pool.
- * If referenced buffer is the first buffer in a chain, then after completion
- * of MMPS_TruncateBuffer() this buffer will be a standalone buffer (not chained buffer).
- * If referenced buffer is not the first buffer in a chain, then after completion
- * of MMPS_TruncateBuffer() this buffer will be the last buffer of a chain..
+/*
+ * @brief   Remove buffer from a chain of buffers.
  *
- * @buffer: Pointer to MMPS buffer handler of a referenced buffer.
+ * @param   anchor      Pointer to MMPS buffer chan anchor.
+ * @param   removal     Pointer to MMPS buffer to be removed from a chain.
  *
- * Does not return any value.
+ * @return  Pointer to MMPS buffer descriptor that is a new anchor of a chain.
  */
-void
-MMPS_TruncateBuffer(struct MMPS_Buffer *buffer)
+struct MMPS_Buffer *
+MMPS_RemoveFromChain(
+    struct MMPS_Buffer *anchor,
+    struct MMPS_Buffer *removal)
 {
-    if (buffer->next != NULL)
+    struct MMPS_Buffer *newAnchor;
+
+    if (anchor == removal)
     {
-        MMPS_PokeBuffer(buffer->next);
-        buffer->next = NULL;
+        // MMPS buffer to be removed from the chain is actually the chain anchor.
+        // Set new chain anchor .
+
+        newAnchor = removal->next;
+
+        if (removal->next != NULL)
+        {
+            removal->next->prev = NULL;
+            removal->next = NULL;
+        }
+
+        return newAnchor;
+    }
+    else
+    {
+        if (removal->prev != NULL)
+        {
+            removal->prev->next = removal->next;
+            removal->prev = NULL;
+        }
+
+        if (removal->next != NULL)
+        {
+            removal->next->prev = removal->prev;
+            removal->next = NULL;
+        }
+
+        return anchor;
     }
 }
 
-/**
- * MMPS_CopyBuffer()
- * Copy data from one buffer chain to another. If destination chain of buffers
- * is smaller the source then only a part of data will be copied.
+/*
+ * @brief   Truncate buffers at the end of a chain.
  *
- * @destination:        Pointer to MMPS buffer handler of the destination buffer chain.
- * @source:             Pointer to MMPS buffer handler of the source buffer chain.
+ * Cut buffers chained on a referenced buffer and give the cut buffers
+ * back to the pool. All buffers, succeeding the referenced buffer,
+ * will be removed from the chain and put back to the MMPS pool.
+ * If referenced buffer is the first buffer in a chain, then after completion
+ * of MMPS_TruncateBuffer() this buffer will be a standalone buffer
+ * (not chained buffer). If referenced buffer is not the first buffer
+ * in a chain, then after completion of MMPS_TruncateBuffer() this buffer
+ * will be the last buffer of a chain.
  *
- * Returns number of bytes being copied.
+ * @param   tailingBuffer   Pointer to MMPS buffer descriptor of the buffer,
+ *                          which must be the tailing buffer after the trancate.
+ */
+void
+MMPS_TruncateChain(struct MMPS_Buffer *tailingBuffer)
+{
+    struct MMPS_Buffer  *bufferToPurge;
+
+    bufferToPurge = MMPS_NextBuffer(tailingBuffer);
+    if (bufferToPurge != NULL)
+    {
+        tailingBuffer->next = NULL;
+        bufferToPurge->prev = NULL;
+        MMPS_PokeBuffer(bufferToPurge);
+    }
+}
+
+/*
+ * @brief   Copy data from one buffer chain to another.
+ *
+ * If destination chain of buffers is smaller than the source
+ * then only a part of data will be copied.
+ *
+ * @param   destination Pointer to MMPS buffer descriptor
+ *                      of the destination buffer chain.
+ * @param   source      Pointer to MMPS buffer descriptor
+ *                      of the source buffer chain.
+ *
+ * @return  Number of bytes being copied.
  */
 unsigned int
 MMPS_CopyBuffer(struct MMPS_Buffer *destination, struct MMPS_Buffer *source)
@@ -960,8 +1470,9 @@ MMPS_CopyBuffer(struct MMPS_Buffer *destination, struct MMPS_Buffer *source)
     while (destination != NULL)
     {
         // If current destination buffer is full, then switch
-        // to the next buffer in a destination chain. If there are no other buffers
-        // in a destination chain then the job is done
+        // to the next buffer in a destination chain.
+        // If there are no other buffers in a destination chain
+        // then the job is done
         //
         if (destinationBytes == 0)
         {
@@ -999,6 +1510,8 @@ MMPS_CopyBuffer(struct MMPS_Buffer *destination, struct MMPS_Buffer *source)
             bytesToCopy = sourceBytes;
         }
 
+        destination->dataSize += bytesToCopy;
+
         // Copy piece of data.
         //
         memcpy(destinationCursor, sourceCursor, bytesToCopy);
@@ -1019,15 +1532,15 @@ MMPS_CopyBuffer(struct MMPS_Buffer *destination, struct MMPS_Buffer *source)
     return totalCopiedBytes;
 }
 
-/**
- * MMPS_TotalDataSize()
- * Get total data size summarized for all buffers in a chain.
+/*
+ * @brief   Get total data size summarized for all buffers in a chain.
+ *
  * The buffers in a chain may belong to different banks and be of different size.
  *
- * @firstBuffer: Pointer to MMPS buffer handler of the first buffer in a chain
- *               to begin counting from.
+ * @param   firstBuffer Pointer to MMPS buffer descriptor of the first buffer
+ *                      in a chain to begin counting from.
  *
- * Returns total data size in bytes.
+ * @return  Total data size in bytes.
  */
 inline unsigned int
 MMPS_TotalDataSize(struct MMPS_Buffer *firstBuffer)
@@ -1042,62 +1555,37 @@ MMPS_TotalDataSize(struct MMPS_Buffer *firstBuffer)
     return totalDataSize;
 }
 
-/**
- * MMPS_ResetBufferData()
- * Reset data size to 0 for referencing buffer or, if a chain of buffers is referenced,
- * for all buffers in a chain.
+/*
+ * @brief   Reset data size to 0.
  *
- * @buffer:             Pointer to MMPS buffer handler or anchor of a chain of buffers.
- * @leavePilot:         Boolean value specifying whether pilot has to be left
- *                      in the anchor buffer.
+ * Reset data size to 0 for referencing buffer or, if a chain of buffers
+ * is referenced, for all buffers in a chain.
+ *
+ * @param   buffer      Pointer to MMPS buffer descriptor or anchor
+ *                      of a chain of buffers.
  */
 inline void
-MMPS_ResetBufferData(struct MMPS_Buffer *buffer, unsigned int leavePilot)
+MMPS_ResetBufferData(struct MMPS_Buffer *buffer)
 {
-    // Reset data size of the first buffer in a chain. Leave pilot if needed.
-    //
-    if (leavePilot == 0) {
-        buffer->dataSize = 0;
-    } else {
-        buffer->dataSize = buffer->pilotSize;
-    }
-
-    // Reset data size of the rest buffers in a chain.
-    //
-    buffer = buffer->next;
     while (buffer != NULL)
     {
+        buffer->cursor = buffer->data;
         buffer->dataSize = 0;
         buffer = buffer->next;
     }
 }
 
-/**
- * MMPS_ResetCursor()
+/*
+ * @brief   Reset cursor to the beginning of data.
+ *
  * Reset cursor to position to the beginning of data for referencing buffer or,
  * if a chain of buffers is referenced, for all buffers in a chain.
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @leavePilot:         Boolean value specifying whether cursor must point
- *                      to a beginning of data or to the beginning of payload
- *                      after the pilot.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
  */
 inline void
-MMPS_ResetCursor(struct MMPS_Buffer *buffer, unsigned int leavePilot)
+MMPS_ResetCursor(struct MMPS_Buffer *buffer)
 {
-    // Move cursor of the first buffer in a chain to wither the beginning of data
-    // or beginning of payload after the pilot.
-    //
-    if (leavePilot == 0) {
-        buffer->cursor = buffer->data;
-    } else {
-        buffer->cursor = buffer->data + buffer->pilotSize;
-    }
-
-    // The rest of buffers in a chain do not contain pilot.
-    // Just move cursor to the beginning.
-    //
-    buffer = buffer->next;
     while (buffer != NULL)
     {
         buffer->cursor = buffer->data;
@@ -1105,100 +1593,119 @@ MMPS_ResetCursor(struct MMPS_Buffer *buffer, unsigned int leavePilot)
     }
 }
 
-/**
- * MMPS_MoveCursorRelative()
- * Move cursor forwards for specified amount of bytes. If new absolute offset
- * is located in another buffer of a chain then switch from the referencing buffer
- * to succeeding buffers through the chain until a proper buffer is reached.
+/*
+ * @brief   Move cursor forwards for specified amount of bytes.
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @relativeOffset:     Number of bytes to move cursor forwards.
+ * If new absolute offset is located in another buffer of a chain then switch
+ * from the referencing buffer to succeeding buffers through the chain
+ * until a proper buffer is reached.
  *
- * Returns pointer to MMPS buffer handler of a buffer where the cursor is positioned
- * after the move operation. If new the absolute position, calculated by current
- * cursor position and relative offset, is out of range of the referencing buffer
- * or chain of buffers, then a NULL pointer is returned
+ * @param   buffer          Pointer to MMPS buffer descriptor.
+ * @param   relativeOffset  Number of bytes to move cursor forwards.
+ *
+ * @return  Pointer to MMPS buffer descriptor of a buffer where the cursor
+ *          is positioned after the move operation. If new the absolute
+ *          position, calculated by current cursor position and relative offset,
+ *          is out of range of the referencing buffer or chain of buffers,
+ *          then a NULL pointer is returned.
  */
 struct MMPS_Buffer *
 MMPS_MoveCursorRelative(
     struct MMPS_Buffer  *buffer,
     unsigned int        relativeOffset)
 {
-    unsigned int        curTotalDataSize;
-    unsigned int        newTotalDataSize;
-    int                 deltaForExtensionBufferTotal;
-    int                 deltaForExtensionBufferStep;
-    struct MMPS_Buffer  *currentBuffer;
+    int bytesThatWouldFit;
 
-    // Get total data size for a complete chain.
+    // Find out how many bytes would fit in the current buffer.
     //
-    curTotalDataSize = MMPS_TotalDataSize(MMPS_FirstBuffer(buffer));
-
-    // Get new total data size (inklusive new data mentioned by relative offset).
-    //
-    newTotalDataSize = curTotalDataSize + relativeOffset;
-
-    // Find out how many bytes would (possibly) not fit in the current buffer.
-    //
-    deltaForExtensionBufferTotal =
+    bytesThatWouldFit =
         buffer->dataSize - (buffer->cursor - buffer->data) - relativeOffset;
 
-    // Delta equal 0 means that the new data will fit up to the end of the current buffer.
-    // Delta greater than 0 means that the new data will fit in the current buffer
-    // and there will be still free space left.
+    // Delta equal 0 means that the new cursor position would point to the
+    // beginning of next buffer. Extend the chain by one buffer if needed.
+    // Delta greater than 0 means that the new data will fit
+    // in the current buffer and there will be still free space left.
     // Negative value shows how many bytes would not fit in the current buffer.
+    // In such case the chain has to be extended.
     //
-    if (deltaForExtensionBufferTotal >= 0)
+    if (bytesThatWouldFit == 0)
     {
-        buffer->dataSize = newTotalDataSize;
+        if (buffer->next != NULL)
+        {
+            buffer = buffer->next;
 
+            buffer->cursor = buffer->data;
+        }
+        else
+        {
+            buffer = MMPS_ExtendBuffer(buffer);
+        }
+
+        return buffer;
+    }
+    else if (bytesThatWouldFit > 0)
+    {
         buffer->cursor += relativeOffset;
 
         return buffer;
     }
     else
     {
-        // Revert delat so that it presents a positive number of bytes.
-        //
-        deltaForExtensionBufferTotal = -deltaForExtensionBufferTotal;
+        relativeOffset -= buffer->dataSize - (buffer->cursor - buffer->data);
 
-        currentBuffer = buffer;
-        while (deltaForExtensionBufferTotal > 0)
+        if (buffer->next != NULL)
         {
-            deltaForExtensionBufferStep = currentBuffer->bufferSize - currentBuffer->dataSize;
-            if (deltaForExtensionBufferStep > relativeOffset)
-                deltaForExtensionBufferStep = relativeOffset;
-
-            currentBuffer->dataSize += deltaForExtensionBufferStep;
-
-            currentBuffer->cursor += deltaForExtensionBufferStep;
-
-            deltaForExtensionBufferTotal -= deltaForExtensionBufferStep;
-
-            // Extend buffer (or chain) if needed.
-            //
-            if (deltaForExtensionBufferTotal > 0)
-            {
-                currentBuffer = MMPS_ExtendBuffer(currentBuffer);
-                if (currentBuffer == NULL)
-                    return NULL;
-            }
+            buffer = buffer->next;
+        }
+        else
+        {
+            buffer = MMPS_ExtendBuffer(buffer);
         }
 
-        return currentBuffer;
+        buffer = MMPS_MoveCursorRelative(buffer, relativeOffset);
+
+        return buffer;
     }
 }
 
-/**
- * MMPS_PutData()
- * Put (write) data to a buffer chain under cursor. Append new buffer if necessary.
+/*
+ * @brief   Find out whether cursor is pointing to the end of data.
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @sourceData:         Pointer to memory area to copy data from.
- * @sourceDataSize:     Size of data to copy.
+ * Only current buffer is examined - not the other buffers in a chain.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after write is complete. This may be another buffer than a referenced buffer.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ *
+ * @return  Boolean true if cursor is pointing to the last byte, or false if not.
+ */
+boolean
+MMPS_IsCursorAtTheEndOfData(struct MMPS_Buffer *buffer)
+{
+    // TODO
+
+    if (buffer->next)
+        return false;
+
+    if (buffer->cursor < (buffer->data + buffer->dataSize)) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+/*
+ * @brief   Put (write) data to a buffer chain under cursor.
+ *
+ * Append new buffer if necessary.
+ *
+ * @param   buffer          Pointer to MMPS buffer descriptor.
+ * @param   sourceData      Pointer to memory area to copy data from.
+ * @param   sourceDataSize  Size of data to copy.
+ *
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after write is complete.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_PutData(
@@ -1206,35 +1713,43 @@ MMPS_PutData(
     const char* const   sourceData,
     unsigned int        sourceDataSize)
 {
-    unsigned int sourceDataOffset;
+    unsigned int    sourceDataOffset;
+    int             freeSpaceInBuffer;
+    int             bytesPerBuffer;
 
     sourceDataOffset = 0;
     while (sourceDataOffset < sourceDataSize)
     {
-        int freeSpaceInBuffer = buffer->bufferSize - buffer->dataSize;
+        freeSpaceInBuffer =
+                buffer->bufferSize - (buffer->cursor - buffer->data);
 
         // Calculate the amount of data to be written to the current buffer.
         //
-        int bytesPerBuffer = sourceDataSize - sourceDataOffset;
+        bytesPerBuffer = sourceDataSize - sourceDataOffset;
         if (bytesPerBuffer > freeSpaceInBuffer)
             bytesPerBuffer = freeSpaceInBuffer;
 
         // Copy data or a portion of data that may fit in current buffer.
         //
         memcpy(
-            buffer->data + buffer->dataSize,
+            buffer->cursor,
             sourceData + sourceDataOffset,
             bytesPerBuffer);
 
-        buffer->dataSize += bytesPerBuffer;
+        buffer->cursor += bytesPerBuffer;
+
+        if (buffer->dataSize < (buffer->cursor - buffer->data + sizeof(char)))
+            buffer->dataSize = buffer->cursor - buffer->data;
 
         sourceDataOffset += bytesPerBuffer;
 
-        // If free space in current buffer was not enough to write complete data ...
+        // If free space in current buffer was not enough
+        // to write complete data ...
         //
         if (sourceDataOffset < sourceDataSize)
         {
-            // ... then switch to next buffer in a chain or append a new buffer if necessary.
+            // ... then switch to next buffer in a chain
+            // or append a new buffer if necessary.
             //
             if (buffer->next != NULL) {
                 //
@@ -1246,45 +1761,65 @@ MMPS_PutData(
                 if (buffer == NULL)
                     return NULL;
             }
+
+            MMPS_ResetCursor(buffer);
         }
     }
 
     return buffer;
 }
 
-/**
- * MMPS_GetData()
- * Get (read) data from a buffer chain under cursor.
+/*
+ * @brief   Get (read) data from a buffer chain under cursor.
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @destData:           Pointer to memory area to copy data to.
- * @destDataSize:       Size of data to copy.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ * @param   destData    Pointer to memory area to copy data to.
+ * @param   destDataSize Size of data to copy.
+ * @param   bytesCopied If not NULL the it points to location
+ *                      in user memory space where the actually copied
+ *                      amount of bytes should be stored.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after read is complete. This may be another buffer than a referenced buffer.
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after read is complete.
+ * @return  NULL in case the last byte of the last buffer of a chain
+ *          has been read.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_GetData(
     struct MMPS_Buffer  *buffer,
     char* const         destData,
-    unsigned int        destDataSize)
+    unsigned int        destDataSize,
+    unsigned int        *bytesCopied)
 {
-    unsigned int destDataOffset;
+    unsigned int    destDataOffset;
+    int             bytesPerBuffer;
+    int             leftSpaceInBuffer;
+
+    if (bytesCopied != NULL)
+        *bytesCopied = 0;
 
     destDataOffset = 0;
     while (destDataOffset < destDataSize)
     {
-        int leftSpaceInBuffer = buffer->bufferSize - (buffer->cursor - buffer->data);
+        leftSpaceInBuffer = buffer->dataSize - (buffer->cursor - buffer->data);
 
         // Calculate the amount of data to be read from the current buffer.
         //
-        int bytesPerBuffer = destDataSize - destDataOffset;
+        bytesPerBuffer = destDataSize - destDataOffset;
         if (bytesPerBuffer > leftSpaceInBuffer)
             bytesPerBuffer = leftSpaceInBuffer;
 
         // Copy data or a portion of data from current buffer.
         //
         memcpy(destData + destDataOffset, buffer->cursor, bytesPerBuffer);
+
+        // Notify the amount of copied bytes.
+        //
+        if (bytesCopied != NULL)
+            *bytesCopied += bytesPerBuffer;
 
         buffer->cursor += bytesPerBuffer;
 
@@ -1295,29 +1830,38 @@ MMPS_GetData(
         if (destDataOffset < destDataSize)
         {
             // ... then switch to next buffer in a chain.
-            // Quit, if not all data was read and there are no other buffers in a chain.
+            // Quit, if not all data was read and there are no other buffers
+            // in a chain.
             //
             if (buffer->next == NULL)
-                return NULL;
+                break;
 
             // Switch to next buffer.
             //
             buffer = buffer->next;
+
+            MMPS_ResetCursor(buffer);
         }
     }
 
-    return buffer;
+    if (MMPS_IsCursorAtTheEndOfData(buffer) == false) {
+        return buffer;
+    } else {
+        return MMPS_NextBuffer(buffer);
+    }
 }
 
-/**
- * MMPS_PutInt8()
- * Put one byte to buffer chain under cursor.
+/*
+ * @brief   Put one byte to buffer chain under cursor.
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @sourceData:         Pointer to memory area to copy data from.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ * @param   sourceData  Pointer to memory area to copy data from.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after write is complete. This may be another buffer than a referenced buffer.
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after write is complete.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_PutInt8(
@@ -1328,35 +1872,42 @@ MMPS_PutInt8(
     return buffer;
 }
 
-/**
- * MMPS_GetInt8()
- * Get one byte from buffer chain under cursor.
+/*
+ * @brief   Get one byte from buffer chain under cursor.
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @destData:           Pointer to memory area to copy data to.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ * @param   destData    Pointer to memory area to copy data to.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after read is complete. This may be another buffer than a referenced buffer.
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after read is complete.
+ * @return  NULL in case the last byte of the last buffer of a chain
+ *          has been read.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_GetInt8(
     struct MMPS_Buffer  *buffer,
     uint8               *destData)
 {
-    buffer = MMPS_GetData(buffer, (char *) destData, sizeof(uint8));
+    buffer = MMPS_GetData(buffer, (char *) destData, sizeof(uint8), NULL);
     return buffer;
 }
 
-/**
- * MMPS_PutInt16()
- * Put one word (two bytes) to buffer chain under cursor.
+/*
+ * @brief   Put one word (two bytes) to buffer chain under cursor.
+ *
  * Do endian conversion if needed.
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @sourceData: Pointer to data.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ * @param   sourceData  Pointer to memory area to copy data from.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after write is complete. This may be another buffer than a referenced buffer.
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after write is complete.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_PutInt16(
@@ -1368,16 +1919,21 @@ MMPS_PutInt16(
     return buffer;
 }
 
-/**
- * MMPS_GetInt16()
- * Get one word (two bytes) from buffer chain under cursor.
+/*
+ * @brief   Get one word (two bytes) from buffer chain under cursor.
+ *
  * Do endian conversion if needed.
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @destData:           Pointer to memory area to copy data to.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ * @param   destData    Pointer to memory area to copy data to.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after read is complete. This may be another buffer than a referenced buffer.
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after read is complete.
+ * @return  NULL in case the last byte of the last buffer of a chain
+ *          has been read.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_GetInt16(
@@ -1385,21 +1941,24 @@ MMPS_GetInt16(
     uint16              *destData)
 {
     uint16 value;
-    buffer = MMPS_GetData(buffer, (char *) &value, sizeof(value));
+    buffer = MMPS_GetData(buffer, (char *) &value, sizeof(value), NULL);
     *destData = be16toh(value);
     return buffer;
 }
 
-/**
- * MMPS_PutInt32()
- * Put one double word (four bytes) to buffer chain under cursor.
+/*
+ * @brief   Put one double word (four bytes) to buffer chain under cursor.
+ *
  * Do endian conversion if needed
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @sourceData:         Pointer to memory area to copy data from.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ * @param   sourceData  Pointer to memory area to copy data from.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after write is complete. This may be another buffer than a referenced buffer.
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after write is complete.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_PutInt32(
@@ -1411,16 +1970,21 @@ MMPS_PutInt32(
     return buffer;
 }
 
-/**
- * MMPS_GetInt32()
- * Get one double word (four bytes) from buffer chain under cursor.
+/*
+ * @brief   Get one double word (four bytes) from buffer chain under cursor.
+ *
  * Do endian conversion if needed.
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @destData:           Pointer to memory area to copy data to.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ * @param   destData    Pointer to memory area to copy data to.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after read is complete. This may be another buffer than a referenced buffer.
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after read is complete.
+ * @return  NULL in case the last byte of the last buffer of a chain
+ *          has been read.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_GetInt32(
@@ -1428,21 +1992,24 @@ MMPS_GetInt32(
     uint32              *destData)
 {
     uint32 value;
-    buffer = MMPS_GetData(buffer, (char *) &value, sizeof(value));
+    buffer = MMPS_GetData(buffer, (char *) &value, sizeof(value), NULL);
     *destData = be32toh(value);
     return buffer;
 }
 
-/**
- * MMPS_PutInt64()
- * Put one quad word (eight bytes) to buffer chain under cursor.
+/*
+ * @brief   Put one quad word (eight bytes) to buffer chain under cursor.
+ *
  * Do endian conversion if needed.
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @sourceData:         Pointer to memory area to copy data from.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ * @param   sourceData  Pointer to memory area to copy data from.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after write is complete. This may be another buffer than a referenced buffer.
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after write is complete.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_PutInt64(
@@ -1455,15 +2022,20 @@ MMPS_PutInt64(
 }
 
 /**
- * MMPS_GetInt64()
- * Get one quad word (eight bytes) from buffer chain under cursor.
+ * @brief   Get one quad word (eight bytes) from buffer chain under cursor.
+ *
  * Do endian conversion if needed.
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @destData:           Pointer to memory area to copy data to.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ * @param   destData    Pointer to memory area to copy data to.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after read is complete. This may be another buffer than a referenced buffer.
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after read is complete.
+ * @return  NULL in case the last byte of the last buffer of a chain
+ *          has been read.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_GetInt64(
@@ -1471,133 +2043,161 @@ MMPS_GetInt64(
     uint64              *destData)
 {
     uint64 value;
-    buffer = MMPS_GetData(buffer, (char *) &value, sizeof(value));
+    buffer = MMPS_GetData(buffer, (char *) &value, sizeof(value), NULL);
     *destData = be64toh(value);
     return buffer;
 }
 
-/**
- * MMPS_PutFloat32()
- * Put one 32-bit floating-point value (four bytes) to buffer chain under cursor.
- * Do endian conversion if needed
+#if 0
+/*
+ * @brief   Put one 32-bit floating-point value (four bytes)
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @sourceData:         Pointer to memory area to copy data from.
+ * Put one 32-bit floating-point value (four bytes)
+ * to buffer chain under cursor. Do endian conversion if needed.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after write is complete. This may be another buffer than a referenced buffer.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ * @param   sourceData  Pointer to memory area to copy data from.
+ *
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after write is complete.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_PutFloat32(
     struct MMPS_Buffer  *buffer,
-    float               *sourceData)
+    float32             *sourceData)
 {
     float32 value = (float32) htobe32(*sourceData);
     buffer = MMPS_PutData(buffer, (char *) &value, sizeof(value));
     return buffer;
 }
 
-/**
- * MMPS_GetFloat32()
- * Get one 32-bit floating-point value (four bytes) from buffer chain under cursor.
- * Do endian conversion if needed.
+/*
+ * @brief   Get one 32-bit floating-point value (four bytes)
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @destData:           Pointer to memory area to copy data to.
+ * Get one 32-bit floating-point value (four bytes)
+ * from buffer chain under cursor. Do endian conversion if needed.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after read is complete. This may be another buffer than a referenced buffer.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ * @param   destData    Pointer to memory area to copy data to.
+ *
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after read is complete.
+ * @return  NULL in case the last byte of the last buffer of a chain
+ *          has been read.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_GetFloat32(
     struct MMPS_Buffer  *buffer,
-    float               *destData)
+    float32             *destData)
 {
     float32 value;
-    buffer = MMPS_GetData(buffer, (char *) &value, sizeof(value));
+    buffer = MMPS_GetData(buffer, (char *) &value, sizeof(value), NULL);
     value = (float32) be64toh((uint32) value);
     *destData = value;
     return buffer;
 }
 
-/**
- * MMPS_PutFloat64()
+/*
+ * @brief   Put one 64-bit double precision floating-point value (eight bytes)
+ *
  * Put one 64-bit double precision floating-point value (eight bytes)
  * to buffer chain under cursor. Do endian conversion if needed.
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @sourceData:         Pointer to memory area to copy data from.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ * @param   sourceData  Pointer to memory area to copy data from.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after write is complete. This may be another buffer than a referenced buffer.
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after write is complete.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_PutFloat64(
     struct MMPS_Buffer  *buffer,
-    double              *sourceData)
+    float64             *sourceData)
 {
     float64 value = (float64) htobe64(*sourceData);
     buffer = MMPS_PutData(buffer, (char *) &value, sizeof(value));
     return buffer;
 }
 
-/**
- * MMPS_GetFloat64()
+/*
+ * @brief   Get one 64-bit double precision floating-point value (eight bytes)
+ *
  * Get one 64-bit double precision floating-point value (eight bytes)
  * from buffer chain under cursor. Do endian conversion if needed.
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @destData:           Pointer to memory area to copy data to.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ * @param   destData    Pointer to memory area to copy data to.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after read is complete. This may be another buffer than a referenced buffer.
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after read is complete.
+ * @return  NULL in case the last byte of the last buffer of a chain
+ *          has been read.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_GetFloat64(
     struct MMPS_Buffer  *buffer,
-    double              *destData)
+    float64             *destData)
 {
     float64 value;
-    buffer = MMPS_GetData(buffer, (char *) &value, sizeof(value));
+    buffer = MMPS_GetData(buffer, (char *) &value, sizeof(value), NULL);
     value = (float64) be64toh((uint64) value);
     *destData = value;
     return buffer;
 }
+#endif
 
-/**
- * MMPS_PutString()
+/*
+ * @brief   Put string.
  *
- * @buffer:             Pointer to MMPS buffer handler.
- * @sourceData:         Pointer to memory area to copy data from.
- * @destDataSize:       Size of data to copy.
+ * @param   buffer      Pointer to MMPS buffer descriptor.
+ * @param   string      Pointer to a string.
+ * @param   length      Length of string.
  *
- * Returns pointer to MMPS handler of a buffer in which a cursor is pointing to,
- * after write is complete. This may be another buffer than a referenced buffer.
+ * @return  Pointer to MMPS buffer descriptor of a buffer in which a cursor
+ *          is pointing to, after write is complete.
+ *
+ * @warning Always care about return value - it may be another buffer
+ *          than a referenced buffer.
  */
 struct MMPS_Buffer *
 MMPS_PutString(
     struct MMPS_Buffer  *buffer,
-    char                *sourceData,
-    unsigned int        sourceDataSize)
+    char                *string,
+    unsigned int        length)
 {
-    uint32 swapped = htobe32(sourceDataSize);
+    uint32 swapped = htobe32(length);
     buffer = MMPS_PutData(buffer, (char *)&swapped, sizeof(swapped));
-    if (sourceDataSize != 0)
-        buffer = MMPS_PutData(buffer, sourceData, sourceDataSize);
+    if (length != 0)
+        buffer = MMPS_PutData(buffer, string, length);
     return buffer;
 }
 
 /**
- * MMPS_NumberOfBuffersInUse()
- * Get number of used MMPS buffers for the specified buffer bank. This function
- * may be used for debugging purposes to check periodically how many MMPS buffers
- * are in use (peeked out of the bank). Do not use this function in a production code
- * as it may cause performance degradation.
+ * @brief   Get number of used MMPS buffers for the specified buffer bank.
  *
- * @pool:               Pointer to MMPS pool handler to get statistical information for.
- * @bankId:             Buffer bank id.
+ * This function may be used for debugging purposes to check
+ * periodically how many MMPS buffers are in use (peeked out of the bank).
  *
- * Returns the number of buffers 'in use'.
+ * @param   pool        Pointer to MMPS pool descriptor.
+ *                      to get statistical information for.
+ * @param   bankId      Buffer bank id.
+ *
+ * @return  The number of buffers 'in use'.
+ *
+ * @warning Do not use this function in a production code
+ *          as it may cause performance degradation.
  */
 unsigned int
 MMPS_NumberOfBuffersInUse(
@@ -1610,7 +2210,7 @@ MMPS_NumberOfBuffersInUse(
     bank = pool->banks[bankId];
 
 #ifdef MMPS_MUTEX
-    pthread_mutex_lock(&bank->mutex);
+    pthread_mutex_lock(&bank->mutex.lock);
 #else
     pthread_spin_lock(&bank->lock);
 #endif
@@ -1620,7 +2220,7 @@ MMPS_NumberOfBuffersInUse(
         : bank->numberOfBuffers - (bank->cursor.poke - bank->cursor.peek);
 
 #ifdef MMPS_MUTEX
-    pthread_mutex_unlock(&bank->mutex);
+    pthread_mutex_unlock(&bank->mutex.lock);
 #else
     pthread_spin_unlock(&bank->lock);
 #endif

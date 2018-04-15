@@ -1,5 +1,4 @@
-#ifndef __BROADCASTER__
-#define __BROADCASTER__
+#pragma once
 
 /**
  * BroadcasterThread()
@@ -8,5 +7,3 @@
  */
 void *
 BroadcasterThread(void *arg);
-
-#endif

@@ -1,40 +1,39 @@
-#ifndef __CHALKBOARD__
-#define __CHALKBOARD__
+#pragma once
 
 #include "broadcaster_api.h"
 #include "db.h"
 #include "mmps.h"
 #include "tasks.h"
 
-#define undef
+#undef SANDBOX
 
 #ifdef SANDBOX
 
-#define NUMBER_OF_BUFFERS_TASK		    200L
-#define NUMBER_OF_BUFFERS_PAQUET	    200L
-#define NUMBER_OF_BUFFERS_256		    200L
-#define NUMBER_OF_BUFFERS_512		    200L
-#define NUMBER_OF_BUFFERS_1K		    200L
-#define NUMBER_OF_BUFFERS_4K		    200L
-#define NUMBER_OF_BUFFERS_1M		    200L
+#define NUMBER_OF_BUFFERS_TASK          200L
+#define NUMBER_OF_BUFFERS_PAQUET        200L
+#define NUMBER_OF_BUFFERS_256           200L
+#define NUMBER_OF_BUFFERS_512           200L
+#define NUMBER_OF_BUFFERS_1K            200L
+#define NUMBER_OF_BUFFERS_4K            200L
+#define NUMBER_OF_BUFFERS_1M            200L
 
-#define NUMBER_OF_DBH_GUARDIANS			10
-#define NUMBER_OF_DBH_AUTHENTICATION	10
-#define NUMBER_OF_DBH_PLAQUES_SESSION	40
+#define NUMBER_OF_DBH_GUARDIANS         10
+#define NUMBER_OF_DBH_AUTHENTICATION    10
+#define NUMBER_OF_DBH_PLAQUES_SESSION   40
 
 #else
 
-#define NUMBER_OF_BUFFERS_TASK		     2000000L
-#define NUMBER_OF_BUFFERS_PAQUET	     8000000L
-#define NUMBER_OF_BUFFERS_256		     2000000L
-#define NUMBER_OF_BUFFERS_512		     2000000L
-#define NUMBER_OF_BUFFERS_1K		     6000000L
-#define NUMBER_OF_BUFFERS_4K		      200000L
-#define NUMBER_OF_BUFFERS_1M	    	     200L
+#define NUMBER_OF_BUFFERS_TASK           1000000L
+#define NUMBER_OF_BUFFERS_PAQUET         4000000L
+#define NUMBER_OF_BUFFERS_256            1000000L
+#define NUMBER_OF_BUFFERS_512            1000000L
+#define NUMBER_OF_BUFFERS_1K             2000000L
+#define NUMBER_OF_BUFFERS_4K              200000L
+#define NUMBER_OF_BUFFERS_1M                 200L
 
-#define NUMBER_OF_DBH_GUARDIANS			      50
-#define NUMBER_OF_DBH_AUTHENTICATION	     200
-#define NUMBER_OF_DBH_PLAQUES_SESSION	     600
+#define NUMBER_OF_DBH_GUARDIANS               50
+#define NUMBER_OF_DBH_AUTHENTICATION         200
+#define NUMBER_OF_DBH_PLAQUES_SESSION        600
 
 #endif
 
@@ -54,31 +53,43 @@ struct Chalkboard
         struct MMPS_Pool    *task;
         struct MMPS_Pool    *paquet;
         struct MMPS_Pool    *dynamic;
-    } pools;
+    }
+    pools;
 
     struct
     {
         struct DB_Chain     *guardian;
         struct DB_Chain     *auth;
         struct DB_Chain     *plaque;
-    } db;
+    }
+    db;
 
     struct
     {
         void                **list;
-    } tasks;
+    }
+    tasks;
 
     struct
     {
         uint16_t            portNumber;
         struct session      session;
-    } broadcaster;
+    }
+    broadcaster;
 
     struct
     {
         uint16_t            portNumber;
         int                 listenSockFD;
-    } listener;
+    }
+    listenerIPv4;
+
+    struct
+    {
+        uint16_t            portNumber;
+        int                 listenSockFD;
+    }
+    listenerIPv6;
 };
 
 /**
@@ -90,5 +101,3 @@ struct Chalkboard
  */
 int
 CreateChalkboard(void);
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef __ANTICIPANT__
-#define __ANTICIPANT__
+#pragma once
 
 #include "api.h"
 #include "db.h"
@@ -78,5 +77,3 @@ CreateProfile(struct Paquet *paquet);
  */
 int
 NotificationsToken(struct Paquet *paquet);
-
-#endif

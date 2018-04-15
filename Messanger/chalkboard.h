@@ -1,5 +1,4 @@
-#ifndef __CHALKBOARD__
-#define __CHALKBOARD__
+#pragma once
 
 #include <pthread.h>
 
@@ -71,5 +70,3 @@ CreateChalkboard(void);
  */
 void
 DestroyChalkboard(void);
-
-#endif

@@ -1,13 +1,10 @@
-#ifndef _KERNEL_
-#define _KERNEL_
+#pragma once
 
 int
-revisionSessionsForDeviceDisplacementInSight(int *busy);
+revisionSessionsForDeviceDisplacementInSight(unsigned int *busy);
 
 int
-revisionSessionsForDeviceDisplacementOnMap(int *busy);
+revisionSessionsForDeviceDisplacementOnMap(unsigned int *busy);
 
 int
-revisionSessionsForModifiedPlaques(int *busy);
-
-#endif
+revisionSessionsForModifiedPlaques(unsigned int *busy);

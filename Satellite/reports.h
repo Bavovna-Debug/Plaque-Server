@@ -1,9 +1,6 @@
-#ifndef __REPORTS__
-#define __REPORTS__
+#pragma once
 
 #include "paquet.h"
 
 int
 ReportMessage(struct Paquet *paquet);
-
-#endif

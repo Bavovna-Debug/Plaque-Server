@@ -1,60 +1,60 @@
-#ifndef __DB__
-#define __DB__
+#pragma once
 
 #include <c.h>
 #include <libpq-fe.h>
 #include <pthread.h>
 
-#define BOOLOID						16
-#define BYTEAOID					17
-#define CHAROID						18
-#define INT8OID						20
-#define INT2OID						21
-#define INT4OID						23
-#define TEXTOID						25
-#define XMLOID						142
-#define FLOAT4OID					700
-#define FLOAT8OID					701
-#define INETOID						869
-#define VARCHAROID					1043
-#define UUIDOID						2950
+#define BOOLOID                     16
+#define BYTEAOID                    17
+#define CHAROID                     18
+#define INT8OID                     20
+#define INT2OID                     21
+#define INT4OID                     23
+#define TEXTOID                     25
+#define XMLOID                      142
+#define FLOAT4OID                   700
+#define FLOAT8OID                   701
+#define INETOID                     869
+#define VARCHAROID                  1043
+#define UUIDOID                     2950
 
-#define UUIDBinarySize				16
+#define UUIDBinarySize              16
 
-#define UNIQUE_VIOLATION			"23505"
-#define CHECK_VIOLATION				"23514"
+#define UNIQUE_VIOLATION            "23505"
+#define CHECK_VIOLATION             "23514"
 
-#define DB_CHAIN_NAME_LENGTH		16
+#define DB_CHAIN_NAME_LENGTH        16
 
-#define DB_MAX_NUMBER_OF_ARGUMENTS	20
+#define DB_MAX_NUMBER_OF_ARGUMENTS  20
 
 struct DB_Chain
 {
-	char				chainName[DB_CHAIN_NAME_LENGTH];
-	pthread_spinlock_t	lock;
-	unsigned int		numberOfConnections;
-	unsigned int		peekCursor;
-	unsigned int		pokeCursor;
-	char				conninfo[255];
-	void				*block;
-	unsigned int		ids[];
+    char                chainName[DB_CHAIN_NAME_LENGTH];
+    pthread_spinlock_t  lock;
+    unsigned int        numberOfConnections;
+    unsigned int        peekCursor;
+    unsigned int        pokeCursor;
+    char                conninfo[255];
+    void                *block;
+    unsigned int        ids[];
 };
 
 struct dbh
 {
-	struct DB_Chain		*chain;
-	unsigned int		dbhId;
-	PGconn				*conn;
-	PGresult			*result;
+    struct DB_Chain     *chain;
+    unsigned int        dbhId;
+    PGconn              *conn;
+    PGresult            *result;
 
-	struct
-	{
-		int				numberOfArguments;
-		const char		*values  [DB_MAX_NUMBER_OF_ARGUMENTS];
-    	Oid				types    [DB_MAX_NUMBER_OF_ARGUMENTS];
-		int				lengths  [DB_MAX_NUMBER_OF_ARGUMENTS];
-		int				formats  [DB_MAX_NUMBER_OF_ARGUMENTS];
-	} arguments;
+    struct
+    {
+        int             numberOfArguments;
+        const char      *values  [DB_MAX_NUMBER_OF_ARGUMENTS];
+        Oid             types    [DB_MAX_NUMBER_OF_ARGUMENTS];
+        int             lengths  [DB_MAX_NUMBER_OF_ARGUMENTS];
+        int             formats  [DB_MAX_NUMBER_OF_ARGUMENTS];
+    }
+    arguments;
 };
 
 /**
@@ -66,9 +66,9 @@ struct dbh
  */
 struct DB_Chain *
 DB_InitChain(
-	const char 		*chainName,
-	unsigned int 	numberOfConnections,
-	char 			*conninfo);
+    const char      *chainName,
+    unsigned int    numberOfConnections,
+    char            *conninfo);
 
 /**
  * DB_ReleaseChain()
@@ -120,9 +120,9 @@ DB_HasState(PGresult *result, const char *checkState);
  */
 inline int
 __TuplesOK(
-	const char	*functionName,
-	struct dbh	*dbh,
-	PGresult	*result);
+    const char  *functionName,
+    struct dbh  *dbh,
+    PGresult    *result);
 
 /**
  * DB_TuplesOK()
@@ -131,7 +131,7 @@ __TuplesOK(
  * @result:
  */
 #define DB_TuplesOK(dbh, result) \
-	__TuplesOK(__FUNCTION__, dbh, result)
+    __TuplesOK(__FUNCTION__, dbh, result)
 
 /**
  * __CommandOK()
@@ -142,9 +142,9 @@ __TuplesOK(
  */
 inline int
 __CommandOK(
-	const char	*functionName,
-	struct dbh	*dbh,
-	PGresult	*result);
+    const char  *functionName,
+    struct dbh  *dbh,
+    PGresult    *result);
 
 /**
  * DB_CommandOK()
@@ -153,7 +153,7 @@ __CommandOK(
  * @result:
  */
 #define DB_CommandOK(dbh, result) \
-	__CommandOK(__FUNCTION__, dbh, result)
+    __CommandOK(__FUNCTION__, dbh, result)
 
 /**
  * __CorrectNumberOfColumns()
@@ -164,9 +164,9 @@ __CommandOK(
  */
 inline int
 __CorrectNumberOfColumns(
-	const char	*functionName,
-	PGresult	*result,
-	int			expectedNumberOfColumns);
+    const char  *functionName,
+    PGresult    *result,
+    int         expectedNumberOfColumns);
 
 /**
  * DB_CorrectNumberOfColumns()
@@ -175,7 +175,7 @@ __CorrectNumberOfColumns(
  * @expectedNumberOfColumns:
  */
 #define DB_CorrectNumberOfColumns(result, expectedNumberOfColumns) \
-	__CorrectNumberOfColumns(__FUNCTION__, result, expectedNumberOfColumns)
+    __CorrectNumberOfColumns(__FUNCTION__, result, expectedNumberOfColumns)
 
 /**
  * __CorrectNumberOfRows()
@@ -186,9 +186,9 @@ __CorrectNumberOfColumns(
  */
 inline int
 __CorrectNumberOfRows(
-	const char	*functionName,
-	PGresult	*result,
-	int			expectedNumberOfRows);
+    const char  *functionName,
+    PGresult    *result,
+    int         expectedNumberOfRows);
 
 /**
  * DB_CorrectNumberOfRows()
@@ -197,7 +197,7 @@ __CorrectNumberOfRows(
  * @expectedNumberOfRows:
  */
 #define DB_CorrectNumberOfRows(result, expectedNumberOfRows) \
-	__CorrectNumberOfRows(__FUNCTION__, result, expectedNumberOfRows)
+    __CorrectNumberOfRows(__FUNCTION__, result, expectedNumberOfRows)
 
 /**
  * __CorrectColumnType()
@@ -209,10 +209,10 @@ __CorrectNumberOfRows(
  */
 inline int
 __CorrectColumnType(
-	const char	*functionName,
-	PGresult	*result,
-	int 		columnNumber,
-	Oid			expectedColumnType);
+    const char  *functionName,
+    PGresult    *result,
+    int         columnNumber,
+    Oid         expectedColumnType);
 
 /**
  * DB_CorrectColumnType()
@@ -222,7 +222,7 @@ __CorrectColumnType(
  * @expectedColumnType:
  */
 #define DB_CorrectColumnType(result, columnNumber, expectedColumnType) \
-	__CorrectColumnType(__FUNCTION__, result, columnNumber, expectedColumnType)
+    __CorrectColumnType(__FUNCTION__, result, columnNumber, expectedColumnType)
 
 /**
  * DB_Execute()
@@ -337,8 +337,6 @@ DB_GetUInt64(PGresult *result, int rowNumber, int columnNumber);
  */
 int
 DB_HanldesInUse(struct DB_Chain *chain);
-
-#endif
 
 //        PGRES_EMPTY_QUERY = 0,          /* empty query string was executed */
 //        PGRES_COMMAND_OK,                       /* a query command that doesn't return

@@ -173,11 +173,13 @@ SELECT auth.is_profile_name_free($1)"
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	struct BonjourProfileNameValidation validation;
 
-	inputBuffer = MMPS_GetData(inputBuffer, (char *) &validation, sizeof(validation));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *) &validation, sizeof(validation), NULL);
+
+	ReportInfo("Validating profile name '%s'", validation.profileName);
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL)
@@ -219,7 +221,7 @@ SELECT auth.is_profile_name_free($1)"
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
 	uint32 status = (*PQgetvalue(dbh->result, 0, 0) == 1)
 		? API_PaquetProfileNameAvailable
@@ -268,7 +270,7 @@ RETURNING profile_token"
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	struct BonjourCreateProfile *profile =
 		(struct BonjourCreateProfile *) inputBuffer->cursor;
@@ -290,7 +292,7 @@ RETURNING profile_token"
 	{
 		DB_PokeHandle(dbh);
 
-		MMPS_ResetBufferData(outputBuffer, 1);
+		MMPS_ResetBufferData(outputBuffer);
 
 		uint32 status = API_BonjourCreateProfileNameConstraint;
 		outputBuffer = MMPS_PutInt32(outputBuffer, &status);
@@ -304,7 +306,7 @@ RETURNING profile_token"
 	{
 		DB_PokeHandle(dbh);
 
-		MMPS_ResetBufferData(outputBuffer, 1);
+		MMPS_ResetBufferData(outputBuffer);
 
 		uint32 status = API_BonjourCreateProfileNameAlreadyInUse;
 		outputBuffer = MMPS_PutInt32(outputBuffer, &status);
@@ -373,7 +375,7 @@ RETURNING profile_token"
 	{
 		DB_PokeHandle(dbh);
 
-		MMPS_ResetBufferData(outputBuffer, 1);
+		MMPS_ResetBufferData(outputBuffer);
 
 		uint32 status = API_BonjourCreateProfileEmailConstraint;
 		outputBuffer = MMPS_PutInt32(outputBuffer, &status);
@@ -387,7 +389,7 @@ RETURNING profile_token"
 	{
 		DB_PokeHandle(dbh);
 
-		MMPS_ResetBufferData(outputBuffer, 1);
+		MMPS_ResetBufferData(outputBuffer);
 
 		uint32 status = API_BonjourCreateProfileEmailAlreadyInUse;
 		outputBuffer = MMPS_PutInt32(outputBuffer, &status);
@@ -433,7 +435,7 @@ RETURNING profile_token"
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
 	uint32 status = API_BonjourCreateSucceeded;
 
@@ -470,11 +472,11 @@ SELECT journal.set_apns_token($1, $2)"
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	struct PaquetNotificationsToken payload;
 
-	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload), NULL);
 
 /*
 	char notificationsToken[NotificationsTokenStringSize];
@@ -529,7 +531,7 @@ SELECT journal.set_apns_token($1, $2)"
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
 	uint32 status;
 

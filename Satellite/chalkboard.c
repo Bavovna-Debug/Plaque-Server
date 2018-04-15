@@ -77,59 +77,74 @@ InitializeMMPS(void)
         return -1;
     }
 
+    MMPS_AllocateImmediately(chalkboard->pools.task, 0);
+
 	rc = MMPS_InitBank(chalkboard->pools.paquet, 0,
 		sizeof(struct Paquet),
-		0,
+        sizeof(struct PaquetPilot),
 		NUMBER_OF_BUFFERS_PAQUET);
 	if (rc != 0) {
 		ReportError("Cannot create buffer bank: rc=%d", rc);
         return -1;
     }
 
+    MMPS_AllocateImmediately(chalkboard->pools.paquet, 0);
+    MMPS_AllocateFollowers(chalkboard->pools.paquet, 0);
+
 	rc = MMPS_InitBank(chalkboard->pools.dynamic, 0,
 		256,
-		sizeof(struct PaquetPilot),
+        0,
 		NUMBER_OF_BUFFERS_256);
 	if (rc != 0) {
 		ReportError("Cannot create buffer bank: rc=%d", rc);
         return -1;
     }
 
+    MMPS_AllocateImmediately(chalkboard->pools.dynamic, 0);
+
 	rc = MMPS_InitBank(chalkboard->pools.dynamic, 1,
 		512,
-		sizeof(struct PaquetPilot),
+        0,
 		NUMBER_OF_BUFFERS_512);
 	if (rc != 0) {
 		ReportError("Cannot create buffer bank: rc=%d", rc);
         return -1;
     }
 
+    MMPS_AllocateImmediately(chalkboard->pools.dynamic, 1);
+
 	rc = MMPS_InitBank(chalkboard->pools.dynamic, 2,
 		KB,
-		sizeof(struct PaquetPilot),
+        0,
 		NUMBER_OF_BUFFERS_1K);
 	if (rc != 0) {
 		ReportError("Cannot create buffer bank: rc=%d", rc);
         return -1;
     }
 
+    MMPS_AllocateImmediately(chalkboard->pools.dynamic, 2);
+
 	rc = MMPS_InitBank(chalkboard->pools.dynamic, 3,
 		4 * KB,
-		sizeof(struct PaquetPilot),
+        0,
 		NUMBER_OF_BUFFERS_4K);
 	if (rc != 0) {
 		ReportError("Cannot create buffer bank: rc=%d", rc);
         return -1;
     }
 
+    MMPS_AllocateImmediately(chalkboard->pools.dynamic, 3);
+
 	rc = MMPS_InitBank(chalkboard->pools.dynamic, 4,
 		MB,
-		sizeof(struct PaquetPilot),
+		0,
 		NUMBER_OF_BUFFERS_1M);
 	if (rc != 0) {
 		ReportError("Cannot create buffer bank: rc=%d", rc);
         return -1;
     }
+
+    MMPS_AllocateImmediately(chalkboard->pools.dynamic, 4);
 
     return 0;
 }
@@ -144,7 +159,8 @@ InitializeMMPS(void)
 static int
 InitializeListener(void)
 {
-    chalkboard->listener.listenSockFD = 0;
+    chalkboard->listenerIPv4.listenSockFD = 0;
+    chalkboard->listenerIPv6.listenSockFD = 0;
 
     return 0;
 }

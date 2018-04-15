@@ -42,11 +42,11 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	struct PaquetPostPlaque plaque;
 
-	inputBuffer = MMPS_GetData(inputBuffer, (char *) &plaque, sizeof(plaque));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *) &plaque, sizeof(plaque), NULL);
 
 	int expectedSize = sizeof(plaque) + be32toh(plaque.inscriptionLength);
 	if (!ExpectedPayloadSize(paquet, expectedSize)) {
@@ -62,7 +62,7 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	inputBuffer = MMPS_GetData(inputBuffer, inscription, plaque.inscriptionLength);
+	inputBuffer = MMPS_GetData(inputBuffer, inscription, plaque.inscriptionLength, NULL);
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
@@ -179,7 +179,7 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
 	uint32 bonjourStatus = API_PaquetCreatePlaqueSucceeded;
 
@@ -222,11 +222,11 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	struct PaquetPlaqueLocation payload;
 
-	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload), NULL);
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
@@ -281,7 +281,7 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
 	DB_PokeHandle(dbh);
 
@@ -315,11 +315,11 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	struct PaquetPlaqueOrientation payload;
 
-	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload), NULL);
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
@@ -383,7 +383,7 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
 	DB_PokeHandle(dbh);
 
@@ -417,11 +417,11 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	struct PaquetPlaqueSize payload;
 
-	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload), NULL);
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
@@ -471,7 +471,7 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
 	DB_PokeHandle(dbh);
 
@@ -505,11 +505,11 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	struct PaquetPlaqueColors payload;
 
-	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload), NULL);
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
@@ -559,7 +559,7 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
 	DB_PokeHandle(dbh);
 
@@ -592,11 +592,11 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	struct PaquetPlaqueFont payload;
 
-	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload), NULL);
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
@@ -641,7 +641,7 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
 	DB_PokeHandle(dbh);
 
@@ -674,11 +674,11 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	struct PaquetPlaqueInscription payload;
 
-	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload), NULL);
 
 	int expectedSize = sizeof(payload) + be32toh(payload.inscriptionLength);
 	if (!ExpectedPayloadSize(paquet, expectedSize)) {
@@ -694,7 +694,7 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	inputBuffer = MMPS_GetData(inputBuffer, inscription, payload.inscriptionLength);
+	inputBuffer = MMPS_GetData(inputBuffer, inscription, payload.inscriptionLength, NULL);
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
@@ -744,7 +744,7 @@ RETURNING plaque_token"
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
 	DB_PokeHandle(dbh);
 

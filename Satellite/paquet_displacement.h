@@ -1,5 +1,4 @@
-#ifndef __PAQUET_DISPLACEMENT__
-#define __PAQUET_DISPLACEMENT__
+#pragma once
 
 #include "paquet.h"
 
@@ -11,5 +10,3 @@ HandleDisplacementInSight(struct Paquet *paquet);
 
 int
 HandleDisplacementOnMap(struct Paquet *paquet);
-
-#endif

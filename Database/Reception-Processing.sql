@@ -53,7 +53,7 @@ DECLARE
 	var_text			CHARACTER VARYING;
 	latitude			DOUBLE PRECISION;
 	longitude			DOUBLE PRECISION;
-	var_coordinate		earth.EARTH;
+	var_coordinate		EARTH;
 
 BEGIN
 	SELECT device_id, request_xml

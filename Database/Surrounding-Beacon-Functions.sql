@@ -154,8 +154,8 @@ BEGIN
  		CASE var_kind_of_content
 		WHEN 'PLAINTEXT' THEN
 			SELECT XMLELEMENT(NAME plain_text,
-				XMLELEMENT(NAME background_color, (background_color).red || ';' || (background_color).green||';'||(background_color).blue),
-				XMLELEMENT(NAME foreground_color, (foreground_color).red||';'||(foreground_color).green||';'||(foreground_color).blue),
+				XMLELEMENT(NAME background_color, (background_color).red || ';' || (background_color).green || ';' || (background_color).blue),
+				XMLELEMENT(NAME foreground_color, (foreground_color).red || ';' || (foreground_color).green || ';' || (foreground_color).blue),
 				XMLELEMENT(NAME content_text, content_text))
 			FROM journal.plain_texts
 			WHERE plaque_id = var_plaque_id

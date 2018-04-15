@@ -85,8 +85,21 @@ BEGIN
     DELETE FROM journal.apns_tokens
     WHERE device_id = parm_device_id;
 
-    INSERT INTO journal.apns_tokens (device_id, apns_token)
-    VALUES (parm_device_id, parm_apns_token);
+	BEGIN
+    	INSERT INTO journal.apns_tokens (device_id, apns_token)
+	    VALUES (parm_device_id, parm_apns_token);
+
+	EXCEPTION
+		WHEN UNIQUE_VIOLATION THEN
+			UPDATE journal.apns_tokens
+			SET device_id = parm_device_id
+			WHERE apns_token = parm_apns_token;
+
+		WHEN OTHERS THEN
+			RAISE EXCEPTION 'Cannot create APNs token: % (%)',
+				SQLSTATE,
+				SQLERRM;
+	END;
 
 	RETURN TRUE;
 END;

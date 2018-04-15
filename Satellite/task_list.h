@@ -1,5 +1,4 @@
-#ifndef __TASK_LIST__
-#define __TASK_LIST__
+#pragma once
 
 #include "mmps.h"
 #include "tasks.h"
@@ -15,5 +14,3 @@ TaskListPushTask(int taskId, struct Task *task);
 
 struct Task *
 TaskListTaskById(int taskId);
-
-#endif

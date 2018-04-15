@@ -32,11 +32,11 @@ ReportMessage(struct Paquet *paquet)
 		return -1;
 	}
 
-	MMPS_ResetCursor(inputBuffer, 1);
+	MMPS_ResetCursor(inputBuffer);
 
 	struct PaquetReport payload;
 
-	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload));
+	inputBuffer = MMPS_GetData(inputBuffer, (char *) &payload, sizeof(payload), NULL);
 
 	int expectedSize = sizeof(payload) + be32toh(payload.messageLength);
 	if (!ExpectedPayloadSize(paquet, expectedSize)) {
@@ -52,7 +52,7 @@ ReportMessage(struct Paquet *paquet)
 		return -1;
 	}
 
-	inputBuffer = MMPS_GetData(inputBuffer, message, payload.messageLength);
+	inputBuffer = MMPS_GetData(inputBuffer, message, payload.messageLength, NULL);
 
 	struct dbh *dbh = DB_PeekHandle(chalkboard->db.plaque);
 	if (dbh == NULL) {
@@ -83,7 +83,7 @@ VALUES ($1, $2)",
 		return -1;
 	}
 
-	MMPS_ResetBufferData(outputBuffer, 1);
+	MMPS_ResetBufferData(outputBuffer);
 
 	DB_PokeHandle(dbh);
 

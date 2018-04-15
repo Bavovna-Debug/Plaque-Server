@@ -30,7 +30,15 @@ extern struct Chalkboard *chalkboard;
 #ifdef STATISTICS
 static pthread_t statisticsHandler;
 #endif
-static pthread_t listenerHandler;
+
+#ifdef IPV4
+static pthread_t listenerIPv4Handler;
+#endif
+
+#ifdef IPV6
+static pthread_t listenerIPv6Handler;
+#endif
+
 static pthread_t broadcasterHandler;
 
 static void
@@ -98,7 +106,8 @@ main(int argc, char *argv[])
 
     RegisterSignalHandler();
 
-	chalkboard->listener.portNumber = atoi(argv[1]);
+    chalkboard->listenerIPv4.portNumber = TCP_PortNumberIPv4;
+    chalkboard->listenerIPv6.portNumber = TCP_PortNumberIPv6;
 
 	chalkboard->broadcaster.portNumber = BROADCASTER_PORT_NUMBER;
 
@@ -128,11 +137,21 @@ main(int argc, char *argv[])
     }
 #endif
 
-	rc = pthread_create(&listenerHandler, NULL, &ListenerThread, NULL);
+#ifdef IPV4
+	rc = pthread_create(&listenerIPv4Handler, NULL, &IPv4ListenerThread, NULL);
     if (rc != 0) {
-        ReportError("Cannot create listener thread: errno=%d", errno);
+        ReportError("Cannot create IPv4 listener thread: errno=%d", errno);
         goto quit;
     }
+#endif
+
+#ifdef IPV6
+    rc = pthread_create(&listenerIPv6Handler, NULL, &IPv6ListenerThread, NULL);
+    if (rc != 0) {
+        ReportError("Cannot create IPv6 listener thread: errno=%d", errno);
+        goto quit;
+    }
+#endif
 
 	rc = pthread_create(&broadcasterHandler, NULL, &BroadcasterThread, NULL);
     if (rc != 0) {
@@ -140,9 +159,25 @@ main(int argc, char *argv[])
         goto quit;
     }
 
-	rc = pthread_join(listenerHandler, NULL);
+#ifdef IPV4
+	rc = pthread_join(listenerIPv4Handler, NULL);
     if (rc != 0) {
-        ReportError("Error has occurred while waiting for listener thread: errno=%d", errno);
+        ReportError("Error has occurred while waiting for IPv4 listener thread: errno=%d", errno);
+        goto quit;
+    }
+#endif
+
+#ifdef IPV6
+    rc = pthread_join(listenerIPv6Handler, NULL);
+    if (rc != 0) {
+        ReportError("Error has occurred while waiting for IPv6 listener thread: errno=%d", errno);
+        goto quit;
+    }
+#endif
+
+    rc = pthread_join(broadcasterHandler, NULL);
+    if (rc != 0) {
+        ReportError("Error has occurred while waiting for broadcaster thread: errno=%d", errno);
         goto quit;
     }
 
@@ -157,7 +192,14 @@ SignalHandler(int signal)
 {
 	ReportError("Received signal to quit: signal=%d", signal);
 
-	pthread_kill(listenerHandler, signal);
+#ifdef IPV4
+    pthread_kill(listenerIPv4Handler, signal);
+#endif
+
+#ifdef IPV6
+    pthread_kill(listenerIPv6Handler, signal);
+#endif
+    pthread_kill(broadcasterHandler, signal);
 }
 
 static void

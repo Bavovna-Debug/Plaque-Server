@@ -15,6 +15,7 @@
 #include "report.h"
 #include "tasks.h"
 #include "task_kernel.h"
+#include "task_xmit.h"
 
 // Take a pointer to chalkboard. Chalkboard must be initialized
 // before any routine of this module could be called.
@@ -57,8 +58,12 @@ extern struct Chalkboard *chalkboard;
  * @pilot:
  */
 inline void
-FillPaquetWithPilotData(struct Paquet *paquet, struct PaquetPilot *pilot)
+FillPaquetWithPilotData(struct Paquet *paquet)
 {
+	struct PaquetPilot *pilot;
+
+	pilot = (struct PaquetPilot *) paquet->pilot;
+
 	paquet->paquetId = be32toh(pilot->paquetId);
 	paquet->commandCode = be32toh(pilot->commandCode);
 	paquet->payloadSize = be32toh(pilot->payloadSize);
@@ -84,7 +89,7 @@ ReceiveFixed(
 	if (pollFD.revents & (POLLERR | POLLHUP | POLLNVAL)) {
         ReceiveMutexUnlock(task);
 
-		ReportError("Poll error on receive: revents=0x%04X", pollFD.revents);
+		ReportError("[Xmit] Poll error on receive: revents=0x%04X", pollFD.revents);
 		SetTaskStatus(task, TaskStatusPollForReceiveFailed);
 		return -1;
 	}
@@ -92,13 +97,13 @@ ReceiveFixed(
 	if (pollRC == 0) {
         ReceiveMutexUnlock(task);
 
-		ReportInfo("Wait for receive timed out");
+		ReportInfo("[Xmit] Wait for receive timed out");
 		SetTaskStatus(task, TaskStatusPollForReceiveTimeout);
 		return -1;
 	} else if (pollRC != 1) {
         ReceiveMutexUnlock(task);
 
-		ReportError("Poll error on receive");
+		ReportError("[Xmit] Poll error on receive");
 		SetTaskStatus(task, TaskStatusPollForReceiveError);
 		return -1;
 	}
@@ -112,13 +117,13 @@ ReceiveFixed(
 		if (receivedPerStep == 0) {
             ReceiveMutexUnlock(task);
 
-			ReportError("Nothing read from socket");
+			ReportError("[Xmit] Nothing read from socket");
 			SetTaskStatus(task, TaskStatusNoDataReceived);
 			return -1;
 		} else if (receivedPerStep == -1) {
             ReceiveMutexUnlock(task);
 
-			ReportError("Error reading from socket for fixed data: errno=%d", errno);
+			ReportError("[Xmit] Error reading from socket for fixed data: errno=%d", errno);
 			SetTaskStatus(task, TaskStatusReadFromSocketFailed);
 			return -1;
 		}
@@ -151,7 +156,7 @@ SendFixed(
 	if (pollFD.revents & (POLLERR | POLLHUP | POLLNVAL)) {
         SendMutexUnlock(task);
 
-		ReportError("Poll error on send: revents=0x%04X", pollFD.revents);
+		ReportError("[Xmit] Poll error on send: revents=0x%04X", pollFD.revents);
 		SetTaskStatus(task, TaskStatusPollForSendFailed);
 		return -1;
 	}
@@ -159,13 +164,13 @@ SendFixed(
 	if (pollRC == 0) {
         SendMutexUnlock(task);
 
-		ReportInfo("Wait for send timed out");
+		ReportInfo("[Xmit] Wait for send timed out");
 		SetTaskStatus(task, TaskStatusPollForSendTimeout);
 		return -1;
 	} else if (pollRC != 1) {
         SendMutexUnlock(task);
 
-		ReportError("Poll error on send");
+		ReportError("[Xmit] Poll error on send");
 		SetTaskStatus(task, TaskStatusPollForSendError);
 		return -1;
 	}
@@ -178,13 +183,13 @@ SendFixed(
 		if (sentPerStep == 0) {
             SendMutexUnlock(task);
 
-			ReportError("Nothing written to socket");
+			ReportError("[Xmit] Nothing written to socket");
 			SetTaskStatus(task, TaskStatusNoDataSent);
 			return -1;
 		} else if (sentPerStep == -1) {
             SendMutexUnlock(task);
 
-			ReportError("Error writing to socket: errno=%d", errno);
+			ReportError("[Xmit] Error writing to socket: errno=%d", errno);
 			SetTaskStatus(task, TaskStatusWriteToSocketFailed);
 			return -1;
 		}
@@ -219,7 +224,7 @@ ReceivePaquet(struct Paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 	{
         ReceiveMutexUnlock(task);
 
-		ReportError("Poll error on receive: revents=0x%04X", pollFD->revents);
+		ReportError("[Xmit] Poll error on receive: revents=0x%04X", pollFD->revents);
 		SetTaskStatus(task, TaskStatusPollForReceiveFailed);
 		return -1;
 	}
@@ -228,7 +233,7 @@ ReceivePaquet(struct Paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 	{
         ReceiveMutexUnlock(task);
 
-		ReportInfo("Wait for receive timed out");
+		ReportInfo("[Xmit] Wait for receive timed out");
 		SetTaskStatus(task, TaskStatusPollForReceiveTimeout);
 		return -1;
 	}
@@ -236,7 +241,7 @@ ReceivePaquet(struct Paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 	{
         ReceiveMutexUnlock(task);
 
-		ReportError("Poll error on receive");
+		ReportError("[Xmit] Poll error on receive");
 		SetTaskStatus(task, TaskStatusPollForReceiveError);
 		return -1;
 	}
@@ -245,20 +250,103 @@ ReceivePaquet(struct Paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 
 	struct MMPS_Buffer *buffer = receiveBuffer;
 
+#if 1
+
+	pilot = (struct PaquetPilot *) paquet->pilot;
+
+	struct msghdr       message;
+    struct iovec        iov[2];
+
+    message.msg_name       = NULL;
+    message.msg_namelen    = 0;
+    message.msg_iov        = &iov[0];
+
+    message.msg_iovlen     = 1;
+    message.msg_control    = NULL;
+    message.msg_controllen = 0;
+    iov[0].iov_len = sizeof(struct PaquetPilot);
+    iov[0].iov_base = pilot;
+	receivedTotal = recvmsg(sockFD, &message, 0);
+    if (receivedTotal < 0)
+    {
+        ReceiveMutexUnlock(task);
+
+        ReportError("[Xmit] Error has occurred on receive: errno=%d", errno);
+
+        return -1;
+    }
+
+    // If nothing is received, then the connection is closed.
+    // Just quit, let the main socket be able to accept new connection.
+    //
+    if (receivedTotal == 0)
+    {
+        ReceiveMutexUnlock(task);
+
+        ReportInfo("[Xmit] Connection lost");
+
+        return -1;
+    }
+
+    ReportInfo("[Xmit] Received %lu bytes", receivedTotal);
+
+	FillPaquetWithPilotData(paquet);
+
+	uint64 signature = be64toh(pilot->signature);
+	if (signature != API_PaquetSignature)
+	{
+        ReceiveMutexUnlock(task);
+
+		ReportError("[Xmit] No valid paquet signature: 0x%016lX", signature);
+		SetTaskStatus(task, TaskStatusMissingPaquetSignature);
+		return -1;
+	}
+
+    iov[0].iov_len = paquet->payloadSize;
+    iov[0].iov_base = buffer->data;
+	receivedTotal = recvmsg(sockFD, &message, 0);
+    if (receivedTotal < 0)
+    {
+        ReceiveMutexUnlock(task);
+
+        ReportError("[Xmit] Error has occurred on receive: errno=%d", errno);
+
+        return -1;
+    }
+
+    // If nothing is received, then the connection is closed.
+    // Just quit, let the main socket be able to accept new connection.
+    //
+    if (receivedTotal == 0)
+    {
+        ReceiveMutexUnlock(task);
+
+        ReportInfo("[Xmit] Connection lost");
+
+        return -1;
+    }
+
+    ReportInfo("[Xmit] Received %lu bytes", receivedTotal);
+
+    buffer->dataSize = receivedTotal;
+
+#else
+
 	// In case there is data already in receive buffer left from previous read...
 	//
 	receivedTotal = buffer->dataSize;
 	toReceiveTotal = buffer->bufferSize - buffer->dataSize;
 	receivedPerBuffer = buffer->dataSize;
 
-	while (1)
+	for (;;)
 	{
 		toReceivePerBuffer = toReceiveTotal - receivedTotal;
 
 		if (toReceivePerBuffer > buffer->bufferSize - receivedPerBuffer)
 			toReceivePerBuffer = buffer->bufferSize - receivedPerBuffer;
 
-		do {
+		do
+		{
 			receivedPerStep = read(sockFD,
 				buffer->data + receivedPerBuffer,
 				toReceivePerBuffer - receivedPerBuffer);
@@ -266,7 +354,7 @@ ReceivePaquet(struct Paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 			{
                 ReceiveMutexUnlock(task);
 
-				ReportError("Nothing read from socket");
+				ReportError("[Xmit] Nothing read from socket");
 				SetTaskStatus(task, TaskStatusNoDataReceived);
 				return -1;
 			}
@@ -274,7 +362,7 @@ ReceivePaquet(struct Paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 			{
                 ReceiveMutexUnlock(task);
 
-				ReportError("Error reading from socket for paquet: errno=%d", errno);
+				ReportError("[Xmit] Error reading from socket for paquet: errno=%d", errno);
 				SetTaskStatus(task, TaskStatusReadFromSocketFailed);
 				return -1;
 			}
@@ -283,16 +371,25 @@ ReceivePaquet(struct Paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 
 			if ((pilot == NULL) && (toReceivePerBuffer >= sizeof(struct PaquetPilot)))
 			{
-				pilot = (struct PaquetPilot *)buffer->data;
+				pilot = (struct PaquetPilot *) paquet->pilot;
 
-				FillPaquetWithPilotData(paquet, pilot);
+                memcpy(pilot, buffer->data, sizeof(struct PaquetPilot));
+
+                if (receivedPerBuffer > sizeof(struct PaquetPilot))
+                {
+                    memcpy(buffer->data,
+                            buffer->data + sizeof(struct PaquetPilot),
+                            receivedPerBuffer - sizeof(struct PaquetPilot));
+                }
+
+				FillPaquetWithPilotData(paquet);
 
 				uint64 signature = be64toh(pilot->signature);
 				if (signature != API_PaquetSignature)
 				{
                     ReceiveMutexUnlock(task);
 
-					ReportError("No valid paquet signature: 0x%016lX", signature);
+					ReportError("[Xmit] No valid paquet signature: 0x%016lX", signature);
 					SetTaskStatus(task, TaskStatusMissingPaquetSignature);
 					return -1;
 				}
@@ -302,7 +399,8 @@ ReceivePaquet(struct Paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 				if (paquet->payloadSize < buffer->bufferSize)
 					toReceivePerBuffer = paquet->payloadSize;
 			}
-		} while (receivedPerBuffer < toReceivePerBuffer);
+		}
+		while (receivedPerBuffer < toReceivePerBuffer);
 
 		buffer->dataSize = receivedPerBuffer;
 
@@ -318,7 +416,7 @@ ReceivePaquet(struct Paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 			{
                 ReceiveMutexUnlock(task);
 
-				ReportError("Cannot extend buffer");
+				ReportError("[Xmit] Cannot extend buffer");
 				SetTaskStatus(task, TaskStatusCannotExtendBufferForInput);
 				return -1;
 			}
@@ -336,10 +434,12 @@ ReceivePaquet(struct Paquet *paquet, struct MMPS_Buffer *receiveBuffer)
 	{
         ReceiveMutexUnlock(task);
 
-		ReportError("Missing paquet pilot (received %d bytes only)", (int)receivedTotal);
+		ReportError("[Xmit] Missing paquet pilot (received %d bytes only)", (int)receivedTotal);
 		SetTaskStatus(task, TaskStatusMissingPaquetPilot);
 		return -1;
 	}
+
+#endif
 
     ReceiveMutexUnlock(task);
 
@@ -365,7 +465,7 @@ SendPaquet(struct Paquet *paquet)
 	if (pollFD->revents & (POLLERR | POLLHUP | POLLNVAL)) {
         SendMutexUnlock(task);
 
-		ReportError("Poll error on send: 0x%04X", pollFD->revents);
+		ReportError("[Xmit] Poll error on send: 0x%04X", pollFD->revents);
 		SetTaskStatus(task, TaskStatusPollForSendFailed);
 		return -1;
 	}
@@ -373,13 +473,13 @@ SendPaquet(struct Paquet *paquet)
 	if (pollRC == 0) {
         SendMutexUnlock(task);
 
-		ReportInfo("Wait for send timed out");
+		ReportInfo("[Xmit] Wait for send timed out");
 		SetTaskStatus(task, TaskStatusPollForSendTimeout);
 		return -1;
 	} else if (pollRC != 1) {
         SendMutexUnlock(task);
 
-		ReportError("Poll error on send");
+		ReportError("[Xmit] Poll error on send");
 		SetTaskStatus(task, TaskStatusPollForSendError);
 		return -1;
 	}
@@ -388,12 +488,68 @@ SendPaquet(struct Paquet *paquet)
 	if (buffer == NULL) {
         SendMutexUnlock(task);
 
-		ReportError("No output buffer provided");
+		ReportError("[Xmit] No output buffer provided");
 		SetTaskStatus(task, TaskStatusNoOutputDataProvided);
 		return -1;
 	}
 
-	struct PaquetPilot *pilot = (struct PaquetPilot *) buffer->data;
+	struct PaquetPilot *pilot = (struct PaquetPilot *) paquet->pilot;
+
+#if 1
+
+	pilot->signature = htobe64(API_PaquetSignature);
+	pilot->paquetId = htobe32(paquet->paquetId);
+	pilot->commandCode = htobe32(paquet->commandCode);
+	pilot->payloadSize = htobe32(MMPS_TotalDataSize(buffer));
+
+	struct msghdr       message;
+    struct iovec        iov[XMIT_MAX_NUMBER_OF_VECTORS];
+
+    message.msg_name       = NULL;
+    message.msg_namelen    = 0;
+    message.msg_iov        = &iov[0];
+
+    message.msg_iovlen     = 1;
+    message.msg_control    = NULL;
+    message.msg_controllen = 0;
+    iov[0].iov_len = sizeof(struct PaquetPilot);
+    iov[0].iov_base = pilot;
+
+    if (MMPS_TotalDataSize(buffer) > 0)
+    {
+        unsigned int vectorId = 1;
+        while (buffer != NULL)
+        {
+        	if (buffer->dataSize == 0)
+        		break;
+
+        	iov[vectorId].iov_len = buffer->dataSize;
+        	iov[vectorId].iov_base = buffer->data;
+        	vectorId++;
+        	message.msg_iovlen++;
+        	buffer = buffer->next;
+
+            if (message.msg_iovlen == XMIT_MAX_NUMBER_OF_VECTORS)
+            {
+                break;
+            }
+        }
+    }
+
+	sentPerStep = sendmsg(sockFD, &message, 0);
+    if (sentPerStep < 0)
+    {
+        ReceiveMutexUnlock(task);
+
+        ReportError("[Xmit] Error has occurred on send: errno=%d", errno);
+
+        return -1;
+    }
+
+    ReportInfo("[Xmit] Sent %ld bytes", sentPerStep);
+
+#else
+
 	pilot->signature = htobe64(API_PaquetSignature);
 	pilot->paquetId = htobe32(paquet->paquetId);
 	pilot->commandCode = htobe32(paquet->commandCode);
@@ -409,13 +565,13 @@ SendPaquet(struct Paquet *paquet)
 			if (sentPerStep == 0) {
                 SendMutexUnlock(task);
 
-				ReportError("Nothing written to socket");
+				ReportError("[Xmit] Nothing written to socket");
 				SetTaskStatus(task, TaskStatusNoDataSent);
 				return -1;
 			} else if (sentPerStep == -1) {
                 SendMutexUnlock(task);
 
-				ReportError("Error writing to socket: errno=%d", errno);
+				ReportError("[Xmit] Error writing to socket: errno=%d", errno);
 				SetTaskStatus(task, TaskStatusWriteToSocketFailed);
 				return -1;
 			}
@@ -425,6 +581,8 @@ SendPaquet(struct Paquet *paquet)
 
 		buffer = buffer->next;
 	} while (buffer != NULL);
+
+#endif
 
     SendMutexUnlock(task);
 

@@ -1,5 +1,4 @@
-#ifndef __PLAQUES__
-#define __PLAQUES__
+#pragma once
 
 #include "paquet.h"
 
@@ -23,5 +22,3 @@ HandleChangePlaqueFont(struct Paquet *paquet);
 
 int
 HandleChangePlaqueInscription(struct Paquet *paquet);
-
-#endif

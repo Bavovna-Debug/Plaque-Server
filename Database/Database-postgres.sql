@@ -17,31 +17,31 @@ CREATE ROLE vp WITH
 
 CREATE TABLESPACE vp_root
 	OWNER vp
-	LOCATION '/var/opt/database/vp_root';
+	LOCATION '/srv/vp/root';
 
 CREATE TABLESPACE vp_debug
 	OWNER vp
-	LOCATION '/var/opt/database/vp_debug';
+	LOCATION '/srv/vp/debug';
 
 CREATE TABLESPACE vp_operator
 	OWNER vp
-	LOCATION '/var/opt/database/vp_operator';
+	LOCATION '/srv/vp/operator';
 
 CREATE TABLESPACE vp_auth
 	OWNER vp
-	LOCATION '/var/opt/database/vp_auth';
+	LOCATION '/srv/vp/auth';
 
 CREATE TABLESPACE vp_reception
 	OWNER vp
-	LOCATION '/var/opt/database/vp_reception';
+	LOCATION '/srv/vp/reception';
 
 CREATE TABLESPACE vp_surrounding
 	OWNER vp
-	LOCATION '/var/opt/database/vp_surrounding';
+	LOCATION '/srv/vp/surrounding';
 
 CREATE TABLESPACE vp_journal
 	OWNER vp
-	LOCATION '/var/opt/database/vp_journal';
+	LOCATION '/srv/vp/journal';
 
 CREATE DATABASE vp WITH
 	OWNER vp
